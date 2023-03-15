@@ -4,6 +4,10 @@ import codelists
 # import json module
 import json
 
+#study_parameters
+with open("./lib/design/study-dates.json") as f:
+  study_dates = json.load(f)
+
 from cohortextractor import (
   StudyDefinition,
   patients,
@@ -21,7 +25,7 @@ vax_variables = generate_vax_variables(index_date="1900-01-01")
 ############################################################
 # vax variables
 from variables_inclusion import generate_inclusion_variables 
-inclusion_variables = generate_inclusion_variables(index_date="2022-09-12")
+inclusion_variables = generate_inclusion_variables(index_date=study_dates["studystart"])
 ############################################################
 
 # Specify study definition
@@ -44,16 +48,16 @@ study = StudyDefinition(
     age >= 50
     AND
     NOT has_died
-    AND 
-    covid_vax_disease_2_date
+    # AND 
+    # covid_vax_disease_2_date
     """,
     
     **inclusion_variables,    
 
   ),
   
-  age_aug2021=patients.age_as_of( 
-    "2022-10-15",
+  age=patients.age_as_of( 
+    study_dates["boosterautumn2022"]["ages50to64"],
     ),
   
   #################################################################

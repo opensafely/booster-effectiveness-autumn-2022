@@ -1,12 +1,50 @@
 version: '3.0'
 
 expectations:
-  population_size: 1000
+
+  population_size: 100000
 
 actions:
 
-  generate_study_population:
-    run: cohortextractor:latest generate_cohort --output-format csv.gz --study-definition study_definition
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## DO NOT EDIT project.yaml DIRECTLY 
+  ## This file is created by create-project.R 
+  ## Edit and run create-project.R to update the project.yaml 
+  ## # # # # # # # # # # # # # # # # # # # 
+  ##   
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## Preliminaries 
+  ## # # # # # # # # # # # # # # # # # # # 
+
+  design:
+    run: r:latest analysis/design.R
+    outputs:
+      moderately_sensitive:
+        lib: lib/design/*.json
+
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## Extract and process initial data 
+  ## # # # # # # # # # # # # # # # # # # # 
+
+  extract_initial:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_initial
+      --output-file output/initial/extract/input_initial.feather
+    needs:
+    - design
     outputs:
       highly_sensitive:
-        cohort: output/input.csv.gz
+        extract: output/initial/extract/input_initial.feather
+
+  process_initial:
+    run: r:latest analysis/process/process_initial.R
+    needs:
+    - extract_initial
+    outputs:
+      highly_sensitive:
+        data_eligible: output/initial/eligible/*.csv.gz
+        data_vax: output/initial/eligible/*.rds
+      moderately_sensitive:
+        flow: output/initial/eligible/*.csv
+
+  ## #### End #### 
+

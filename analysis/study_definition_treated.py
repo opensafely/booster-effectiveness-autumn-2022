@@ -60,7 +60,7 @@ study = StudyDefinition(
     
     **inclusion_variables,    
 
-    # This line defines the study population
+    # patients that satisfy the original eligibility criteria (and have nonmissing autumnbooster2022_date)
     eligible_initial = patients.which_exist_in_file(
     f_path=f"output/initial/eligible/data_eligible_treated.csv.gz"
     ),

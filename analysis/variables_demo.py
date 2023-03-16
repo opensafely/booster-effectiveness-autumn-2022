@@ -8,8 +8,8 @@ def generate_demo_variables(index_date):
 
   demo_variables = dict(
 
-  has_follow_up_previous_6weeks=patients.registered_with_one_practice_between(
-    start_date=f"{index_date} - 42 days",
+  has_follow_up_previous_1year=patients.registered_with_one_practice_between(
+    start_date=f"{index_date} - 365 days",
     end_date=f"{index_date} - 1 day",
   ),
 

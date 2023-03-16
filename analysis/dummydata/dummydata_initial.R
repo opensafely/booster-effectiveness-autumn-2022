@@ -2,6 +2,7 @@ library(tidyverse)
 
 source(here::here("analysis", "design.R"))
 
+# population size for dummy data
 population_size <- 20000
 
 index_date <- study_dates$studystart

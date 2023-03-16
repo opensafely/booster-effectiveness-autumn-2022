@@ -7,9 +7,13 @@ import codelists
 from datetime import datetime, timedelta
 def days(datestring, days):
   
-  dt = datetime.strptime(datestring, "%Y-%m-%d").date()
-  dt_add = dt + timedelta(days)
-  datestring_add = datetime.strftime(dt_add, "%Y-%m-%d")
+  try: 
+     dt = datetime.strptime(datestring, "%Y-%m-%d").date()
+     dt_add = dt + timedelta(days)
+     datestring_add = datetime.strftime(dt_add, "%Y-%m-%d")
+  except ValueError:
+     if days > 0: datestring_add = datestring + f" + {days} days"
+     else: datestring_add = datestring + f" - {abs(days)} days"
 
   return datestring_add
 

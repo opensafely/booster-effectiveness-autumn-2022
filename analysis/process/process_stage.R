@@ -31,30 +31,18 @@ if (length(args) == 0) {
   # stage <- "potential"
   # stage <- "actual"
   # stage <- "final"
-  # cohort <- "mrna"
   # matching_round <- as.integer("1")
 } else {
   stage <- args[[1]]
-  
-  if (stage == "treated") {
+  if (stage %in% c("treated", "final")) {
     if (length(args) > 1) 
-      stop("No additional args to be specified when `stage=\"treated\"")
+      stop("No additional args to be specified when `stage=\"treated\" or stage=\"final\"")
   } else if (stage %in% c("potential", "actual")) {
     if (length(args) == 1) {
-      stop("`cohort` and `matching_round` must be specified when `stage=\"potential\"` or \"actual\"")
+      stop("`matching_round` must be specified when `stage=\"potential\"` or \"actual\"")
     }
-    
-    cohort <- args[[2]] # NULL if treated
-    matching_round <- as.integer(args[[3]]) # NULL if treated    
-    
-  } else if (stage == "final") {
-    if (length(args) == 1) {
-      stop("`cohort` must be specified when `stage=\"final\"`")
-    }
-    
-    cohort <- args[[2]] # NULL if treated
-    
-  }
+    matching_round <- as.integer(args[[2]]) # NULL if treated    
+  } 
 } 
 
 ## create output directories and define parameters ----
@@ -66,25 +54,24 @@ if (stage == "treated") {
   studydef_path <- here("output", "treated", "extract", "input_treated.feather")
   custom_path <- here("lib", "dummydata", "dummy_treated.feather")
 } else if (stage %in% c("potential", "actual")) {
-  fs::dir_create(ghere("output", cohort, "matchround{matching_round}", "process"))
-  fs::dir_create(ghere("output", cohort, "matchround{matching_round}", "extract", stage))
-  fs::dir_create(ghere("output", cohort, "matchround{matching_round}", stage))
-  studydef_path <- ghere("output", cohort, "matchround{matching_round}", "extract", "input_control{stage}.feather")
+  fs::dir_create(ghere("output", "matchround{matching_round}", "process"))
+  fs::dir_create(ghere("output", "matchround{matching_round}", "extract", stage))
+  fs::dir_create(ghere("output", "matchround{matching_round}", stage))
+  studydef_path <- ghere("output", "matchround{matching_round}", "extract", "input_control{stage}.feather")
   custom_path <- here("lib", "dummydata", "dummy_control_potential1.feather")
-  matching_round_date <- study_dates[[cohort]]$control_extract_dates[matching_round]
+  matching_round_date <- study_dates$control_extract_dates[matching_round]
 } else if (stage == "final") {
-  fs::dir_create(ghere("output", cohort, "match"))
-  studydef_path <- ghere("output", cohort, "extract", "input_controlfinal.feather")
-  custom_path <- ghere("output", cohort, "dummydata", "dummy_control_final.feather")
+  fs::dir_create(ghere("output", "match"))
+  studydef_path <- ghere("output", "extract", "input_controlfinal.feather")
+  custom_path <- ghere("output", "dummydata", "dummy_control_final.feather")
 }
-
 
 # import data ----
 
 if (stage == "actual") {
   ## trial info for potential matches in round X
   data_potential_matchstatus <- 
-    read_rds(ghere("output", cohort, "matchround{matching_round}", "potential", "data_potential_matchstatus.rds")) %>% 
+    read_rds(ghere("output", "matchround{matching_round}", "potential", "data_potential_matchstatus.rds")) %>% 
     filter(matched==1L)
 }
 
@@ -97,9 +84,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   
   data_studydef_dummy <- read_feather(studydef_path) %>%
     # because date types are not returned consistently by cohort extractor
-    mutate(across(ends_with("_date"), ~ as.Date(.))) %>%
-    # because of a bug in cohort extractor -- remove once fixed
-    mutate(patient_id = as.integer(patient_id))
+    mutate(across(ends_with("_date"), ~ as.Date(.))) 
   
   data_custom_dummy <- read_feather(custom_path) 
   
@@ -108,26 +93,6 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
       mutate(
         msoa = sample(factor(c("1", "2")), size=n(), replace=TRUE) # override msoa so matching success more likely
       )
-  }
-  
-  if (stage == "potential") {
-    if(matching_round == 1) {
-      # read censoring events
-      data_custom_dummy <- data_custom_dummy %>%
-        mutate(
-          dereg_date = if_else(
-            purrr::rbernoulli(n=n(), p=0.01), 
-            sample(x=1:365, size=n(), replace=TRUE),
-            NA_integer_
-          ),
-          death_date = if_else(
-            purrr::rbernoulli(n=n(), p=0.01), 
-            sample(x=1:365, size=n(), replace=TRUE),
-            NA_integer_
-          )
-        ) %>%
-        mutate(across(c(dereg_date, death_date), ~as.Date(study_dates$mrna$control_extract_dates[matching_round]) + .x))
-    }
   }
   
   if (stage == "actual") {

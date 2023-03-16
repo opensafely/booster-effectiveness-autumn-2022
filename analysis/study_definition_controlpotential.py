@@ -15,17 +15,11 @@ from cohortextractor import (
 )
 
 # define params
-cohort = params["cohort"]
 matching_round = int(params["matching_round"])
 index_date = params["index_date"]
 
-
 ############################################################
-## inclusion variables
-from variables_vax import generate_vax_variables 
-vax_variables = generate_vax_variables(index_date="1900-01-01", n=3)
-############################################################
-# vax variables
+# inclusion variables
 from variables_inclusion import generate_inclusion_variables 
 inclusion_variables = generate_inclusion_variables(index_date="index_date")
 ############################################################
@@ -41,22 +35,6 @@ demo_variables = generate_demo_variables(index_date="index_date")
 from variables_pre import generate_pre_variables 
 pre_variables = generate_pre_variables(index_date="index_date")
 ############################################################
-## censor variables
-if matching_round == 1: censor_variables = dict(
-    # deregistration date
-    dereg_date=patients.date_deregistered_from_all_supported_practices(
-      on_or_after="index_date",
-      date_format="YYYY-MM-DD",
-    ),
-    # All-cause death
-    death_date=patients.died_from_any_cause(
-      returning="date_of_death",
-      date_format="YYYY-MM-DD",
-    ),
-)
-else: censor_variables = dict()
-############################################################
-
 
 # Specify study defeinition
 study = StudyDefinition(
@@ -77,22 +55,19 @@ study = StudyDefinition(
     """
     registered
     AND
-    age >= 18
-    AND
     NOT has_died
     AND 
-    covid_vax_disease_2_date
+    eligible_initial
     """,
     
     **inclusion_variables,    
 
+    # patients that satisfy the original eligibility criteria
+    eligible_initial = patients.which_exist_in_file(
+    f_path=f"output/initial/eligible/data_eligible.csv.gz"
+    ),
+
   ),
-  
-  #################################################################
-  ## Covid vaccine dates
-  #################################################################
-  **vax_variables,
-  # all vaccination variables for first three doses to apply selection criteria
     
   ###############################################################################
   # jcvi variables
@@ -107,11 +82,6 @@ study = StudyDefinition(
   ###############################################################################
   # pre variables
   ##############################################################################
-  **pre_variables,  
-
-  ###############################################################################
-  # outcome variables (only extracted when matching round=1)
-  ##############################################################################
-  **censor_variables,    
+  **pre_variables,    
 
 )

@@ -25,27 +25,43 @@ def generate_demo_variables(index_date):
     }
   ),
 
-  # Ethnicity in 6 categories
-  ethnicity = patients.with_these_clinical_events(
-    codelists.ethnicity,
-    returning="category",
-    find_last_match_in_period=True,
-    include_date_of_match=False,
-    return_expectations={
-      "category": {"ratios": {"1": 0.2, "2": 0.2, "3": 0.2, "4": 0.2, "5": 0.2}},
-      "incidence": 0.75,
+  # Ethnicity (6 categories)
+  ethnicity = patients.categorised_as(
+    {
+    "Unknown": "DEFAULT",
+    "White": "eth6='1'",
+    "Mixed": "eth6='2'",
+    "Asian or Asian British": "eth6='3'",
+    "Black or Black British": "eth6='4'",
+    "Other": "eth6='5'",
     },
+    eth6 = patients.with_these_clinical_events(
+      ethnicity_codes_6,
+      returning = "category",
+      find_last_match_in_period = True,
+      include_date_of_match = False,
+      return_expectations = {
+        "incidence": 0.75,
+        "category": {
+          "ratios": { "1": 0.30, "2": 0.20, "3": 0.20, "4": 0.20, "5": 0.05, "6": 0.05, },
+          },
+        },
+      ),
+    return_expectations = {
+      "rate": "universal",
+      "category": {
+        "ratios": {
+          "White": 0.30,
+          "Mixed": 0.20,
+          "Asian or Asian British": 0.20,
+          "Black or Black British": 0.20,
+          "Other": 0.05,
+          "Unknown": 0.05,
+          },
+        },
+      },
   ),
-  
-  # ethnicity variable that takes data from SUS
-  ethnicity_6_sus = patients.with_ethnicity_from_sus(
-    returning="group_6",  
-    use_most_frequent_code=True,
-    return_expectations={
-      "category": {"ratios": {"1": 0.2, "2": 0.2, "3": 0.2, "4": 0.2, "5": 0.2}},
-      "incidence": 0.8,
-    },
-  ),
+
   
   ################################################################################################
   ## Practice and patient ID variables

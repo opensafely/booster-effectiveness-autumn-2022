@@ -36,40 +36,6 @@ def generate_covs_variables(index_date):
       },
     ),
 
-    # pregnancy
-    pregnancy=patients.satisfying(
-        """
-        (preg_36wks_date) AND
-        (pregdel_pre_date <= preg_36wks_date OR NOT pregdel_pre_date)
-        """,
-        # date of last pregnancy code in 36 weeks before ref_cev
-        preg_36wks_date=patients.with_these_clinical_events(
-            preg_primis,
-            returning="date",
-            find_last_match_in_period=True,
-            between=[f"{index_date} - 252 days", f"{index_date} - 1 day"],
-            date_format="YYYY-MM-DD",
-        ),
-        # date of last delivery code recorded in 36 weeks before elig_date
-        pregdel_pre_date=patients.with_these_clinical_events(
-            pregdel_primis,
-            returning="date",
-            find_last_match_in_period=True,
-            between=[f"{index_date} - 252 days", f"{index_date} - 1 day"],
-            date_format="YYYY-MM-DD",
-        ),
-    ),
-
-    # during unvaccinated time (from when tests widely availabe to start of vaccinations)
-    prior_test_frequency=patients.with_test_result_in_sgss(
-        pathogen="SARS-CoV-2",
-        test_result="any",
-        between=["2020-05-18", "2020-12-05"], # day before 1st vaccine eligibility date
-        returning="number_of_matches_in_period", 
-        date_format="YYYY-MM-DD",
-        restrict_to_earliest_specimen_date=False,
-	    ),
-
     # flu vaccine in flu seasons 18-19, 19-20 or 20-21
     flu_vaccine=patients.satisfying(
         """

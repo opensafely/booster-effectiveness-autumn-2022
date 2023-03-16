@@ -6,13 +6,6 @@ def generate_jcvi_variables(index_date):
 
   jcvi_variables = dict(
 
-    # age for jcvi group definitions
-    # should this be 2020 or 2021?
-    # maybe wrong in the old repo? https://github.com/opensafely/booster-effectiveness/blob/2b38698e4d9d7d9ce62522e4e8937cb3c85e92c6/analysis/study_definition.py#L329
-    age_aug2021=patients.age_as_of( 
-      "2021-08-31",
-    ),
-
   ########################################################################
   ## Clinical information for jcvi grouping as at index date (from PRIMIS)
   ########################################################################
@@ -274,43 +267,6 @@ def generate_jcvi_variables(index_date):
       on_or_before=f"{index_date} - 1 day",
       returning="binary_flag",
       return_expectations={"incidence": 0.01},
-  ),
-
-  # clinically extremely vulnerable
-  cev_ever = patients.with_these_clinical_events(
-    codelists.shield,
-    returning="binary_flag",
-    on_or_before=f"{index_date} - 1 day",
-    find_last_match_in_period = True,
-  ),
-
-  cev = patients.satisfying(
-    """severely_clinically_vulnerable AND NOT less_vulnerable""",
-    ##### The shielded patient list was retired in March/April 2021 when shielding ended
-    ##### so it might be worth using that as the end date instead of index_date, as we're not sure
-    ##### what has happened to these codes since then, e.g. have doctors still been adding new
-    ##### shielding flags or low-risk flags? Depends what you're looking for really. Could investigate separately.
-
-    ### SHIELDED GROUP - first flag all patients with "high risk" codes
-    severely_clinically_vulnerable=patients.with_these_clinical_events(
-      codelists.shield,
-      returning="binary_flag",
-      on_or_before=f"{index_date} - 1 day",
-      find_last_match_in_period = True,
-    ),
-
-    # find date at which the high risk code was added
-    date_severely_clinically_vulnerable=patients.date_of(
-      "severely_clinically_vulnerable",
-      date_format="YYYY-MM-DD",
-    ),
-
-    ### NOT SHIELDED GROUP (medium and low risk) - only flag if later than 'shielded'
-    less_vulnerable=patients.with_these_clinical_events(
-      codelists.nonshield,
-      between=["date_severely_clinically_vulnerable + 1 day", f"{index_date} - 1 day"],
-    ),
-
   ),
 
   # end of life care flag

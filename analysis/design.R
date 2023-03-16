@@ -57,11 +57,11 @@ extract_increment <- 14
 study_dates$control_extract = seq(study_dates$studystart, study_dates$recruitmentend, extract_increment)
 
 # reduce the matching rounds for testing
-# study_dates$control_extract_dates <- study_dates$control_extract_dates[1:2]
+study_dates$control_extract <- study_dates$control_extract[1:2]
 
 # number of matching rounds to perform for each cohort
 
-n_matching_rounds_list <- length(study_dates[["control_extract_dates"]])
+n_matching_rounds <- length(study_dates[["control_extract"]])
 
 jsonlite::write_json(study_dates, path = here("lib", "design", "study-dates.json"), auto_unbox=TRUE, pretty =TRUE)
 

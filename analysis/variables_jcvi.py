@@ -232,42 +232,23 @@ def generate_jcvi_variables(index_date):
   # health or social care worker  
   hscworker = patients.with_healthcare_worker_flag_on_covid_vaccine_record(returning="binary_flag"),
   
-  # care home category
-  care_home_type=patients.care_home_status_as_of(
-      f"{index_date} - 1 day",
-      categorised_as={
-          "Carehome": """
-            IsPotentialCareHome
-            AND LocationDoesNotRequireNursing='Y'
-            AND LocationRequiresNursing='N'
-          """,
-          "Nursinghome": """
-            IsPotentialCareHome
-            AND LocationDoesNotRequireNursing='N'
-            AND LocationRequiresNursing='Y'
-          """,
-          "Mixed": "IsPotentialCareHome",
-          "": "DEFAULT",  # use empty string
-      },
-      return_expectations={
-          "category": {"ratios": {"Carehome": 0.05, "Nursinghome": 0.05, "Mixed": 0.05, "": 0.85, }, },
-          "incidence": 1,
-      },
-  ),
-
   # care home flag
-  care_home_tpp=patients.satisfying(
-      """care_home_type""",
-      return_expectations={"incidence": 0.01},
-  ),
+  carehome = patients.satisfying(
 
-  # patients in long-stay nursing and residential care
-  care_home_code=patients.with_these_clinical_events(
+    "carehome_tpp OR carehome_code",
+
+    carehome_tpp=patients.care_home_status_as_of(
+      f"{index_date} - 1 day",
+      ),
+
+    carehome_code=patients.with_these_clinical_events(
       codelists.carehome,
       on_or_before=f"{index_date} - 1 day",
       returning="binary_flag",
       return_expectations={"incidence": 0.01},
-  ),
+      ),
+
+    ),
 
   # end of life care flag
   endoflife = patients.satisfying(

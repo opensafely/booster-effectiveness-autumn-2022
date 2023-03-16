@@ -155,10 +155,6 @@ data_criteria <- data_vax %>%
 
     ),
 
-    primarycourse_end = if_else(
-      covid_vax_2_date <= study_dates$dose2$end, TRUE, FALSE
-    ),
-
     primarycourse_interval = case_when(
       # 17-105 days between first and second dose
       17 <= as.integer(covid_vax_2_date - covid_vax_1_date) &
@@ -280,33 +276,48 @@ data_criteria <- data_vax %>%
 data_eligible <- data_criteria %>%
   filter(include) %>%
   select(patient_id) %>%
+  # # derive last vaccination date
+  # left_join(
+  #   data_vax %>%
+  #     select(patient_id, matches("covid_vax_\\d_date")) %>%
+  #     pivot_longer(
+  #       cols = -patient_id,
+  #       values_drop_na = TRUE
+  #     ) %>%
+  #     group_by(patient_id) %>%
+  #     summarise(lastvax_date = max(value)) %>%
+  #     ungroup() 
+  #   , by = "patient_id"
+  # ) %>%
+  # first vaccination date after eligible for autumn booster
   left_join(
     data_vax %>%
-      select(patient_id, matches("covid_vax_\\d_date")) %>%
+      select(patient_id, agegroup, matches("covid_vax_\\d_date")) %>%
       pivot_longer(
-        cols = -patient_id,
+        cols = -c(patient_id, agegroup),
         values_drop_na = TRUE
       ) %>%
+      mutate(
+        start_date = if_else(
+          agegroup == "ages65plus", 
+          study_dates$boosterautumn2022[["ages65plus"]],
+          study_dates$boosterautumn2022[["ages50to64"]]
+          )
+        ) %>%
+      filter(value >= start_date) %>%
       group_by(patient_id) %>%
-      summarise(lastvax_date = max(value)) %>%
-      ungroup() %>%
-      transmute(
-        patient_id,
-        autumnbooster2022_date = if_else(
-          study_dates$studystart <= lastvax_date,
-          lastvax_date,
-          as.Date(NA_character_)
-        )
-      ),
-    by = "patient_id"
-  )
+      summarise(autumnbooster2022_date = min(value)) %>%
+      ungroup()
+    , by = "patient_id"
+  ) 
+  
 
 # save patient_ids and autumnbooster2022_date for reading into study_definition_treated.py
 data_eligible %>%
   filter(!is.na(autumnbooster2022_date)) %>%
   write_csv(here::here("output","initial", "eligible", "data_eligible_treated.csv.gz"))
 
-# save all patient ids for reading into study_definition_controlpotential.py
+# save for reading into study_definition_controlpotential.py
 data_eligible %>%
   select(patient_id) %>%
   write_csv(here::here("output","initial", "eligible", "data_eligible.csv.gz"))

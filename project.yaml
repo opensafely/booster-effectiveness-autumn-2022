@@ -35,16 +35,25 @@ actions:
       highly_sensitive:
         extract: output/initial/extract/input_initial.feather
 
+  dummydata_initial:
+    run: r:latest analysis/dummydata/dummydata_initial.R
+    needs:
+    - extract_initial
+    outputs:
+      highly_sensitive:
+        dummydata: output/initial/dummydata/*.feather
+
   process_initial:
     run: r:latest analysis/process/process_initial.R
     needs:
     - extract_initial
+    - dummydata_initial
     outputs:
       highly_sensitive:
         data_eligible: output/initial/eligible/*.csv.gz
         data_vax: output/initial/eligible/*.rds
       moderately_sensitive:
-        flow: output/initial/eligible/*.csv
+        flowchart: output/initial/eligible/*.csv
 
   ## # # # # # # # # # # # # # # # # # # # 
   ## Extract and process treated data 
@@ -59,18 +68,30 @@ actions:
       highly_sensitive:
         extract: output/treated/extract/input_treated.feather
 
-  process_treated:
-    run: r:latest analysis/process/process_data.R treated
+  dummydata_stage:
+    run: r:latest analysis/dummydata/dummydata_stage.R
     needs:
+    - dummydata_initial
+    - process_initial
     - extract_treated
     outputs:
       highly_sensitive:
+        dummydata_treated: output/treated/dummydata/*.feather
+        dummydata_controlpotential: output/matchround1/controlpotential/dummydata/*.feather
+
+  process_treated:
+    run: r:latest analysis/process/process_stage.R treated
+    needs:
+    - process_initial
+    - extract_treated
+    - dummydata_stage
+    outputs:
+      highly_sensitive:
         eligiblerds: output/treated/eligible/*.rds
-        pfizer: output/pfizer/treated/*.rds
-        moderna: output/moderna/treated/*.rds
+        eligiblecsv: output/treated/eligible/*.csv.gz
       moderately_sensitive:
-        eligiblecsv: output/treated/eligible/*.csv
-        input_treated_skim: output/treated/extract/*.txt
+        flowchart: output/treated/flowchart/*.csv
+        extract_treated_skim: output/treated/extract/*.txt
         data_processed_skim: output/treated/process/*.txt
         data_eligible_skim: output/treated/eligible/*.txt
 
@@ -80,26 +101,28 @@ actions:
 
   extract_controlpotential_1:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
-      --output-file output/matchround1/extract/input_controlpotential.feather --param
-      matching_round=1 --param index_date=2022-09-12
+      --output-file output/matchround1/controlpotential/extract/input_controlpotential.feather
+      --param matching_round=1 --param index_date=2022-09-12
     needs:
     - design
     - process_initial
     outputs:
       highly_sensitive:
-        cohort: output/matchround1/extract/input_controlpotential.feather
+        cohort: output/matchround1/controlpotential/extract/input_controlpotential.feather
 
   process_controlpotential_1:
-    run: r:latest analysis/process/process_data.R potential 1
+    run: r:latest analysis/process/process_stage.R controlpotential 1
     needs:
+    - dummydata_stage
+    - process_initial
     - extract_controlpotential_1
     outputs:
       highly_sensitive:
-        rds: output/matchround1/process/*.rds
+        eligible_rds: output/matchround1/controlpotential/eligible/*.rds
       moderately_sensitive:
-        input_controlpotential_skim: output/matchround1/extract/potential/*.txt
-        data_processed_skim: output/matchround1/potential/*.txt
-        data_controlpotential_skim: output/matchround1/process/*.txt
+        data_extract_skim: output/matchround1/controlpotential/extract/*.txt
+        data_processed_skim: output/matchround1/controlpotential/process/*.txt
+        data_controlpotential_skim: output/matchround1/controlpotential/eligible/*.txt
 
   match_potential_1:
     run: r:latest analysis/matching/match_potential.R 1
@@ -140,27 +163,29 @@ actions:
 
   extract_controlpotential_2:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
-      --output-file output/matchround2/extract/input_controlpotential.feather --param
-      matching_round=2 --param index_date=2022-09-26
+      --output-file output/matchround2/controlpotential/extract/input_controlpotential.feather
+      --param matching_round=2 --param index_date=2022-09-26
     needs:
     - design
     - process_initial
     - process_controlactual_1
     outputs:
       highly_sensitive:
-        cohort: output/matchround2/extract/input_controlpotential.feather
+        cohort: output/matchround2/controlpotential/extract/input_controlpotential.feather
 
   process_controlpotential_2:
-    run: r:latest analysis/process/process_data.R potential 2
+    run: r:latest analysis/process/process_stage.R controlpotential 2
     needs:
+    - dummydata_stage
+    - process_initial
     - extract_controlpotential_2
     outputs:
       highly_sensitive:
-        rds: output/matchround2/process/*.rds
+        eligible_rds: output/matchround2/controlpotential/eligible/*.rds
       moderately_sensitive:
-        input_controlpotential_skim: output/matchround2/extract/potential/*.txt
-        data_processed_skim: output/matchround2/potential/*.txt
-        data_controlpotential_skim: output/matchround2/process/*.txt
+        data_extract_skim: output/matchround2/controlpotential/extract/*.txt
+        data_processed_skim: output/matchround2/controlpotential/process/*.txt
+        data_controlpotential_skim: output/matchround2/controlpotential/eligible/*.txt
 
   match_potential_2:
     run: r:latest analysis/matching/match_potential.R 2

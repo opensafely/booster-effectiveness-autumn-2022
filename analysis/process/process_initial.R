@@ -8,71 +8,46 @@
 
 # import libraries
 library(tidyverse)
+library(here)
 
 # import local functions and parameters
 source(here::here("analysis", "design.R"))
 source(here("lib", "functions", "utility.R"))
+source(here::here("analysis", "process", "process_functions.R"))
 
 # create output directories
 fs::dir_create(here::here("output", "initial", "eligible"))
 
-# define input paths
-studydef_path <- here::here("output", "initial", "extract", "input_initial.feather")
+# define extract_path
+data_studydef <- arrow::read_feather(
+  here("output", "initial", "extract", "input_initial.feather")
+) %>%
+  process_input()
 
-# check dummydata
-# use externally created dummy data if not running in the server
-# check variables are as they should be
 if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   
-  data_studydef_dummy <- arrow::read_feather(studydef_path) %>%
-    # because date types are not returned consistently by cohort extractor
-    mutate(across(ends_with("_date"), ~ as.Date(.)))
-  
-  data_custom_dummy <- arrow::read_feather(here::here("lib", "dummydata", "dummydata_initial.feather")) 
-  
-  not_in_studydef <- names(data_custom_dummy)[!( names(data_custom_dummy) %in% names(data_studydef_dummy) )]
-  not_in_custom  <- names(data_studydef_dummy)[!( names(data_studydef_dummy) %in% names(data_custom_dummy) )]
-  
-  
-  if(length(not_in_custom)!=0) stop(
-    paste(
-      "These variables are in studydef but not in custom: ",
-      paste(not_in_custom, collapse=", ")
-    )
+  data_dummy <- arrow::read_feather(
+    here("output", "initial", "dummydata", "dummydata_initial.feather")
   )
   
-  if(length(not_in_studydef)!=0) stop(
-    paste(
-      "These variables are in custom but not in studydef: ",
-      paste(not_in_studydef, collapse=", ")
-    )
+  # check dummydata
+  source(here::here("analysis", "dummydata", "dummydata_check.R"))
+  dummydata_check(
+    dummydata_studydef = data_studydef,
+    dummydata_custom = data_dummy
   )
   
-  # reorder columns
-  data_studydef_dummy <- data_studydef_dummy[,names(data_custom_dummy)]
-  
-  unmatched_types <- cbind(
-    map_chr(data_studydef_dummy, ~paste(class(.), collapse=", ")),
-    map_chr(data_custom_dummy, ~paste(class(.), collapse=", "))
-  )[ (map_chr(data_studydef_dummy, ~paste(class(.), collapse=", ")) != map_chr(data_custom_dummy, ~paste(class(.), collapse=", ")) ), ] %>%
-    as.data.frame() %>% rownames_to_column()
-  
-  
-  if(nrow(unmatched_types)>0) stop(
-    #unmatched_types
-    "inconsistent typing in studydef : dummy dataset\n",
-    apply(unmatched_types, 1, function(row) paste(paste(row, collapse=" : "), "\n"))
-  )
-  
-  data_extract <- data_custom_dummy 
+  data_extract <- data_dummy
+  rm(data_dummy)
   
 } else {
   
-  data_extract <- arrow::read_feather(studydef_path) %>%
-    #because date types are not returned consistently by cohort extractor
-    mutate(across(ends_with("_date"),  as.Date))
+  data_extract <- data_studydef
+  rm(data_studydef)
   
 }
+
+
 
 # Transform vaccine data ----
 
@@ -276,19 +251,6 @@ data_criteria <- data_vax %>%
 data_eligible <- data_criteria %>%
   filter(include) %>%
   select(patient_id) %>%
-  # # derive last vaccination date
-  # left_join(
-  #   data_vax %>%
-  #     select(patient_id, matches("covid_vax_\\d_date")) %>%
-  #     pivot_longer(
-  #       cols = -patient_id,
-  #       values_drop_na = TRUE
-  #     ) %>%
-  #     group_by(patient_id) %>%
-  #     summarise(lastvax_date = max(value)) %>%
-  #     ungroup() 
-  #   , by = "patient_id"
-  # ) %>%
   # first vaccination date after eligible for autumn booster
   left_join(
     data_vax %>%
@@ -330,17 +292,6 @@ data_criteria %>%
   write_rds(here::here("output", "initial", "eligible", "data_vax.rds"), compress = "gz")
 
 # save flowchart data ----
-flow_stats_rounded <- function(.data, to) {
-  .data %>%
-    mutate(
-      n = roundmid_any(n, to = to),
-      n_exclude = lag(n) - n,
-      pct_exclude = n_exclude/lag(n),
-      pct_all = n / first(n),
-      pct_step = n / lag(n),
-    )
-}
-
 data_flow <- data_criteria %>%
   summarise(across(matches("^c\\d"), .fns=sum)) %>%
   pivot_longer(
@@ -351,8 +302,5 @@ data_flow <- data_criteria %>%
 
 data_flow %>%
   flow_stats_rounded(to = 1) %>%
-  write_csv(here::here("output", "initial", "eligible", "flow_unrounded.csv"))
+  write_csv(here::here("output", "initial", "eligible", "flowchart_unrounded.csv"))
 
-data_flow %>%
-  flow_stats_rounded(to = threshold) %>%
-  write_csv(here::here("output", "initial", "eligible", "flow_rounded.csv"))

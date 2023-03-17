@@ -1,0 +1,25 @@
+{
+  "dose1": {
+    "pfizer": "2020-12-08",
+    "az": "2021-01-04",
+    "moderna": "2021-04-13"
+  },
+  "dose2": {
+    "end": "2021-12-01"
+  },
+  "booster1": {
+    "pfizer": "2021-09-16",
+    "moderna": "2021-10-29"
+  },
+  "boosterspring2022": {
+    "start": "2022-03-23"
+  },
+  "boosterautumn2022": {
+    "ages65plus": "2022-09-12",
+    "ages50to64": "2022-10-15"
+  },
+  "studystart": "2022-09-12",
+  "recruitmentend": "2022-12-24",
+  "studyend": "2023-01-31",
+  "control_extract": ["2022-09-12", "2022-09-26"]
+}

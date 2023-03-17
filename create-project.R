@@ -82,7 +82,7 @@ action_1matchround <- function(matching_round){
       run = glue(
         "cohortextractor:latest generate_cohort",
         " --study-definition study_definition_controlpotential",
-        " --output-file output/matchround{matching_round}/extract/input_controlpotential.feather",
+        " --output-file output/matchround{matching_round}/controlpotential/extract/input_controlpotential.feather",
         " --param matching_round={matching_round}",
         " --param index_date={control_extract_date}"
       ),
@@ -92,24 +92,26 @@ action_1matchround <- function(matching_round){
         if(matching_round>1) {glue("process_controlactual_{matching_round-1}")} else {NULL}
       ) %>% as.list,
       highly_sensitive = lst(
-        cohort = glue("output/matchround{matching_round}/extract/input_controlpotential.feather")
+        cohort = glue("output/matchround{matching_round}/controlpotential/extract/input_controlpotential.feather")
       )
     ),
 
     action(
       name = glue("process_controlpotential_{matching_round}"),
-      run = glue("r:latest analysis/process/process_data.R"),
-      arguments = c("potential", matching_round),
+      run = glue("r:latest analysis/process/process_stage.R"),
+      arguments = c("controlpotential", matching_round),
       needs = namelesslst(
+        "dummydata_stage",
+        "process_initial",
         glue("extract_controlpotential_{matching_round}"),
       ),
       highly_sensitive = lst(
-        rds = glue("output/matchround{matching_round}/process/*.rds")
+        eligible_rds = glue("output/matchround{matching_round}/controlpotential/eligible/*.rds")
       ),
       moderately_sensitive = lst(
-        input_controlpotential_skim = glue("output/matchround{matching_round}/extract/potential/*.txt"),
-        data_processed_skim = glue("output/matchround{matching_round}/potential/*.txt"),
-        data_controlpotential_skim = glue("output/matchround{matching_round}/process/*.txt")
+        data_extract_skim = glue("output/matchround{matching_round}/controlpotential/extract/*.txt"),
+        data_processed_skim = glue("output/matchround{matching_round}/controlpotential/process/*.txt"),
+        data_controlpotential_skim = glue("output/matchround{matching_round}/controlpotential/eligible/*.txt")
       )
     ),
 
@@ -361,17 +363,28 @@ actions_list <- splice(
   ),
   
   action(
+    name = "dummydata_initial",
+    run = "r:latest analysis/dummydata/dummydata_initial.R",
+    needs = namelesslst(
+      "extract_initial"
+    ),
+    highly_sensitive = lst(
+      dummydata = "output/initial/dummydata/*.feather"
+    ),
+  ),
+  
+  action(
     name = "process_initial",
     run = "r:latest analysis/process/process_initial.R",
     needs = namelesslst(
-      "extract_initial"
+      "extract_initial", "dummydata_initial"
     ),
     highly_sensitive = lst(
       data_eligible = "output/initial/eligible/*.csv.gz",
       data_vax = "output/initial/eligible/*.rds",
     ),
     moderately_sensitive = lst(
-      flow = "output/initial/eligible/*.csv",
+      flowchart = "output/initial/eligible/*.csv",
     )
   ),
   
@@ -394,22 +407,37 @@ actions_list <- splice(
     ),
   ),
   
-  # all treated people
   action(
-    name = "process_treated",
-    run = "r:latest analysis/process/process_data.R",
-    arguments = "treated",
+    name = "dummydata_stage",
+    run = "r:latest analysis/dummydata/dummydata_stage.R",
     needs = namelesslst(
+      "dummydata_initial",
+      "process_initial",
       "extract_treated"
     ),
     highly_sensitive = lst(
+      dummydata_treated = "output/treated/dummydata/*.feather",
+      dummydata_controlpotential = "output/matchround1/controlpotential/dummydata/*.feather"
+    ),
+  ),
+  
+  # all treated people
+  action(
+    name = "process_treated",
+    run = "r:latest analysis/process/process_stage.R",
+    arguments = "treated",
+    needs = namelesslst(
+      "process_initial",
+      "extract_treated",
+      "dummydata_stage"
+    ),
+    highly_sensitive = lst(
       eligiblerds = "output/treated/eligible/*.rds",
-      pfizer = "output/pfizer/treated/*.rds",
-      moderna = "output/moderna/treated/*.rds"
+      eligiblecsv = "output/treated/eligible/*.csv.gz"
     ),
     moderately_sensitive = lst(
-      eligiblecsv = "output/treated/eligible/*.csv",
-      input_treated_skim = "output/treated/extract/*.txt",
+      flowchart = "output/treated/flowchart/*.csv",
+      extract_treated_skim = "output/treated/extract/*.txt",
       data_processed_skim = "output/treated/process/*.txt",
       data_eligible_skim = "output/treated/eligible/*.txt"
     )

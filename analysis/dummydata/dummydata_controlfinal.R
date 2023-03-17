@@ -99,6 +99,6 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   
   # save empty output to save space if running on real data
   tibble() %>%
-    write_feather(sink = here("output", cohort, "dummydata", "dummy_control_final.feather"))
+    write_feather(sink = here("output", cohort, "dummydata", "empty.feather"))
   
 }

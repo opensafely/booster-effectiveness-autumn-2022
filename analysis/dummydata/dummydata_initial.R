@@ -83,56 +83,9 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   data_initial %>%
     arrow::write_feather(sink = file.path(custom_dummy_path, "dummydata_initial.feather"))
   
-  # clear environment
-  rm(list = ls()[!(ls() == "custom_dummy_path")])
-  
-  # read study definition dummy data
-  data_studydef_dummy <- arrow::read_feather(
-    here::here("output", "initial", "extract", "input_initial.feather")
-    ) %>%
-    # because date types are not returned consistently by cohort extractor
-    mutate(across(ends_with("_date"), ~ as.Date(.)))
-  
-  # read custom dummy data generated above
-  data_custom_dummy <- arrow::read_feather(file.path(custom_dummy_path, "dummydata_initial.feather"))
-  
-  not_in_studydef <- names(data_custom_dummy)[!( names(data_custom_dummy) %in% names(data_studydef_dummy) )]
-  not_in_custom  <- names(data_studydef_dummy)[!( names(data_studydef_dummy) %in% names(data_custom_dummy) )]
-  
-  
-  if(length(not_in_custom)!=0) stop(
-    paste(
-      "These variables are in studydef but not in custom: ",
-      paste(not_in_custom, collapse=", ")
-    )
-  )
-  
-  if(length(not_in_studydef)!=0) stop(
-    paste(
-      "These variables are in custom but not in studydef: ",
-      paste(not_in_studydef, collapse=", ")
-    )
-  )
-  
-  # reorder columns
-  data_studydef_dummy <- data_studydef_dummy[,names(data_custom_dummy)]
-  
-  unmatched_types <- cbind(
-    map_chr(data_studydef_dummy, ~paste(class(.), collapse=", ")),
-    map_chr(data_custom_dummy, ~paste(class(.), collapse=", "))
-  )[ (map_chr(data_studydef_dummy, ~paste(class(.), collapse=", ")) != map_chr(data_custom_dummy, ~paste(class(.), collapse=", ")) ), ] %>%
-    as.data.frame() %>% rownames_to_column()
-  
-  
-  if(nrow(unmatched_types)>0) stop(
-    #unmatched_types
-    "inconsistent typing in studydef : dummy dataset\n",
-    apply(unmatched_types, 1, function(row) paste(paste(row, collapse=" : "), "\n"))
-  )
-  
-  
 } else {
   
+  # save empty outputs to keep the project yaml happy
   tibble() %>%
     arrow::write_feather(sink = file.path(custom_dummy_path, "empty.feather"))
   

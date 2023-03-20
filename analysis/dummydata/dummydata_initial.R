@@ -11,7 +11,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   source(here::here("analysis", "design.R"))
   
   # population size for dummy data
-  population_size <- 20000
+  population_size <- 50000
   
   index_date <- study_dates$studystart
   

@@ -116,17 +116,17 @@ action_1matchround <- function(matching_round){
     ),
 
     action(
-      name = glue("match_potential_{matching_round}"),
-      run = glue("r:latest analysis/matching/match_potential.R"),
+      name = glue("match_controlpotential_{matching_round}"),
+      run = glue("r:latest analysis/matching/match_controlpotential.R"),
       arguments = matching_round,
       needs = c(
-        glue("process_treated"),
+        "process_treated",
         glue("process_controlpotential_{matching_round}"),
         if(matching_round>1) {glue("process_controlactual_{matching_round-1}")} else {NULL}
       ) %>% as.list,
       highly_sensitive = lst(
-        rds = glue("output/matchround{matching_round}/potential/*.rds"),
-        csv = glue("output/matchround{matching_round}/potential/*.csv.gz"),
+        rds = glue("output/matchround{matching_round}/controlpotential/matching/*.rds"),
+        csv = glue("output/matchround{matching_round}/controlpotential/matching/*.csv.gz"),
       )
     ),
 
@@ -135,38 +135,40 @@ action_1matchround <- function(matching_round){
       run = glue(
         "cohortextractor:latest generate_cohort",
         " --study-definition study_definition_controlactual",
-        " --output-file output/matchround{matching_round}/extract/input_controlactual.feather",
+        " --output-file output/matchround{matching_round}/controlactual/extract/input_controlactual.feather",
         " --param matching_round={matching_round}",
       ),
       needs = namelesslst(
         "design",
-        glue("match_potential_{matching_round}"),
+        glue("match_controlpotential_{matching_round}"),
       ),
       highly_sensitive = lst(
-        cohort = glue("output/matchround{matching_round}/extract/input_controlactual.feather")
+        cohort = glue("output/matchround{matching_round}/controlactual/extract/input_controlactual.feather")
       )
     ),
 
 
     action(
       name = glue("process_controlactual_{matching_round}"),
-      run = glue("r:latest analysis/process/process_data.R"),
-      arguments = c("actual", matching_round),
+      run = glue("r:latest analysis/process/process_stage.R"),
+      arguments = c("controlactual", matching_round),
       needs = c(
-        glue("process_treated"),
-        glue("match_potential_{matching_round}"),
+        "process_initial",
+        "process_treated",
+        glue("match_controlpotential_{matching_round}"),
         glue("extract_controlpotential_{matching_round}"),  # this is only necessary for the dummy data
         glue("process_controlpotential_{matching_round}"), # this is necessary for the vaccine data
         glue("extract_controlactual_{matching_round}"),
         if(matching_round>1){glue("process_controlactual_{matching_round-1}")} else {NULL}
       ) %>% as.list,
       highly_sensitive = lst(
-        rds = glue("output/matchround{matching_round}/actual/*.rds"),
-        csv = glue("output/matchround{matching_round}/actual/*.csv.gz"),
+        rds = glue("output/matchround{matching_round}/controlactual/matching/*.rds"),
+        csv = glue("output/matchround{matching_round}/controlactual/matching/*.csv.gz"),
       ),
       moderately_sensitive = lst(
-        input_controlactual_skim = glue("output/matchround{matching_round}/extract/actual/*.txt"),
-        data_actual_skim = glue("output/matchround{matching_round}/actual/*.txt"),
+        input_controlactual_skim = glue("output/matchround{matching_round}/controlactual/extract/*.txt"),
+        eligible_skim = glue("output/matchround{matching_round}/controlactual/eligible/*.txt"),
+        process_skim = glue("output/matchround{matching_round}/controlactual/process/*.txt"),
       )
     )
 

@@ -178,26 +178,28 @@ jsonlite::write_json(study_dates, path = here("lib", "design", "study-dates.json
 # }
 # 
 # 
-# # matching variables ----
-# 
-# # exact variables
-# exact_variables <- c(
-#   "jcvi_ageband",
-#   "cev_cv",
-#   "vax12_type",
-#   "region",
-#   "prior_covid_infection",
-#   NULL
-# )
-# 
-# # caliper variables
-# caliper_variables <- c(
-#   age = 3,
-#   vax2_day = 7,
-#   NULL
-# )
-# matching_variables <- c(exact_variables, names(caliper_variables))
-# 
+# matching variables ----
+
+# exact variables
+exact_variables <- c(
+  "agegroup_match",
+  "dosesbeforeindex_n",
+  "dose12_brand",
+  "dose3_brand",
+  "dose4_brand",
+  "cv",
+  "region",
+  NULL
+)
+
+# caliper variables
+caliper_variables <- c(
+  age = 3,
+  lastvaxbeforeindex_day = 14,
+  NULL
+)
+matching_variables <- c(exact_variables, names(caliper_variables))
+
 # # covariates ----
 # 
 # covariates_model <- c(

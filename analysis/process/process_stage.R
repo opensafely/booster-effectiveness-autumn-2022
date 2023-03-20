@@ -27,8 +27,8 @@ args <- commandArgs(trailingOnly = TRUE)
 if (length(args) == 0) {
   # use for interactive testing
   # stage <- "treated"
-  stage <- "controlpotential"
-  # stage <- "controlactual"
+  # stage <- "controlpotential"
+  stage <- "controlactual"
   # stage <- "controlfinal"
   matching_round <- as.integer("1")
 } else {
@@ -56,6 +56,7 @@ if (stage == "treated") {
   path_stem <- ghere("output", "matchround{matching_round}", stage)
   fs::dir_create(file.path(path_stem, "eligible"))
   fs::dir_create(file.path(path_stem, "process"))
+  fs::dir_create(file.path(path_stem, "matching"))
   studydef_path <- file.path(path_stem, "extract", glue("input_{stage}.feather"))
   custom_path <- here("output", "matchround1", "controlpotential", "dummydata", "dummydata_controlpotential.feather")
   matching_round_date <- study_dates$control_extract[matching_round]
@@ -66,9 +67,44 @@ if (stage == "treated") {
 data_studydef <- arrow::read_feather(studydef_path) %>%
   process_input()
 
+if (stage == "controlactual") {
+  
+  ## trial info for potential matches in round X
+  data_potential_matchstatus <- 
+    read_rds(
+      ghere("output", "matchround{matching_round}", "controlpotential", "matching", "data_potential_matchstatus.rds")
+      ) %>% 
+    filter(matched==1L)
+  
+}
+
 if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
   
   data_dummy <- arrow::read_feather(custom_path) 
+  
+  # extra processing if stage=controlactual
+  if (stage == "controlactual") {
+    
+    # set seed so that dummy data results are reproducible
+    set.seed(10)
+    
+    # reuse previous extraction for dummy run, dummy_control_potential1.feather
+    data_dummy <- data_dummy %>%
+      filter(patient_id %in% data_potential_matchstatus[(data_potential_matchstatus$treated==0L),]$patient_id) %>%
+      # trial_date and match_id are not included in the dummy data so join them on here
+      # they're joined in the study def using `with_values_from_file`
+      left_join(
+        data_potential_matchstatus %>% 
+          filter(treated==0L) %>%
+          select(patient_id, trial_date, match_id),
+        by="patient_id"
+      ) %>%
+      # change a few variables so some matches fail
+      mutate(
+        region = if_else(runif(n())<0.05, sample(x=unique(region), size=n(), replace=TRUE), region)
+      )
+    
+  }
   
   # check dummydata
   source(here("analysis", "dummydata", "dummydata_check.R"))
@@ -87,39 +123,10 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
   
 }
 
-# extra processing when stage = actual
+
+# add certain matching variables
 if (stage == "controlactual") {
   
-  ## trial info for potential matches in round X
-  data_potential_matchstatus <- 
-    read_rds(ghere("output", "matchround{matching_round}", "potential", "data_potential_matchstatus.rds")) %>% 
-    filter(matched==1L)
-  
-  # if using dummy data
-  if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
-    
-    # set seed so that dummy data results are reproducible
-    set.seed(10)
-    
-    # reuse previous extraction for dummy run, dummy_control_potential1.feather
-    data_extract <- data_extract %>%
-      filter(patient_id %in% data_potential_matchstatus[(data_potential_matchstatus$treated==0L),]$patient_id) %>%
-      # trial_date and match_id are not included in the dummy data so join them on here
-      # they're joined in the study def using `with_values_from_file`
-      left_join(
-        data_potential_matchstatus %>% 
-          filter(treated==0L) %>%
-          select(patient_id, trial_date, match_id),
-        by="patient_id"
-      ) %>%
-      # change a few variables to simulate new index dates
-      mutate(
-        region = if_else(runif(n())<0.05, sample(x=unique(region), size=n(), replace=TRUE), region)
-      )
-    
-  }
-  
-  # add certain matching variables
   # add: treated 
   data_extract <- data_extract %>%
     mutate(treated=0L) %>%
@@ -137,8 +144,6 @@ my_skim(data_extract, path = file.path(path_stem, "extract", glue("input_{stage}
 
 # process data -----
 
-## patient-level info ----
-
 # define index_date depending on stage
 stage_index_date <- case_when(
   stage=="treated" ~ "autumnbooster2022_date",
@@ -148,38 +153,124 @@ stage_index_date <- case_when(
 # process variables
 data_processed <- data_extract %>%
   mutate(index_date = !! sym(stage_index_date), .after=1) %>%
-  process_jcvi() %>%
-  process_demo() %>%
-  process_pre() 
+  # process jcvi variables
+  mutate(
+    
+    # multimorb =
+    #   (sev_obesity) +
+    #   (chronic_heart_disease) +
+    #   (chronic_kidney_disease) +
+    #   (diabetes) +
+    #   (chronic_liver_disease) +
+    #   (chronic_resp_disease | asthma) +
+    #   (chronic_neuro_disease),
+    # multimorb = cut(multimorb, breaks = c(0, 1, 2, Inf), labels=c("0", "1", "2+"), right=FALSE),
+    # 
+    # immunosuppressed = immunosuppressed | asplenia,
+    
+    # clinically at-risk group
+    cv = immunosuppressed | chronic_kidney_disease | chronic_resp_disease |
+      asthma | diabetes | chronic_liver_disease | chronic_neuro_disease | 
+      chronic_heart_disease | asplenia | learndis | sev_mental,
+    
+    # these are the agegroups by which people were eligible to book vaccine doses
+    # note that technically those aged both 65-74 and 75+ could receive from 12 Sept,
+    # but those aged 75+ could book from 7 Sept, whereas 65-74 could only book from 12 Sept
+    agegroup_match = cut(
+      age,
+      breaks=c(50, 65, 75, Inf),
+      labels=c("50-64", "65-74", "75+"),
+      right=FALSE
+    ),
+    
+  )  %>%
+  # process demographics
+  mutate(
+    
+    sex = fct_case_when(
+      sex == "F" ~ "Female",
+      sex == "M" ~ "Male",
+      #sex == "I" ~ "Inter-sex",
+      #sex == "U" ~ "Unknown",
+      TRUE ~ NA_character_
+    ),
+    
+    ethnicity = factor(
+      ethnicity,
+      levels = c("White", "Mixed", "Asian or Asian British", "Black or Black British", "Other")
+    ),
+    
+    region = fct_collapse(
+      region,
+      `East of England` = "East",
+      `London` = "London",
+      `Midlands` = c("West Midlands", "East Midlands"),
+      `North East and Yorkshire` = c("Yorkshire and The Humber", "North East"),
+      `North West` = "North West",
+      `South East` = "South East",
+      `South West` = "South West"
+    ),
+    
+    imd_Q5 = factor(
+      imd_Q5,
+      levels = c("1 (most deprived)", "2", "3", "4", "5 (least deprived)")
+    )
+    
+  ) 
 
 # tidy up
 rm(data_extract)
 
-# last vaccination before index date
-data_vax <- data_processed %>%
+# read vaccination data
+data_vax <- read_rds(here("output", "initial", "eligible", "data_vax.rds")) %>%
+  # define brands of previous doses
+  mutate(
+    dose12_brand = covid_vax_1_brand,
+    dose3_brand = covid_vax_3_brand,
+    dose4_brand = covid_vax_4_brand
+  )
+
+data_vax_processed <- data_processed %>%
   select(patient_id, index_date) %>%
+  # join long vaccination data
   left_join(
-    read_rds(here("output", "initial", "eligible", "data_vax.rds")) %>%
-      select(patient_id, matches("covid_vax_\\d_date")) %>%
+    data_vax %>%
+      select(patient_id, matches("covid_vax_\\d_\\w+")) %>%
       pivot_longer(
         cols = -patient_id,
+        names_pattern = "covid_vax_(.)_(.+)",
+        names_to = c("index", ".value"),
         values_drop_na = TRUE
-      ),
-    by = "patient_id"
-  ) %>%
-  filter(value < index_date) %>%
+      )
+    , by = "patient_id"
+    ) %>%
+  # only keep doses prior to index date
+  filter(date < index_date) %>%
+  # define date of last vaccine dose and number of doses prior to index
   group_by(patient_id) %>%
   summarise(
-    lastvaxbeforeindex_date = max(value),
+    lastvaxbeforeindex_date = max(date),
     dosesbeforeindex_n = n()
-    ) %>%
-  ungroup()
+  ) %>%
+  ungroup() %>%
+  # join brands of previous doses
+  left_join(
+    data_vax %>% 
+      select(patient_id, matches("dose\\d+_brand"))
+    , by = "patient_id"
+  )  %>%
+  # replace brand with missing if did not occur prior to index date
+  mutate(across(dose3_brand, ~if_else(dosesbeforeindex_n < 3, NA_character_, .x))) %>%
+  mutate(across(dose4_brand, ~if_else(dosesbeforeindex_n < 4, NA_character_, .x))) %>%
+  mutate(across(matches("dose\\d+_brand"), ~replace_na(.x, "none"))) %>%
+  mutate(lastvaxbeforeindex_day = as.integer(lastvaxbeforeindex_date))
 
+# join to data_processed
 data_processed <- data_processed %>%
-  left_join(data_vax, by = "patient_id")
+  left_join(data_vax_processed, by = "patient_id")
 
 # tidy up
-rm(data_vax)
+rm(data_vax, data_vax_processed)
 
 # summarise processed data
 my_skim(
@@ -257,7 +348,7 @@ my_skim(
 
 write_rds(
   data_eligible,
-  file.path(path_stem, "eligible", glue("data_{stage}eligible.rds")),
+  file.path(path_stem, "eligible", glue("data_{stage}.rds")),
   compress="gz"
 )
 
@@ -265,7 +356,7 @@ if (stage == "treated") {
   
   write_csv(
     data_eligible %>% select(patient_id, autumnbooster2022_date),
-    file.path(path_stem, "eligible", "data_treatedeligible.csv.gz")
+    file.path(path_stem, "eligible", "data_treated.csv.gz")
   )
   
 } 
@@ -308,25 +399,17 @@ if (stage == "treated") {
   
 }
 
-# TODO
 # check matching (only when stage="actual") ----
-if (stage == "actual") { 
+if (stage == "controlactual") { 
   
   data_control <- data_eligible
   
-  if (cohort == "mrna") {
-    data_alltreated <- bind_rows(
-      read_rds(ghere("output", "pfizer", "treated", "data_treatedeligible.rds")), 
-      read_rds(ghere("output", "moderna", "treated", "data_treatedeligible.rds"))
-    ) 
-  } else {
-    data_alltreated <- read_rds(ghere("output", cohort, "treated", "data_treatedeligible.rds")) 
-  }
+  data_treated <- read_rds(ghere("output", "treated", "eligible", "data_treated.rds")) 
   
   data_treated <- 
     left_join(
       data_potential_matchstatus %>% filter(treated==1L),
-      data_alltreated %>% 
+      data_treated %>% 
         # only keep variables that are in data_control (this gets rid of outcomes and vax4 dates)
         select(any_of(names(data_control))),
       by="patient_id"
@@ -399,18 +482,19 @@ if (stage == "actual") {
   
   
   ## how many matches are lost?
-  
-  print(glue("{sum(data_successful_matchstatus$treated)} matched-pairs kept out of {sum(data_potential_matchstatus$treated)} 
-           ({round(100*(sum(data_successful_matchstatus$treated) / sum(data_potential_matchstatus$treated)),2)}%)
-           "))
+  print(glue(
+    "{sum(data_successful_matchstatus$treated)} matched-pairs kept out of {sum(data_potential_matchstatus$treated)} 
+  ({round(100*(sum(data_successful_matchstatus$treated) / sum(data_potential_matchstatus$treated)),2)}%)"
+  ))
   
   
   ## pick up all previous successful matches ----
   
   if(matching_round>1){
     
-    data_matchstatusprevious <- 
-      read_rds(ghere("output", cohort, "matchround{matching_round-1}", "actual", "data_matchstatus_allrounds.rds"))
+    data_matchstatusprevious <- read_rds(
+      ghere("output", "matchround{matching_round-1}", "controlactual", "matching", "data_matchstatus_allrounds.rds")
+    )
     
     data_matchstatus_allrounds <- 
       data_successful_matchstatus %>% 
@@ -423,7 +507,11 @@ if (stage == "actual") {
       select(all_of(matchstatus_vars))
   }
   
-  write_rds(data_matchstatus_allrounds, ghere("output", cohort, "matchround{matching_round}", "actual", "data_matchstatus_allrounds.rds"), compress="gz")
+  data_matchstatus_allrounds %>%
+    write_rds(
+      file.path(path_stem, "matching", "data_matchstatus_allrounds.rds"), 
+      compress="gz"
+      )
   
   
   # output all control patient ids for finalmatched study definition
@@ -431,26 +519,33 @@ if (stage == "actual") {
     mutate(
       trial_date=as.character(trial_date)
     ) %>%
-    filter(treated==0L) %>% #only interested in controls as all
-    write_csv(ghere("output", cohort, "matchround{matching_round}", "actual", "cumulative_matchedcontrols.csv.gz"))
+    filter(treated==0L) %>% # only interested in controls
+    write_csv(
+      file.path(path_stem, "matching", "cumulative_matchedcontrols.csv.gz")
+      )
   
   ## size of dataset
   print("data_matchstatus_allrounds treated/untreated numbers")
   table(treated = data_matchstatus_allrounds$treated, useNA="ifany")
-  
-  
   
   ## duplicate IDs
   data_matchstatus_allrounds %>% group_by(treated, patient_id) %>%
     summarise(n=n()) %>% group_by(treated) %>% summarise(ndups = sum(n>1)) %>%
     print()
   
-  my_skim(data_eligible, path = ghere("output", cohort, "matchround{matching_round}", "actual", "data_successful_matchedcontrols_skim.txt"))
-  write_rds(data_successful_matchstatus %>% filter(treated==0L), ghere("output", cohort, "matchround{matching_round}", "actual", "data_successful_matchedcontrols.rds"), compress="gz")
+  data_eligible %>%
+    my_skim(
+      path = file.path(path_stem, "matching", "data_successful_matchedcontrols_skim.txt")
+      )
+  data_successful_matchstatus %>% 
+    filter(treated==0L) %>% 
+    write_rds(
+      file.path(path_stem, "matching", "data_successful_matchedcontrols.rds"), 
+      compress="gz"
+      )
   
   ## size of dataset
   print("data_successful_match treated/untreated numbers")
   table(treated = data_successful_matchstatus$treated, useNA="ifany")
   
 }
-

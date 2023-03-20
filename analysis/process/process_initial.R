@@ -94,7 +94,7 @@ data_vax <- data_any %>%
     data_extract %>% 
       transmute(
         patient_id, 
-        agegroup = if_else(age>=65, "ages65plus", "ages50to64")
+        agegroup_elig = if_else(age>=65, "ages65plus", "ages50to64")
       ), 
     by = "patient_id"
   )
@@ -154,11 +154,11 @@ data_criteria <- data_vax %>%
         study_dates$booster1[["moderna"]] <= covid_vax_3_date ~ TRUE,
 
       covid_vax_3_brand %in% c("pfizerbivalent", "modernabivalent") &
-        agegroup == "ages65plus" &
+        agegroup_elig == "ages65plus" &
         study_dates$boosterautumn2022[["ages65plus"]] <= covid_vax_3_date ~ TRUE,
 
       covid_vax_3_brand %in% c("pfizerbivalent", "modernabivalent") &
-        agegroup == "ages50to64" &
+        agegroup_elig == "ages50to64" &
         study_dates$boosterautumn2022[["ages50to64"]] <= covid_vax_3_date ~ TRUE,
 
       TRUE ~ FALSE
@@ -185,11 +185,11 @@ data_criteria <- data_vax %>%
         study_dates$boosterspring2022$start <= covid_vax_4_date ~ TRUE,
 
       covid_vax_4_brand %in% c("pfizerbivalent", "modernabivalent") &
-        agegroup == "ages65plus" &
+        agegroup_elig == "ages65plus" &
         study_dates$boosterautumn2022[["ages65plus"]] <= covid_vax_4_date ~ TRUE,
 
       covid_vax_4_brand %in% c("pfizerbivalent", "modernabivalent") &
-        agegroup == "ages50to64" &
+        agegroup_elig == "ages50to64" &
         study_dates$boosterautumn2022[["ages50to64"]] <= covid_vax_4_date ~ TRUE,
 
       TRUE ~ FALSE
@@ -213,11 +213,11 @@ data_criteria <- data_vax %>%
       is.na(covid_vax_5_brand) ~ FALSE,
 
       covid_vax_5_brand %in% c("pfizerbivalent", "modernabivalent") &
-        agegroup == "ages65plus" &
+        agegroup_elig == "ages65plus" &
         study_dates$boosterautumn2022[["ages65plus"]] <= covid_vax_5_date ~ TRUE,
 
       covid_vax_5_brand %in% c("pfizerbivalent", "modernabivalent") &
-        agegroup == "ages50to64" &
+        agegroup_elig == "ages50to64" &
         study_dates$boosterautumn2022[["ages50to64"]] <= covid_vax_5_date ~ TRUE,
 
       TRUE ~ FALSE
@@ -254,14 +254,14 @@ data_eligible <- data_criteria %>%
   # first vaccination date after eligible for autumn booster
   left_join(
     data_vax %>%
-      select(patient_id, agegroup, matches("covid_vax_\\d_date")) %>%
+      select(patient_id, agegroup_elig, matches("covid_vax_\\d_date")) %>%
       pivot_longer(
-        cols = -c(patient_id, agegroup),
+        cols = -c(patient_id, agegroup_elig),
         values_drop_na = TRUE
       ) %>%
       mutate(
         start_date = if_else(
-          agegroup == "ages65plus", 
+          agegroup_elig == "ages65plus", 
           study_dates$boosterautumn2022[["ages65plus"]],
           study_dates$boosterautumn2022[["ages50to64"]]
           )

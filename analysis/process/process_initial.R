@@ -16,18 +16,20 @@ source(here("lib", "functions", "utility.R"))
 source(here::here("analysis", "process", "process_functions.R"))
 
 # create output directories
-fs::dir_create(here::here("output", "initial", "eligible"))
+path_stem <- here("output", "initial")
+fs::dir_create(file.path(path_stem, "eligible"))
+fs::dir_create(file.path(path_stem, "flowchart"))
 
 # define extract_path
 data_studydef <- arrow::read_feather(
-  here("output", "initial", "extract", "input_initial.feather")
+  file.path(path_stem, "extract", "input_initial.feather")
 ) %>%
   process_input()
 
 if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   
   data_dummy <- arrow::read_feather(
-    here("output", "initial", "dummydata", "dummydata_initial.feather")
+    file.path(path_stem, "dummydata", "dummydata_initial.feather")
   )
   
   # check dummydata
@@ -47,7 +49,10 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   
 }
 
-
+data_extract %>%
+  my_skim(
+    path = file.path(path_stem, "extract", "data_extract_skim.txt")
+  )
 
 # Transform vaccine data ----
 
@@ -148,10 +153,14 @@ data_criteria <- data_vax %>%
       is.na(covid_vax_3_brand) ~ FALSE,
 
       covid_vax_3_brand == "pfizer" &
-        study_dates$booster1[["pfizer"]] <= covid_vax_3_date ~ TRUE,
+        study_dates$booster1[["pfizerstart"]] <= covid_vax_3_date &
+        covid_vax_3_date <= study_dates$boosterspring2022$end
+      ~ TRUE,
 
       covid_vax_3_brand == "moderna" &
-        study_dates$booster1[["moderna"]] <= covid_vax_3_date ~ TRUE,
+        study_dates$booster1[["modernastart"]] <= covid_vax_3_date &
+        covid_vax_3_date <= study_dates$boosterspring2022$end
+      ~ TRUE,
 
       covid_vax_3_brand %in% c("pfizerbivalent", "modernabivalent") &
         agegroup_elig == "ages65plus" &
@@ -182,7 +191,9 @@ data_criteria <- data_vax %>%
       is.na(covid_vax_4_brand) ~ FALSE,
 
       covid_vax_4_date %in% c("pfizer", "moderna") &
-        study_dates$boosterspring2022$start <= covid_vax_4_date ~ TRUE,
+        study_dates$boosterspring2022$start <= covid_vax_4_date &
+        covid_vax_4_date <= study_dates$boosterspring2022$end
+      ~ TRUE,
 
       covid_vax_4_brand %in% c("pfizerbivalent", "modernabivalent") &
         agegroup_elig == "ages65plus" &
@@ -254,9 +265,11 @@ data_eligible <- data_criteria %>%
   # first vaccination date after eligible for autumn booster
   left_join(
     data_vax %>%
-      select(patient_id, agegroup_elig, matches("covid_vax_\\d_date")) %>%
+      select(patient_id, agegroup_elig, matches("covid_vax_\\d_\\w+")) %>%
       pivot_longer(
         cols = -c(patient_id, agegroup_elig),
+        names_pattern = "covid_vax_(.)_(.*)",
+        names_to = c(NA, ".value"),
         values_drop_na = TRUE
       ) %>%
       mutate(
@@ -266,30 +279,41 @@ data_eligible <- data_criteria %>%
           study_dates$boosterautumn2022[["ages50to64"]]
           )
         ) %>%
-      filter(value >= start_date) %>%
+      filter(date >= start_date) %>%
       group_by(patient_id) %>%
-      summarise(autumnbooster2022_date = min(value)) %>%
+      arrange(date, .by_group = TRUE) %>%
+      summarise(
+        autumnbooster2022_date = first(date),
+        autumnbooster2022_brand = first(brand),
+        ) %>%
       ungroup()
     , by = "patient_id"
   ) 
-  
+
+data_eligible %>%
+  my_skim(
+    path = file.path(path_stem, "eligible", "data_eligible_skim.txt")
+  )
 
 # save patient_ids and autumnbooster2022_date for reading into study_definition_treated.py
 data_eligible %>%
   filter(!is.na(autumnbooster2022_date)) %>%
-  write_csv(here::here("output","initial", "eligible", "data_eligible_treated.csv.gz"))
+  write_csv(file.path(path_stem, "eligible", "data_eligible_treated.csv.gz"))
 
 # save for reading into study_definition_controlpotential.py
 data_eligible %>%
   select(patient_id) %>%
-  write_csv(here::here("output","initial", "eligible", "data_eligible.csv.gz"))
+  write_csv(file.path(path_stem, "eligible", "data_eligible.csv.gz"))
 
 # save data_vax for eligible patients ----
 data_criteria %>%
   filter(include) %>%
   select(patient_id) %>%
   left_join(data_vax, by = "patient_id") %>%
-  write_rds(here::here("output", "initial", "eligible", "data_vax.rds"), compress = "gz")
+  write_rds(
+    file.path(path_stem, "eligible", "data_vax.rds"), 
+    compress = "gz"
+    )
 
 # save flowchart data ----
 data_flow <- data_criteria %>%
@@ -302,5 +326,5 @@ data_flow <- data_criteria %>%
 
 data_flow %>%
   flow_stats_rounded(to = 1) %>%
-  write_csv(here::here("output", "initial", "eligible", "flowchart_unrounded.csv"))
+  write_csv(file.path(path_stem, "flowchart", "flowchart_unrounded.csv"))
 

@@ -53,7 +53,7 @@ actions:
         data_eligible: output/initial/eligible/*.csv.gz
         data_vax: output/initial/eligible/*.rds
       moderately_sensitive:
-        flowchart: output/initial/eligible/*.csv
+        flowchart: output/initial/flowchart/*.csv
 
   ## # # # # # # # # # # # # # # # # # # # 
   ## Extract and process treated data 
@@ -96,7 +96,21 @@ actions:
         data_eligible_skim: output/treated/eligible/*.txt
 
   ## # # # # # # # # # # # # # # # # # # # 
+  ## Match treated for comparative effectiveness 
+  ## # # # # # # # # # # # # # # # # # # # 
+
+  match_treated:
+    run: r:latest analysis/matching/match_treated.R
+    needs:
+    - process_initial
+    - process_treated
+    outputs:
+      highly_sensitive:
+        rds: output/treated/matching/*.rds
+
+  ## # # # # # # # # # # # # # # # # # # # 
   ## Extract, process and match control data 
+  ## for relative effectiveness analysis 
   ## # # # # # # # # # # # # # # # # # # # 
 
   extract_controlpotential_1:
@@ -149,6 +163,7 @@ actions:
     run: r:latest analysis/process/process_stage.R controlactual 1
     needs:
     - process_initial
+    - dummydata_stage
     - process_treated
     - match_controlpotential_1
     - extract_controlpotential_1
@@ -157,10 +172,135 @@ actions:
     outputs:
       highly_sensitive:
         rds: output/matchround1/controlactual/matching/*.rds
-        csv: output/matchround1/controlactual/matching/*.csv.gz
       moderately_sensitive:
         input_controlactual_skim: output/matchround1/controlactual/extract/*.txt
         eligible_skim: output/matchround1/controlactual/eligible/*.txt
         process_skim: output/matchround1/controlactual/process/*.txt
 
-  
+  extract_controlpotential_2:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
+      --output-file output/matchround2/controlpotential/extract/input_controlpotential.feather
+      --param matching_round=2 --param index_date=2022-09-26
+    needs:
+    - design
+    - process_initial
+    - process_controlactual_1
+    outputs:
+      highly_sensitive:
+        cohort: output/matchround2/controlpotential/extract/input_controlpotential.feather
+
+  process_controlpotential_2:
+    run: r:latest analysis/process/process_stage.R controlpotential 2
+    needs:
+    - dummydata_stage
+    - process_initial
+    - extract_controlpotential_2
+    outputs:
+      highly_sensitive:
+        eligible_rds: output/matchround2/controlpotential/eligible/*.rds
+      moderately_sensitive:
+        data_extract_skim: output/matchround2/controlpotential/extract/*.txt
+        data_processed_skim: output/matchround2/controlpotential/process/*.txt
+        data_controlpotential_skim: output/matchround2/controlpotential/eligible/*.txt
+
+  match_controlpotential_2:
+    run: r:latest analysis/matching/match_controlpotential.R 2
+    needs:
+    - process_treated
+    - process_controlpotential_2
+    - process_controlactual_1
+    outputs:
+      highly_sensitive:
+        rds: output/matchround2/controlpotential/matching/*.rds
+        csv: output/matchround2/controlpotential/matching/*.csv.gz
+
+  extract_controlactual_2:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
+      --output-file output/matchround2/controlactual/extract/input_controlactual.feather
+      --param matching_round=2
+    needs:
+    - design
+    - match_controlpotential_2
+    outputs:
+      highly_sensitive:
+        cohort: output/matchround2/controlactual/extract/input_controlactual.feather
+
+  process_controlactual_2:
+    run: r:latest analysis/process/process_stage.R controlactual 2
+    needs:
+    - process_initial
+    - dummydata_stage
+    - process_treated
+    - match_controlpotential_2
+    - extract_controlpotential_2
+    - process_controlpotential_2
+    - extract_controlactual_2
+    - process_controlactual_1
+    outputs:
+      highly_sensitive:
+        rds: output/matchround2/controlactual/matching/*.rds
+      moderately_sensitive:
+        input_controlactual_skim: output/matchround2/controlactual/extract/*.txt
+        eligible_skim: output/matchround2/controlactual/eligible/*.txt
+        process_skim: output/matchround2/controlactual/process/*.txt
+
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## Extract and process covs and outcomes 
+  ## for successfully matched data 
+  ## (relative and comparative effectiveness) 
+  ## # # # # # # # # # # # # # # # # # # # 
+  ##  
+  ## process_ids creates datasets of all matched treated and control ids 
+  ## for whom to extract the covariates and outcomes 
+
+  process_ids:
+    run: r:latest analysis/process/process_ids.R
+    needs:
+    - match_treated
+    - process_controlactual_2
+    outputs:
+      highly_sensitive:
+        ids: output/final/eligible/*.csv.gz
+
+  extract_covs_treated:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_covs
+      --output-file output/final/covs/input_covs_treated.feather --param arm=treated
+    needs:
+    - design
+    - process_ids
+    outputs:
+      highly_sensitive:
+        cohort: output/final/covs/input_covs_treated.feather
+
+  extract_covs_control:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_covs
+      --output-file output/final/covs/input_covs_control.feather --param arm=control
+    needs:
+    - design
+    - process_ids
+    outputs:
+      highly_sensitive:
+        cohort: output/final/covs/input_covs_control.feather
+
+  extract_outcomes_treated:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_outcomes
+      --output-file output/final/outcomes/input_outcomes_treated.feather --param arm=treated
+    needs:
+    - design
+    - process_ids
+    outputs:
+      highly_sensitive:
+        cohort: output/final/outcomes/input_outcomes_treated.feather
+
+  extract_outcomes_control:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_outcomes
+      --output-file output/final/outcomes/input_outcomes_control.feather --param arm=control
+    needs:
+    - design
+    - process_ids
+    outputs:
+      highly_sensitive:
+        cohort: output/final/outcomes/input_outcomes_control.feather
+
+  ## #### End #### 
+

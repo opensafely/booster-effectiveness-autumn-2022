@@ -62,7 +62,7 @@ def generate_vax_variables(index_date):
   **vaccination_date_X(
     name = "covid_vax_disease",
     index_date = index_date,
-    n = 6,
+    n = 5,
     target_disease_matches="SARS-2 CORONAVIRUS"
   ),
   

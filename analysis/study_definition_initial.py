@@ -4,7 +4,7 @@ import codelists
 # import json module
 import json
 
-#study_parameters
+# study_dates
 with open("./lib/design/study-dates.json") as f:
   study_dates = json.load(f)
 

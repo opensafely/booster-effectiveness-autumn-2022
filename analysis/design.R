@@ -29,11 +29,13 @@ study_dates <- lst(
     end =  "2021-12-01", # don't recruit anyone with second vaccination after this date
   ),
   booster1 = lst(
-    pfizer = "2021-09-16", # first pfizer vaccination in national roll-out
-    moderna = "2021-10-29", # first moderna vaccination in national roll-out
+    pfizerstart = "2021-09-16", # first pfizer vaccination in national roll-out
+    modernastart = "2021-10-29", # first moderna vaccination in national roll-out
+    end = "2022-03-22", # before spring boost
   ),
   boosterspring2022 = lst(
-    start = "2022-03-23"
+    start = "2022-03-23",
+    end = "2022-05-30" # TODO review
   ),
   boosterautumn2022 = lst(
     ages65plus = "2022-09-12",

@@ -58,7 +58,7 @@ data_control <- read_rds(
 if(matching_round>1){
   
   data_matchstatusprevious <- read_rds(
-    ghere("output", "matchround{matching_round-1L}", "controlactual", "data_matchstatus_allrounds.rds")
+    ghere("output", "matchround{matching_round-1L}", "controlactual", "matching", "data_matchstatus_allrounds.rds")
     ) %>%
     select(patient_id, treated)
   

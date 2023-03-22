@@ -1,12 +1,56 @@
-from cohortextractor import patients
-from codelists import *
+# Import codelists from codelists.py
 import codelists
 
-def generate_covs_variables(index_date):
+# import json module
+import json
 
-  covs_variables = dict(
+from cohortextractor import (
+  StudyDefinition,
+  patients,
+  codelist_from_csv,
+  codelist,
+  filter_codes_by_category,
+  combine_codelists,
+  params
+)
 
-    # BMI category
+# study_dates
+with open("./lib/design/study-dates.json") as f:
+  study_dates = json.load(f)
+
+studystart_date = study_dates["studystart"]
+
+# define params
+arm = params["arm"]
+
+# Specify study defeinition
+study = StudyDefinition(
+  
+  # Configure the expectations framework
+  default_expectations={
+    "date": {"earliest": studystart_date, "latest": "today"},
+    "rate": "uniform",
+    "incidence": 0.2,
+    "int": {"distribution": "normal", "mean": 1000, "stddev": 100},
+    "float": {"distribution": "normal", "mean": 25, "stddev": 5},
+  },
+  
+  # This line defines the study population
+  population = patients.which_exist_in_file(
+    f_path=f"output/final/eligible/data_matched{arm}.csv.gz"
+    ),
+
+  trial_date = patients.with_value_from_file(
+    f_path=f"output/final/eligible/data_matched{arm}.csv.gz", 
+    returning="trial_date", 
+    returning_type="date", 
+    date_format="YYYY-MM-DD"
+    ),
+
+  ###############################################################################
+  # covariates
+  ##############################################################################
+  # BMI category
     # https://github.com/opensafely/risk-factors-research/issues/51
     bmi=patients.categorised_as(
 
@@ -19,7 +63,7 @@ def generate_covs_variables(index_date):
       },
       
       bmi_value=patients.most_recent_bmi(
-        between=[f"{index_date} - 5 years",f"{index_date} - 1 day"],
+        between=["trial_date - 5 years", "trial_date - 1 day"],
         minimum_age_at_measurement=16
       ),
     
@@ -51,18 +95,17 @@ def generate_covs_variables(index_date):
         ),
         
         flu_vaccine_med=patients.with_these_medications(
-            flu_med_codes,
+            codelists.flu_med_codes,
             between=["2018-07-01", "2021-06-30"], 
             returning="binary_flag",
         ),
         flu_vaccine_clinical=patients.with_these_clinical_events(
-            flu_clinical_given_codes,
-            ignore_days_where_these_codes_occur=flu_clinical_not_given_codes,
+            codelists.flu_clinical_given_codes,
+            ignore_days_where_these_codes_occur=codelists.flu_clinical_not_given_codes,
             between=["2018-07-01", "2021-06-30"], 
             returning="binary_flag",
         ),
         return_expectations={"incidence": 0.5, },
     ),
   
-  )
-  return covs_variables
+)

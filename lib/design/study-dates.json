@@ -8,11 +8,13 @@
     "end": "2021-12-01"
   },
   "booster1": {
-    "pfizer": "2021-09-16",
-    "moderna": "2021-10-29"
+    "pfizerstart": "2021-09-16",
+    "modernastart": "2021-10-29",
+    "end": "2022-03-22"
   },
   "boosterspring2022": {
-    "start": "2022-03-23"
+    "start": "2022-03-23",
+    "end": "2022-05-30"
   },
   "boosterautumn2022": {
     "ages65plus": "2022-09-12",

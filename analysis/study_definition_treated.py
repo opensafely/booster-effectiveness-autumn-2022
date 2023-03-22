@@ -27,10 +27,6 @@ jcvi_variables = generate_jcvi_variables(index_date="autumnbooster2022_date")
 from variables_demo import generate_demo_variables 
 demo_variables = generate_demo_variables(index_date="autumnbooster2022_date")
 ############################################################
-## covariates
-from variables_covs import generate_covs_variables 
-covs_variables = generate_covs_variables(index_date="autumnbooster2022_date")
-############################################################
 ## pre variables
 from variables_pre import generate_pre_variables 
 pre_variables = generate_pre_variables(index_date="autumnbooster2022_date")
@@ -82,12 +78,7 @@ study = StudyDefinition(
   ###############################################################################
   # demographic variables
   ##############################################################################
-  **demo_variables,   
-
-  ###############################################################################
-  # covariates
-  ##############################################################################
-  **covs_variables,   
+  **demo_variables,    
   
   ###############################################################################
   # pre variables

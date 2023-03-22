@@ -51,7 +51,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
         x = c("White", "Mixed", "Asian or Asian British", "Black or Black British", "Other", "Unknown"),
         size = nrow(.),
         replace = TRUE,
-        prob = c(0.5, 0.1, 0.1, 0.1, 0.1, 0.1)
+        prob = c(0.5, 0.12, 0.12, 0.12, 0.12, 0.02)
       ),
       practice_id = sample(x = 1L:100L, size = nrow(.), replace = TRUE),
       msoa = sample(
@@ -70,8 +70,9 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
         replace = TRUE
       ),
       imd_Q5 = sample(
-        x = c("Unknown", as.character(1:5)),
+        x = c("Unknown", "1 (most deprived)", "2", "3", "4", "5 (least deprived)"),
         size = nrow(.),
+        prob = c(0.001, rep((1-0.001)/5, 5)),
         replace = TRUE
       )
     )  %>%
@@ -124,15 +125,15 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   # treated
   data_stage %>%
     filter(!is.na(autumnbooster2022_date)) %>%
-    # covariates
-    mutate(
-      bmi = sample(
-        x = c("Not obese", "Obese I (30-34.9)", "Obese II (35-39.9)", "Obese III (40+)"),
-        size = nrow(.),
-        replace = TRUE
-      ),
-      flu_vaccine = rbern(n = nrow(.), p = 0.7)
-    ) %>%
+    # # covariates
+    # mutate(
+    #   bmi = sample(
+    #     x = c("Not obese", "Obese I (30-34.9)", "Obese II (35-39.9)", "Obese III (40+)"),
+    #     size = nrow(.),
+    #     replace = TRUE
+    #   ),
+    #   flu_vaccine = rbern(n = nrow(.), p = 0.7)
+    # ) %>%
     arrow::write_feather(file.path(custom_dummy_path_treated, "dummydata_treated.feather"))
   
   # potential 

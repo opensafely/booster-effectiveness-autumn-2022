@@ -17,19 +17,19 @@ from cohortextractor import (
 ############################################################
 # inclusion variables
 from variables_inclusion import generate_inclusion_variables 
-inclusion_variables = generate_inclusion_variables(index_date="autumnbooster2022_date")
+inclusion_variables = generate_inclusion_variables(index_date="vax_boostautumn_date")
 ############################################################
 ## jcvi variables
 from variables_jcvi import generate_jcvi_variables 
-jcvi_variables = generate_jcvi_variables(index_date="autumnbooster2022_date")
+jcvi_variables = generate_jcvi_variables(index_date="vax_boostautumn_date")
 ############################################################
 ## demographic variables
 from variables_demo import generate_demo_variables 
-demo_variables = generate_demo_variables(index_date="autumnbooster2022_date")
+demo_variables = generate_demo_variables(index_date="vax_boostautumn_date")
 ############################################################
 ## pre variables
 from variables_pre import generate_pre_variables 
-pre_variables = generate_pre_variables(index_date="autumnbooster2022_date")
+pre_variables = generate_pre_variables(index_date="vax_boostautumn_date")
 ############################################################
 
 # Specify study definition
@@ -63,9 +63,9 @@ study = StudyDefinition(
 
   ),
 
-  autumnbooster2022_date = patients.with_value_from_file(
+  vax_boostautumn_date = patients.with_value_from_file(
     f_path=f"output/initial/eligible/data_eligible_treated.csv.gz", 
-    returning="autumnbooster2022_date", 
+    returning="vax_boostautumn_date", 
     returning_type="date", 
     date_format='YYYY-MM-DD'
     ),

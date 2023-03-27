@@ -63,7 +63,7 @@ study = StudyDefinition(
   ),
   
   age=patients.age_as_of( 
-    study_dates["boosterautumn2022"]["ages50to64"],
+    study_dates["boosterautumn"]["ages50to64"],
     ),
   
   #################################################################

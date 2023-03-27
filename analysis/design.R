@@ -18,6 +18,27 @@ threshold <- 6
 # define key dates ----
 
 study_dates <- lst(
+  
+  boosterautumn = lst(
+    ages65plus = "2022-09-12",
+    ages50to64 = "2022-10-15"
+  ),
+  
+  boosterspring = lst(
+    start = "2022-03-23",
+    end = "2022-05-30" # TODO review
+  ),
+  
+  boosterfirst = lst(
+    pfizerstart = "2021-09-16", # first pfizer vaccination in national roll-out
+    modernastart = "2021-10-29", # first moderna vaccination in national roll-out
+    end = as.Date(boosterspring$start) - 1, # day before start of spring boost
+  ),
+  
+  dose2 = lst(
+    # don't recruit anyone with second vaccination after this date
+    end =  as.Date(boosterfirst$pfizerstart), 
+  ),
 
   # vaccine schedule dates
   dose1 = lst(
@@ -25,24 +46,11 @@ study_dates <- lst(
     az = "2021-01-04", # first az vaccination in national roll-out
     moderna = "2021-04-13", # first moderna vaccination in national roll-out
   ),
-  dose2 = lst(
-    end =  "2021-12-01", # don't recruit anyone with second vaccination after this date
-  ),
-  booster1 = lst(
-    pfizerstart = "2021-09-16", # first pfizer vaccination in national roll-out
-    modernastart = "2021-10-29", # first moderna vaccination in national roll-out
-    end = "2022-03-22", # before spring boost
-  ),
-  boosterspring2022 = lst(
-    start = "2022-03-23",
-    end = "2022-05-30" # TODO review
-  ),
-  boosterautumn2022 = lst(
-    ages65plus = "2022-09-12",
-    ages50to64 = "2022-10-15"
-  ),
   
-  studystart = min(boosterautumn2022$ages65plus, boosterautumn2022$ages50to64),
+  studystart = min(
+    as.Date(boosterautumn$ages65plus), 
+    as.Date(boosterautumn$ages50to64)
+    ),
   recruitmentend = "2022-12-24", #TBC
   studyend = "2023-01-31",# TBC end of available hospitalization data
   
@@ -197,6 +205,8 @@ exact_variables <- c(
 # caliper variables
 caliper_variables <- c(
   age = 3,
+  # match on `lastvaxbeforeindex_day` rather than `timesincelastvax` as the 
+  # potential matches are less likely to fail in the actual stage
   lastvaxbeforeindex_day = 14,
   NULL
 )

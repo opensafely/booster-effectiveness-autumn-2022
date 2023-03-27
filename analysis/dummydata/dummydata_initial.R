@@ -48,13 +48,13 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
     vax_dose2_brand = vax_dose1_brand,
     
     # first booster
-    booster1 = rbern(population_size, p = 0.9),
-    vax_booster1_day = runif(
+    boosterfirst = rbern(population_size, p = 0.9),
+    vax_boosterfirst_day = runif(
       n = population_size,
-      study_days$booster1$pfizerstart,
-      study_days$booster1$end
+      study_days$boosterfirst$pfizerstart,
+      study_days$boosterfirst$end
     ),
-    vax_booster1_brand = sample(
+    vax_boosterfirst_brand = sample(
       x = c("pfizer", "az", "moderna"), 
       size = population_size, 
       replace = TRUE, 
@@ -65,8 +65,8 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
     boosterspring = (age >= 75) & rbern(population_size, 0.8),
     vax_boosterspring_day = runif(
       n = population_size, 
-      study_days$boosterspring2022$start, 
-      study_days$boosterspring2022$end
+      study_days$boosterspring$start, 
+      study_days$boosterspring$end
     ),
     vax_boosterspring_brand = sample(
       x = c("pfizer", "moderna"), 
@@ -79,8 +79,8 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
     boosterautumn = rbern(population_size, 0.5),
     vax_boosterautumn_day = runif(
       n = population_size, 
-      study_days$boosterautumn2022$ages65plus, 
-      study_days$boosterautumn2022$ages65plus + 90
+      study_days$boosterautumn$ages65plus, 
+      study_days$boosterautumn$ages65plus + 90
       ),
     vax_boosterautumn_brand = sample(
       x = c("pfizerbivalent", "modernabivalent"), 
@@ -90,12 +90,12 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
     )
     
   ) %>%
-    mutate(across(vax_booster1_day, ~if_else(booster1, .x, NA_real_))) %>%
+    mutate(across(vax_boosterfirst_day, ~if_else(boosterfirst, .x, NA_real_))) %>%
     mutate(across(vax_boosterspring_day, ~if_else(boosterspring, .x, NA_real_))) %>%
     mutate(across(vax_boosterautumn_day, ~if_else(boosterautumn, .x, NA_real_))) %>%
     mutate(across(ends_with("day"), ~ study_dates$studystart + as.integer(.x))) %>%
     rename_with(~str_replace(.x, "day", "date")) %>%
-    select(-c(booster1, boosterspring, boosterautumn)) %>%
+    select(-c(boosterfirst, boosterspring, boosterautumn)) %>%
     mutate(patient_id = row_number(), .before = 1) 
   
   

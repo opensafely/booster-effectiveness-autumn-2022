@@ -25,6 +25,39 @@ flow_stats_rounded <- function(.data, to) {
 }
 
 ################################################################################
+add_vars <- function(.data, vars, arms) {
+  
+  stopifnot("`vars` must be \"covs\" or \"outcomes\"" = vars %in% c("covs", "outcomes"))
+  
+  if (all(c("treated", "control") %in% arms)) {
+    
+    by_vars <- c("patient_id", "trial_id")
+    
+  } else if (all(arms == "treated")) {
+    
+    # omit trial_id here as not needed and will slow down
+    by_vars <- "patient_id"
+    
+  } else {
+    
+    stop("`arms` must be either c(\"treated\", \"control\") or \"treated\"")
+    
+  }
+  
+  source(here::here("analysis", "process", "process_functions.R"))
+  
+  data_vars <- map_dfr(
+    arms,
+    ~arrow::read_feather(here("output", "final", vars, glue("input_{vars}_", .x, ".feather")))
+  ) %>%
+    process_input()
+  
+  .data %>%
+    left_join(data_vars, by = by_vars)
+  
+}
+
+################################################################################
 # process_covs <- function(.data) {
 #   
 #   .data %>%

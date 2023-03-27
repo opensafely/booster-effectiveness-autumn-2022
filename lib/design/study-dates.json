@@ -1,24 +1,24 @@
 {
-  "dose1": {
-    "pfizer": "2020-12-08",
-    "az": "2021-01-04",
-    "moderna": "2021-04-13"
+  "boosterautumn": {
+    "ages65plus": "2022-09-12",
+    "ages50to64": "2022-10-15"
   },
-  "dose2": {
-    "end": "2021-12-01"
+  "boosterspring": {
+    "start": "2022-03-23",
+    "end": "2022-05-30"
   },
-  "booster1": {
+  "boosterfirst": {
     "pfizerstart": "2021-09-16",
     "modernastart": "2021-10-29",
     "end": "2022-03-22"
   },
-  "boosterspring2022": {
-    "start": "2022-03-23",
-    "end": "2022-05-30"
+  "dose2": {
+    "end": "2021-09-16"
   },
-  "boosterautumn2022": {
-    "ages65plus": "2022-09-12",
-    "ages50to64": "2022-10-15"
+  "dose1": {
+    "pfizer": "2020-12-08",
+    "az": "2021-01-04",
+    "moderna": "2021-04-13"
   },
   "studystart": "2022-09-12",
   "recruitmentend": "2022-12-24",

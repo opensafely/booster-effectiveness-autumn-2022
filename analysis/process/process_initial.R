@@ -86,237 +86,222 @@ data_brand <- data_extract %>%
     values_drop_na = TRUE
   )
 
-# combine
+# combine and derive some extra variables
 data_vax <- data_any %>%
   left_join(data_brand, by = c("patient_id", "date")) %>%
-# `names_glue` doesn't work because older version of dplyr in opensafely
-  pivot_wider(
-    names_from = index,
-    values_from = c(date, brand),
-    names_glue = "covid_vax_{index}_{.value}"
-  ) %>%
+  # this is much quicker than using group_by
+  arrange(patient_id, index) %>%
+  mutate(
+    dose1brand = if_else(index == 2, lag(brand), NA_character_),
+    dayssincelastdose = if_else(index > 1, as.integer(date - lag(date)), NA_integer_)
+  )  %>%
   left_join(
-    data_extract %>% 
-      transmute(
-        patient_id, 
-        agegroup_elig = if_else(age>=65, "ages65plus", "ages50to64")
-      ), 
+    data_extract %>% select(patient_id, age), 
     by = "patient_id"
   )
 
-# tidy up
-rm(data_any, data_brand, data_extract)
+# identify doses that meet the primary course criteria
+data_vax <- data_vax %>%
+  mutate(
+    primary = case_when(
+      # only consider indices 1&2 for primary course
+      index > 2 ~ FALSE,
+      # discard if brand for index 1 or 2 missing
+      is.na(brand) | is.na(dose1brand) ~ FALSE,
+      # discard if brand 1 and 2 not the same 
+      brand != dose1brand ~ FALSE,
+      # discard if date after primary course end 
+      date > study_dates$dose2$end ~ FALSE,
+      # discard if interval between doses 1 and 2 too short/long
+      dayssincelastdose < 17 | dayssincelastdose > 105 ~ FALSE,
+      # keep if satisfying brand-specific dates
+      brand == "pfizer" & date >= study_dates$dose1[["pfizer"]] ~ TRUE,
+      brand == "az" & date >= study_dates$dose1[["az"]] ~ TRUE,
+      brand == "moderna" & date >= study_dates$dose1[["moderna"]] ~ TRUE,
+      # discard otherwise
+      TRUE ~ FALSE
+    )
+  ) %>%
+  # don't need rows where index=1 anymore
+  filter(index > 1)
+
+# identify doses that meet the first boost criteria
+data_vax <- data_vax %>%
+  mutate(
+    boostfirst = case_when(
+      # discard index not 3
+      index != 3 ~ FALSE,
+      # discard if brand missing
+      is.na(brand) ~ FALSE,
+      # discard if date after booster first end 
+      date > study_dates$boosterfirst$end ~ FALSE,
+      # discard if interval since last dose too short
+      dayssincelastdose < 168 ~ FALSE,
+      brand == "pfizer" & date >= study_dates$boosterfirst[["pfizerstart"]] ~ TRUE,
+      brand == "moderna" & date >= study_dates$boosterfirst[["modernastart"]] ~ TRUE,
+      # discard otherwise
+      TRUE ~ FALSE
+    )
+  )
+
+# identify doses that meet the spring boost criteria
+data_vax <- data_vax %>%
+  mutate(
+    boostspring = case_when(
+      # discard if primary course indices
+      index <= 2 ~ FALSE,
+      # discard if brand missing
+      is.na(brand) ~ FALSE,
+      # discard if date before booster first start 
+      date < study_dates$boosterspring$start ~ FALSE,
+      # discard if date after booster first end 
+      date > study_dates$boosterspring$end ~ FALSE,
+      # discard if interval since last dose too short
+      dayssincelastdose < 91 ~ FALSE,
+      # discard if age < 75
+      age < 75 ~ FALSE,
+      # discard if brand not pfizer or moderna
+      !(brand %in% c("pfizer", "moderna")) ~ FALSE,
+      # otherwise TRUE
+      TRUE ~ TRUE
+    )
+  )
+
+# identify doses that meet the aumtumn boost criteria
+data_vax <- data_vax %>%
+  mutate(
+    boostautumn = case_when(
+      # discard if primary course indices
+      index <= 2 ~ FALSE,
+      # discard if brand missing
+      is.na(brand) ~ FALSE,
+      # discard if date after studyend
+      date > study_dates$studyend ~ FALSE,
+      # discard if interval since last dose too short
+      dayssincelastdose < 91 ~ FALSE,
+      # discard if not bivalent
+      !(brand %in% c("pfizerbivalent", "modernabivalent")) ~ FALSE,
+      # keep if within age-specific cutoff dates
+      age < 65 & (study_dates$boosterautumn[["ages50to64"]] <= date) ~ TRUE,
+      age >= 65 & (study_dates$boosterautumn[["ages65plus"]] <= date) ~ TRUE,
+      # discard otherwise
+      TRUE ~ FALSE
+    )
+  )
+
+
+# check for any doses categorised as multiple courses
+check_courses_cols <- data_vax %>%
+  group_by(primary, boostfirst, boostspring, boostautumn) %>%
+  count() %>%
+  ungroup() %>%
+  mutate(total = primary + boostfirst + boostspring + boostautumn)
+
+check_courses_cols %>% print()
+
+stopifnot("Doses categorised as multiple courses." = all(check_courses_cols$total <= 1))
+
+# Check for any individuals with multiple doses categorised as the same course
+check_courses_rows <- data_vax %>%
+  group_by(patient_id) %>%
+  summarise(across(c(primary, boostfirst, boostspring, boostautumn), sum)) %>%
+  ungroup() %>%
+  filter_at(
+    vars(c(primary, boostfirst, boostspring, boostautumn)),
+    any_vars(. > 1)
+    )
+
+if (nrow(check_courses_rows) > 0) {
+  
+  cat("Some patients have multiple doses categorised as the following courses:\n")
+  
+  check_courses_rows %>%
+    pivot_longer(
+      cols = -patient_id
+    ) %>% 
+    filter(value > 1) %>%
+    distinct(name) %>%
+    print()
+  
+  stop()
+  
+} else {
+  
+  cat("No patients have multiple doses categorised as the same course.\n")
+  
+}
+
+data_vax <- data_vax %>%
+  mutate(
+    course = case_when(
+      primary ~ "primary",
+      boostfirst ~ "boostfirst",
+      boostspring ~ "boostspring",
+      boostautumn ~ "boostautumn",
+      TRUE ~ "undefined"
+    )
+  ) %>%
+  select(patient_id, age, index, date, brand, course) 
+
+# identify patients with any undefined doses
+# flag if any undefined dose before study starts,
+# and keep date of first undefined dose after study start
+data_vax_undefined <- data_vax %>%
+  filter(course == "undefined") %>%
+  mutate(
+    undefinedbeforestart = case_when(
+      age < 65 & date < study_dates$boosterautumn$ages50to64 ~ TRUE,
+      age >= 65 & date < study_dates$boosterautumn$ages65plus ~ TRUE,
+      TRUE ~ FALSE
+    )
+  ) 
+
+data_vax_undefined_remove <- data_vax_undefined %>%
+  filter(undefinedbeforestart) %>%
+  distinct(patient_id)
+
+# keep first undefined date after start date
+data_vax_undefined_date <-  data_vax_undefined %>%
+  filter(!undefinedbeforestart) %>%
+  # identify first date of an undefined dose after the study start date
+  group_by(patient_id, course, age) %>%
+  summarise(date = min(date), .groups = "keep") %>%
+  ungroup() 
+    
+# as anyone with a dose of undefined course before the study start date will be excluded
+
+data_vax <- data_vax %>%
+  filter(course != "undefined") %>%
+  # add the first date of an undefined dose after the start date
+  bind_rows(data_vax_undefined_date) %>%
+  select(patient_id, age, date, brand, course) %>%
+  pivot_wider(
+    names_from = course,
+    values_from = c(date, brand),
+    names_glue = "vax_{course}_{.value}"
+  ) %>%
+  mutate(
+    # flag to remove those with an undefined dose before their age group's start date
+    undefinedbeforestart = patient_id %in% data_vax_undefined_remove$patient_id
+  )
+  
+###########
 
 # define eligibility criteria ----
-data_criteria <- data_vax %>%
-  transmute(
-
-    patient_id,
-
-    ##### primary course criteria
-
-    primarycourse_brand = case_when(
-
-      is.na(covid_vax_1_brand) | is.na(covid_vax_2_brand) ~ FALSE,
-
-      covid_vax_1_brand == "pfizer" &
-        covid_vax_2_brand == "pfizer" &
-        study_dates$dose1[["pfizer"]] <= covid_vax_1_date ~ TRUE,
-
-      covid_vax_1_brand == "az" &
-        covid_vax_2_brand == "az" &
-        study_dates$dose1[["az"]] <= covid_vax_1_date ~ TRUE,
-
-      covid_vax_1_brand == "moderna" &
-        covid_vax_2_brand == "moderna" &
-        study_dates$dose1[["moderna"]] <= covid_vax_1_date ~ TRUE,
-
-      TRUE ~ FALSE
-
-    ),
-
-    primarycourse_interval = case_when(
-      # 17-105 days between first and second dose
-      17 <= as.integer(covid_vax_2_date - covid_vax_1_date) &
-        as.integer(covid_vax_2_date - covid_vax_1_date) <= 105
-      ~ TRUE,
-      # otherwise
-      TRUE ~ FALSE
-    ),
-
-    ##### third dose criteria
-
-    thirddose_missing = is.na(covid_vax_3_date),
-
-    thirddose_brand = case_when(
-
-      is.na(covid_vax_3_brand) ~ FALSE,
-
-      covid_vax_3_brand == "pfizer" &
-        study_dates$booster1[["pfizerstart"]] <= covid_vax_3_date &
-        covid_vax_3_date <= study_dates$boosterspring2022$end
-      ~ TRUE,
-
-      covid_vax_3_brand == "moderna" &
-        study_dates$booster1[["modernastart"]] <= covid_vax_3_date &
-        covid_vax_3_date <= study_dates$boosterspring2022$end
-      ~ TRUE,
-
-      covid_vax_3_brand %in% c("pfizerbivalent", "modernabivalent") &
-        agegroup_elig == "ages65plus" &
-        study_dates$boosterautumn2022[["ages65plus"]] <= covid_vax_3_date ~ TRUE,
-
-      covid_vax_3_brand %in% c("pfizerbivalent", "modernabivalent") &
-        agegroup_elig == "ages50to64" &
-        study_dates$boosterautumn2022[["ages50to64"]] <= covid_vax_3_date ~ TRUE,
-
-      TRUE ~ FALSE
-
-    ),
-
-    thirddose_interval = case_when(
-      is.na(covid_vax_3_date) ~ FALSE,
-      # at least 168 days between second and third dose
-      168 <= as.integer(covid_vax_3_date - covid_vax_2_date) ~ TRUE,
-      # otherwise
-      TRUE ~ FALSE
-    ),
-
-    ##### fourth dose criteria
-
-    fourthdose_missing = is.na(covid_vax_4_date),
-
-    fourthdose_brand = case_when(
-
-      is.na(covid_vax_4_brand) ~ FALSE,
-
-      covid_vax_4_date %in% c("pfizer", "moderna") &
-        study_dates$boosterspring2022$start <= covid_vax_4_date &
-        covid_vax_4_date <= study_dates$boosterspring2022$end
-      ~ TRUE,
-
-      covid_vax_4_brand %in% c("pfizerbivalent", "modernabivalent") &
-        agegroup_elig == "ages65plus" &
-        study_dates$boosterautumn2022[["ages65plus"]] <= covid_vax_4_date ~ TRUE,
-
-      covid_vax_4_brand %in% c("pfizerbivalent", "modernabivalent") &
-        agegroup_elig == "ages50to64" &
-        study_dates$boosterautumn2022[["ages50to64"]] <= covid_vax_4_date ~ TRUE,
-
-      TRUE ~ FALSE
-
-    ),
-
-    fourthdose_interval = case_when(
-      is.na(covid_vax_4_date) ~ FALSE,
-      # at least 91 days between third and fourth dose
-      91 <= as.integer(covid_vax_4_date - covid_vax_3_date) ~ TRUE,
-      # otherwise
-      TRUE ~ FALSE
-    ),
-
-    ##### fifth dose criteria
-
-    fifthdose_missing = is.na(covid_vax_5_date),
-
-    fifthdose_brand = case_when(
-
-      is.na(covid_vax_5_brand) ~ FALSE,
-
-      covid_vax_5_brand %in% c("pfizerbivalent", "modernabivalent") &
-        agegroup_elig == "ages65plus" &
-        study_dates$boosterautumn2022[["ages65plus"]] <= covid_vax_5_date ~ TRUE,
-
-      covid_vax_5_brand %in% c("pfizerbivalent", "modernabivalent") &
-        agegroup_elig == "ages50to64" &
-        study_dates$boosterautumn2022[["ages50to64"]] <= covid_vax_5_date ~ TRUE,
-
-      TRUE ~ FALSE
-
-    ),
-
-    fifthdose_interval = case_when(
-      is.na(covid_vax_5_date) ~ FALSE,
-      # at least 91 days between fourth and fifth dose
-      91 <= as.integer(covid_vax_5_date - covid_vax_4_date) ~ TRUE,
-      # otherwise
-      TRUE ~ FALSE
-    ),
-
+data_vax <- data_vax %>%
+  mutate(
 
     # define eligibility criteria
 
     c0 = TRUE,
-    c1 = c0 & (primarycourse_brand & primarycourse_interval),
-    c2 = c1 & (thirddose_missing | (thirddose_brand & thirddose_interval)),
-    c3 = c2 & (fourthdose_missing | (fourthdose_brand & fourthdose_interval)),
-    c4 = c3 & (fifthdose_missing | (fifthdose_brand & fifthdose_interval)),
+    c1 = c0 & !undefinedbeforestart,
 
-    include = c4
+    include = c1
 
-  )
-
-
-# apply eligibility criteria ----
-
-data_eligible <- data_criteria %>%
-  filter(include) %>%
-  select(patient_id) %>%
-  # first vaccination date after eligible for autumn booster
-  left_join(
-    data_vax %>%
-      select(patient_id, agegroup_elig, matches("covid_vax_\\d_\\w+")) %>%
-      pivot_longer(
-        cols = -c(patient_id, agegroup_elig),
-        names_pattern = "covid_vax_(.)_(.*)",
-        names_to = c(NA, ".value"),
-        values_drop_na = TRUE
-      ) %>%
-      mutate(
-        start_date = if_else(
-          agegroup_elig == "ages65plus", 
-          study_dates$boosterautumn2022[["ages65plus"]],
-          study_dates$boosterautumn2022[["ages50to64"]]
-          )
-        ) %>%
-      filter(date >= start_date) %>%
-      group_by(patient_id) %>%
-      arrange(date, .by_group = TRUE) %>%
-      summarise(
-        autumnbooster2022_date = first(date),
-        autumnbooster2022_brand = first(brand),
-        ) %>%
-      ungroup()
-    , by = "patient_id"
   ) 
 
-data_eligible %>%
-  my_skim(
-    path = file.path(path_stem, "eligible", "data_eligible_skim.txt")
-  )
-
-# save patient_ids and autumnbooster2022_date for reading into study_definition_treated.py
-data_eligible %>%
-  filter(!is.na(autumnbooster2022_date)) %>%
-  write_csv(file.path(path_stem, "eligible", "data_eligible_treated.csv.gz"))
-
-# save for reading into study_definition_controlpotential.py
-data_eligible %>%
-  select(patient_id) %>%
-  write_csv(file.path(path_stem, "eligible", "data_eligible.csv.gz"))
-
-# save data_vax for eligible patients ----
-data_criteria %>%
-  filter(include) %>%
-  select(patient_id) %>%
-  left_join(data_vax, by = "patient_id") %>%
-  write_rds(
-    file.path(path_stem, "eligible", "data_vax.rds"), 
-    compress = "gz"
-    )
-
 # save flowchart data ----
-data_flow <- data_criteria %>%
+data_flow <- data_vax %>%
   summarise(across(matches("^c\\d"), .fns=sum)) %>%
   pivot_longer(
     cols=everything(),
@@ -328,3 +313,33 @@ data_flow %>%
   flow_stats_rounded(to = 1) %>%
   write_csv(file.path(path_stem, "flowchart", "flowchart_unrounded.csv"))
 
+# apply eligibility criteria ----
+
+data_vax <- data_vax %>%
+  filter(include) %>%
+  # remove the columns used for eligiblility criteria
+  select(-c(c0, c1, include, undefinedbeforestart))
+
+# save summary
+data_vax %>%
+  my_skim(
+    path = file.path(path_stem, "eligible", "data_eligible_skim.txt")
+  )
+
+# save dataset
+data_vax %>%
+  write_rds(
+    file.path(path_stem, "eligible", "data_vax.rds"), 
+    compress = "gz"
+  )
+
+# save patient_ids and vax_boostautumn_date for reading into study_definition_treated.py
+data_vax %>%
+  filter(!is.na(vax_boostautumn_date)) %>%
+  select(patient_id, vax_boostautumn_date) %>%
+  write_csv(file.path(path_stem, "eligible", "data_eligible_treated.csv.gz"))
+
+# save for reading into study_definition_controlpotential.py
+data_vax %>%
+  select(patient_id) %>%
+  write_csv(file.path(path_stem, "eligible", "data_eligible.csv.gz"))

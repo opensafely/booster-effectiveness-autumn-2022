@@ -145,7 +145,7 @@ my_skim(data_extract, path = file.path(path_stem, "extract", glue("input_{stage}
 
 # define index_date depending on stage
 stage_index_date <- case_when(
-  stage=="treated" ~ "autumnbooster2022_date",
+  stage=="treated" ~ "vax_boostautumn_date",
   stage=="controlpotential" ~ "matching_round_date",
   stage=="controlactual" ~ "trial_date"
 )
@@ -221,24 +221,18 @@ data_processed <- data_extract %>%
 rm(data_extract)
 
 # read vaccination data
-data_vax <- read_rds(here("output", "initial", "eligible", "data_vax.rds")) %>%
-  # define brands of previous doses
-  mutate(
-    dose12_brand = covid_vax_1_brand,
-    dose3_brand = covid_vax_3_brand,
-    dose4_brand = covid_vax_4_brand
-  )
+data_vax <- read_rds(here("output", "initial", "eligible", "data_vax.rds")) 
 
 data_vax_processed <- data_processed %>%
   select(patient_id, index_date) %>%
   # join long vaccination data
   left_join(
     data_vax %>%
-      select(patient_id, matches("covid_vax_\\d_\\w+")) %>%
+      select(patient_id, matches("vax_\\w+")) %>%
       pivot_longer(
         cols = -patient_id,
-        names_pattern = "covid_vax_(.)_(.+)",
-        names_to = c("index", ".value"),
+        names_pattern = "vax_(.+)_(.+)",
+        names_to = c("course", ".value"),
         values_drop_na = TRUE
       )
     , by = "patient_id"
@@ -247,22 +241,23 @@ data_vax_processed <- data_processed %>%
   filter(date < index_date) %>%
   # define date of last vaccine dose and number of doses prior to index
   group_by(patient_id) %>%
-  summarise(
-    lastvaxbeforeindex_date = max(date),
-    dosesbeforeindex_n = n()
+  arrange(date, .by_group = TRUE) %>%
+  mutate(
+    # flag if undefined dose between studystart and index_date
+    # (those with an undefined dose before studystart have already been dropped)
+    undefineddose = "undefined" %in% course, 
+    lastvaxbeforeindex_date = last(date),
+    dosesbeforeindex_n = n() + 1 # +1 because only one line for primary course
   ) %>%
   ungroup() %>%
-  # join brands of previous doses
-  left_join(
-    data_vax %>% 
-      select(patient_id, matches("dose\\d+_brand"))
-    , by = "patient_id"
-  )  %>%
-  # replace brand with missing if did not occur prior to index date
-  mutate(across(dose3_brand, ~if_else(dosesbeforeindex_n < 3, NA_character_, .x))) %>%
-  mutate(across(dose4_brand, ~if_else(dosesbeforeindex_n < 4, NA_character_, .x))) %>%
-  mutate(across(matches("dose\\d+_brand"), ~replace_na(.x, "none"))) %>%
-  mutate(lastvaxbeforeindex_day = as.integer(lastvaxbeforeindex_date))
+  filter(!undefineddose) %>% # remove if undefined dose before index date
+  select(-c(index_date, date, undefineddose)) %>%
+  pivot_wider(
+    names_from = course,
+    values_from = brand,
+    names_glue = "{course}_brand"
+  ) %>%
+  mutate(across(matches("boost\\w+_brand"), ~replace_na(.x, "unboosted")))
 
 # join to data_processed
 data_processed <- data_processed %>%
@@ -286,12 +281,16 @@ data_criteria <- data_processed %>%
     
     patient_id,
     has_follow_up_previous_1year,
-    lastdoseinterval = as.integer(index_date - lastvaxbeforeindex_date) >= 91,
-    dosesbeforeindex = case_when(
-      age >= 75 & dosesbeforeindex_n < 5 ~ TRUE,
-      dosesbeforeindex_n < 4 ~ TRUE,
-      TRUE ~ FALSE
-    ),
+    # all vaccine variables will be missing for patients with an undefineddose
+    # as such patients were dropped from data_vax_processed, 
+    # just use primary_brand to flag
+    no_undefineddose = !is.na(primary_brand), 
+    lastdoseinterval = !is.na(lastvaxbeforeindex_date) & (as.integer(index_date - lastvaxbeforeindex_date) >= 91),
+    # dosesbeforeindex = case_when(
+    #   age >= 75 & dosesbeforeindex_n < 5 ~ TRUE,
+    #   dosesbeforeindex_n < 4 ~ TRUE,
+    #   TRUE ~ FALSE
+    # ),
     has_sex = !is.na(sex),
     has_imd = !is.na(imd_Q5),
     has_ethnicity = !is.na(ethnicity),
@@ -306,26 +305,37 @@ data_criteria <- data_processed %>%
       TRUE ~ FALSE
     ),
     
+    c0_descr = "Satisfying initial eligibility criteria", 
     c0 = TRUE, 
-    # Registered with a TPP practice for less than one year
+    
+    c1_descr = "  Registered with a TPP practice for less than one year", 
     c1 = c0 & has_follow_up_previous_1year,
-    # Less than 3 months (91 days) since most recent vaccine dose
-    c2 = c1 & lastdoseinterval,
-    # Five or more previous COVID-19 vaccine doses recorded if aged over 75 years; four or more if aged 50-74 years
-    c3 = c2 & dosesbeforeindex,
-    # Missing sex, IMD, ethnicity, geographical region.
+    
+    c2_descr = "  Undefined dose between studystart and index date",
+    c2 = c1 & no_undefineddose,
+    
+    c3_descr = "  Less than 3 months (91 days) since most recent vaccine dose",
+    c3 = c2 & lastdoseinterval,
+    
+    c4_descr = "  Missing sex, IMD, ethnicity, geographical region",
     c4 = c3 & has_sex & has_imd & has_ethnicity & has_region,
-    # Care home residents, where known
+    
+    c5_descr = "  Care home residents, where known",
     c5 = c4 & isnot_carehomeresident,
-    # Health care workers, where known
+    
+    c6_descr = "  Health care workers, where known",
     c6 = c5 & isnot_hscworker,
-    # People who are considered to be near death, for example on palliative care pathways.
+    
+    c7_descr = "  People who are considered to be near death, for example on palliative care pathways",
     c7 = c6 & isnot_endoflife,
-    # People who are housebound, where known
+    
+    c8_descr = "  People who are housebound, where known",
     c8 = c7 & isnot_housebound,
-    # People who are in hospital on an unplanned admission
+    
+    c9_descr = "  People who are in hospital on an unplanned admission",
     c9 = c8 & isnot_inhospital,
-    include = c9,
+    
+    include = c9
     
   )
 
@@ -341,7 +351,7 @@ data_eligible <- data_criteria %>%
 
 # save data_eligible ----
 my_skim(
-  data_eligible,
+  data_eligible %>% select(-matches("c\\d+_descr")),
   path = file.path(path_stem, "eligible", "data_eligible_skim.txt")
 )
 
@@ -358,7 +368,7 @@ if (stage %in% c("treated", "controlpotential")) {
 if (stage == "treated") {
   
   write_csv(
-    data_eligible %>% select(patient_id, autumnbooster2022_date),
+    data_eligible %>% select(patient_id, vax_boostautumn_date),
     file.path(path_stem, "eligible", "data_treated.csv.gz")
   )
   
@@ -368,31 +378,18 @@ if (stage == "treated") {
 if (stage == "treated") {
   
   data_flowchart <- data_criteria %>%
-    summarise(
-      across(matches("^c\\d"), .fns=sum)
-    ) %>%
+    select(patient_id, matches("^c\\d")) %>%
+    rename_at(vars(matches("^c\\d$")), ~str_c(., "_value")) %>%
     pivot_longer(
-      cols=everything(),
-      names_to="criteria",
-      values_to="n"
+      cols = matches("^c\\d"),
+      names_to = c("crit", ".value"),
+      names_pattern = "(.*)_(.*)"
     ) %>%
-    mutate(
-      crit = str_extract(criteria, "^c\\d+"),
-      criteria = fct_case_when(
-        crit == "c0" ~ "Satisfying initial eligibility criteria", 
-        crit == "c1" ~ "  Registered with a TPP practice for less than one year", 
-        crit == "c2" ~ "  Less than 3 months (91 days) since most recent vaccine dose",
-        crit == "c3" ~ "  Five or more previous COVID-19 vaccine doses recorded if aged over 75 years; four or more if aged 50-74 years",
-        crit == "c4" ~ "  Missing sex, IMD, ethnicity, geographical region.",
-        crit == "c5" ~ "  Care home residents, where known",
-        crit == "c6" ~ "  Health care workers, where known",
-        crit == "c7" ~ "  People who are considered to be near death, for example on palliative care pathways.",
-        crit == "c8" ~ "  People who are housebound, where known",
-        crit == "c9" ~ "  People who are in hospital on an unplanned admission",
-        TRUE ~ NA_character_
-      )
-    ) %>%
-    mutate(across(criteria, factor, labels = sapply(levels(.$criteria), glue))) %>%
+    group_by(crit, descr) %>%
+    summarise(n = sum(value), .groups = "keep") %>%
+    ungroup() %>%
+    rename(criteria = descr) %>%
+    arrange(crit) %>%
     flow_stats_rounded(1)
   
   data_flowchart %>%

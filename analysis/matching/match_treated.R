@@ -43,11 +43,13 @@ print(
 )
 
 ## select all matching candidates and variables necessary for matching
+# encode all exact variables that are characters as factors
+char_to_factor <- data_treated %>%
+  select(all_of(exact_variables_treated)) %>%
+  select(where(is.character)) %>%
+  names()
+
 data_matchingcandidates <- data_treated %>%
-  left_join(
-    data_eligible_treated %>% select(patient_id, autumnbooster2022_brand), 
-    by = "patient_id"
-    ) %>%
   mutate(
     # create variable to parallelise on (just pick an exact match variable??)
     thread_variable = agegroup_match,
@@ -57,18 +59,29 @@ data_matchingcandidates <- data_treated %>%
     thread_id,
     thread_variable,
     patient_id,
-    autumnbooster2022_date,
-    autumnbooster2022_brand,
-    all_of(matching_variables),
+    index_date,
+    vax_boostautumn_brand,
+    all_of(matching_variables_treated),
   ) %>%
   mutate(
     # matchit needs a binary variables for matching; pfizerbivalent=1, modernabivalent=0
-    treatment = autumnbooster2022_brand == "pfizerbivalent"
+    treatment = vax_boostautumn_brand == "pfizerbivalent"
   ) %>%
+  mutate(across(all_of(char_to_factor), as.factor)) %>%
   arrange(patient_id)
 
 # tidy up 
 rm(data_treated, data_eligible_treated)
+
+# check for any missing data in data_matchingcandidates
+check_missing <- data_matchingcandidates %>%
+  map_int(~sum(is.na(.x)))
+
+if (any(check_missing > 0)) {
+  cat("Number of missing entries in each column:\n")
+  print(check_missing)
+  stop("Matching will fail if there are missing values.")
+}
 
 # create function that catches errors in case no matches are found within a thread
 safely_matchit <- purrr::safely(matchit)
@@ -112,7 +125,7 @@ data_matchstatus <-
         method = "nearest", distance = "glm", # these two options don't really do anything because we only want exact + caliper matching
         replace = FALSE,
         estimand = "ATT",
-        exact = c("autumnbooster2022_date", exact_variables),
+        exact = exact_variables_treated,
         caliper = caliper_variables, std.caliper=FALSE,
         m.order = "data", # data is sorted on (effectively random) patient ID
         #verbose = TRUE,
@@ -130,11 +143,11 @@ data_matchstatus <-
           threadmatch_id = NA_integer_,
           treatment = data_thread$treatment,
           weight = 0,
-          autumnbooster2022_date = data_thread$autumnbooster2022_date
+          index_date = data_thread$index_date
         )
       } else {
         as.data.frame(obj_matchit$X) %>%
-          select(autumnbooster2022_date) %>%
+          select(index_date) %>%
           add_column(
             patient_id = data_thread$patient_id,
             matched = !is.na(obj_matchit$subclass),
@@ -160,7 +173,7 @@ data_matchstatus <- data_matchstatus %>%
 write_rds(data_matchstatus, fs::path(output_dir, "data_matchstatus.rds"), compress="gz")
 
 data_matchstatus %>%
-  group_by(autumnbooster2022_date, treatment, matched) %>%
+  group_by(index_date, treatment, matched) %>%
   summarise(
     n=n()
   ) %>%

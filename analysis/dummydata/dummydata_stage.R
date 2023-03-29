@@ -42,7 +42,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   rbern <- purrr::rbernoulli
   
   data_stage <- data_eligible %>%
-    select(patient_id, age, autumnbooster2022_date) %>%
+    select(patient_id, age, vax_boostautumn_date) %>%
     # demo variables
     mutate(
       has_follow_up_previous_1year = rbern(n = nrow(.), p=0.99),
@@ -124,7 +124,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   
   # treated
   data_stage %>%
-    filter(!is.na(autumnbooster2022_date)) %>%
+    filter(!is.na(vax_boostautumn_date)) %>%
     # # covariates
     # mutate(
     #   bmi = sample(
@@ -138,7 +138,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   
   # potential 
   data_stage %>%
-    select(-autumnbooster2022_date) %>%
+    select(-vax_boostautumn_date) %>%
     arrow::write_feather(file.path(custom_dummy_path_controlpotential, "dummydata_controlpotential.feather"))
   
 } else {

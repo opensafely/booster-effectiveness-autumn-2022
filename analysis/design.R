@@ -191,14 +191,20 @@ jsonlite::write_json(study_dates, path = here("lib", "design", "study-dates.json
 # matching variables ----
 
 # exact variables
-exact_variables <- c(
+exact_variables_control <- c(
   "agegroup_match",
-  "dosesbeforeindex_n",
-  "dose12_brand",
-  "dose3_brand",
-  "dose4_brand",
+  # "dosesbeforeindex_n",
+  "vax_primary_brand",
+  "vax_boostfirst_brand",
+  "vax_boostspring_brand",
   "cv",
   "region",
+  NULL
+)
+
+exact_variables_treated <- c(
+  exact_variables_control,
+  "index_date", 
   NULL
 )
 
@@ -207,10 +213,12 @@ caliper_variables <- c(
   age = 3,
   # match on `lastvaxbeforeindex_day` rather than `timesincelastvax` as the 
   # potential matches are less likely to fail in the actual stage
-  lastvaxbeforeindex_day = 14,
+  lastvaxbeforeindex_date = 14,
   NULL
 )
-matching_variables <- c(exact_variables, names(caliper_variables))
+
+matching_variables_control <- c(exact_variables_control, names(caliper_variables))
+matching_variables_treated <- c(exact_variables_treated, names(caliper_variables))
 
 # # covariates ----
 # 

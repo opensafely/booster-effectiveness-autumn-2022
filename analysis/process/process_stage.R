@@ -144,14 +144,16 @@ my_skim(data_extract, path = file.path(path_stem, "extract", glue("input_{stage}
 # process data -----
 
 # define index_date depending on stage
-stage_index_date <- case_when(
-  stage=="treated" ~ "vax_boostautumn_date",
-  stage=="controlpotential" ~ "matching_round_date",
-  stage=="controlactual" ~ "trial_date"
+stage_index_date <- list(
+  treated = "vax_boostautumn_date",
+  controlpotential = "matching_round_date",
+  controlactual = "trial_date"
 )
+
 # process variables
 data_processed <- data_extract %>%
-  mutate(index_date = !! sym(stage_index_date), .after=1) %>%
+  mutate(index_date = !! sym(stage_index_date[[stage]]), .after=1) %>%
+  select(-any_of(unname(unlist(stage_index_date)))) %>%
   # process jcvi variables
   mutate(
     
@@ -223,6 +225,7 @@ rm(data_extract)
 # read vaccination data
 data_vax <- read_rds(here("output", "initial", "eligible", "data_vax.rds")) 
 
+# process vaccination data
 data_vax_processed <- data_processed %>%
   select(patient_id, index_date) %>%
   # join long vaccination data
@@ -237,25 +240,35 @@ data_vax_processed <- data_processed %>%
       )
     , by = "patient_id"
     ) %>%
-  # only keep doses prior to index date
-  filter(date < index_date) %>%
-  # define date of last vaccine dose and number of doses prior to index
+  # only keep doses on or prior to index date
+  filter(date <= index_date) %>%
   group_by(patient_id) %>%
-  arrange(date, .by_group = TRUE) %>%
   mutate(
-    # flag if undefined dose between studystart and index_date
-    # (those with an undefined dose before studystart have already been dropped)
-    undefineddose = "undefined" %in% course, 
-    lastvaxbeforeindex_date = last(date),
-    dosesbeforeindex_n = n() + 1 # +1 because only one line for primary course
+    # flag if undefined dose between study_dates$boosterautumn$ages*  and index_date (inclusive)
+    # (those with an undefined dose before study_dates$boosterautumn$ages* have already been dropped)
+    undefineddose = "undefined" %in% course
   ) %>%
   ungroup() %>%
-  filter(!undefineddose) %>% # remove if undefined dose before index date
-  select(-c(index_date, date, undefineddose)) %>%
-  pivot_wider(
-    names_from = course,
-    values_from = brand,
-    names_glue = "{course}_brand"
+  # remove patients with undefined dose 
+  filter(!undefineddose) %>% 
+  # remove doses on the index date
+  filter(date < index_date) %>%
+  group_by(patient_id) %>%
+  arrange(date, .by_group = TRUE) %>%
+  summarise(
+    # date of last vaccine dose
+    lastvaxbeforeindex_date = last(date),
+    # number of doses prior to index
+    # dosesbeforeindex_n = n() + 1 # +1 because only one line for primary course
+  ) %>%
+  ungroup() %>%
+  left_join(
+    data_vax %>% 
+      select(
+        patient_id, 
+        matches("vax_(primary|boostfirst|boostspring|boostautumn)_(date|brand)")
+        ),
+    by = "patient_id"
   ) %>%
   mutate(across(matches("boost\\w+_brand"), ~replace_na(.x, "unboosted")))
 
@@ -284,13 +297,8 @@ data_criteria <- data_processed %>%
     # all vaccine variables will be missing for patients with an undefineddose
     # as such patients were dropped from data_vax_processed, 
     # just use primary_brand to flag
-    no_undefineddose = !is.na(primary_brand), 
+    no_undefineddose = !is.na(vax_primary_brand), 
     lastdoseinterval = !is.na(lastvaxbeforeindex_date) & (as.integer(index_date - lastvaxbeforeindex_date) >= 91),
-    # dosesbeforeindex = case_when(
-    #   age >= 75 & dosesbeforeindex_n < 5 ~ TRUE,
-    #   dosesbeforeindex_n < 4 ~ TRUE,
-    #   TRUE ~ FALSE
-    # ),
     has_sex = !is.na(sex),
     has_imd = !is.na(imd_Q5),
     has_ethnicity = !is.na(ethnicity),
@@ -305,34 +313,36 @@ data_criteria <- data_processed %>%
       TRUE ~ FALSE
     ),
     
-    c0_descr = "Satisfying initial eligibility criteria", 
+    # better to have the c*_descr next to the c* definition here, to ensure both updated following changes
+    # quite inefficient though in terms of memory, so encode as factors
+    c0_descr = factor("Satisfying initial eligibility criteria"), 
     c0 = TRUE, 
     
-    c1_descr = "  Registered with a TPP practice for less than one year", 
+    c1_descr = factor("  Registered with a TPP practice for less than one year"), 
     c1 = c0 & has_follow_up_previous_1year,
     
-    c2_descr = "  Undefined dose between studystart and index date",
+    c2_descr = factor("  Undefined dose between studystart and index date"),
     c2 = c1 & no_undefineddose,
     
-    c3_descr = "  Less than 3 months (91 days) since most recent vaccine dose",
+    c3_descr = factor("  Less than 3 months (91 days) since most recent vaccine dose"),
     c3 = c2 & lastdoseinterval,
     
-    c4_descr = "  Missing sex, IMD, ethnicity, geographical region",
+    c4_descr = factor("  Missing sex, IMD, ethnicity, geographical region"),
     c4 = c3 & has_sex & has_imd & has_ethnicity & has_region,
     
-    c5_descr = "  Care home residents, where known",
+    c5_descr = factor("  Care home residents, where known"),
     c5 = c4 & isnot_carehomeresident,
     
-    c6_descr = "  Health care workers, where known",
+    c6_descr = factor("  Health care workers, where known"),
     c6 = c5 & isnot_hscworker,
     
-    c7_descr = "  People who are considered to be near death, for example on palliative care pathways",
+    c7_descr = factor("  People who are considered to be near death, for example on palliative care pathways"),
     c7 = c6 & isnot_endoflife,
     
-    c8_descr = "  People who are housebound, where known",
+    c8_descr = factor("  People who are housebound, where known"),
     c8 = c7 & isnot_housebound,
     
-    c9_descr = "  People who are in hospital on an unplanned admission",
+    c9_descr = factor("  People who are in hospital on an unplanned admission"),
     c9 = c8 & isnot_inhospital,
     
     include = c9
@@ -351,7 +361,7 @@ data_eligible <- data_criteria %>%
 
 # save data_eligible ----
 my_skim(
-  data_eligible %>% select(-matches("c\\d+_descr")),
+  data_eligible,
   path = file.path(path_stem, "eligible", "data_eligible_skim.txt")
 )
 

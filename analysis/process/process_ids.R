@@ -36,7 +36,7 @@ data_matchstatus_relative <-read_rds(ghere("output", "matchround{n_matching_roun
 data_matchedtreated <- bind_rows(
   data_matchstatus_comparative %>% 
     filter(matched) %>% 
-    rename(trial_date = autumnbooster2022_date),
+    rename(trial_date = vax_boostautumn_date),
   data_matchstatus_relative %>% filter(treated == 1)
 ) %>%
   distinct(patient_id, trial_date)

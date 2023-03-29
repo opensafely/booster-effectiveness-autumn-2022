@@ -108,6 +108,16 @@ actions:
       highly_sensitive:
         rds: output/treated/matching/*.rds
 
+  table1_matching_comparative:
+    run: r:latest analysis/report/table1.R matching comparative
+    needs:
+    - process_treated
+    - match_treated
+    outputs:
+      moderately_sensitive:
+        csv: output/report/table1/table1_matching_comparative_rounded.csv
+        html: output/report/table1/table1_matching_comparative_rounded.html
+
   ## # # # # # # # # # # # # # # # # # # # 
   ## Extract, process and match control data 
   ## for relative effectiveness analysis 
@@ -244,6 +254,17 @@ actions:
         eligible_skim: output/matchround2/controlactual/eligible/*.txt
         process_skim: output/matchround2/controlactual/process/*.txt
 
+  table1_matching_relative:
+    run: r:latest analysis/report/table1.R matching relative
+    needs:
+    - process_treated
+    - process_controlactual_1
+    - process_controlactual_2
+    outputs:
+      moderately_sensitive:
+        csv: output/report/table1/table1_matching_relative_rounded.csv
+        html: output/report/table1/table1_matching_relative_rounded.html
+
   ## # # # # # # # # # # # # # # # # # # # 
   ## Extract and process covs and outcomes 
   ## for successfully matched data 
@@ -301,6 +322,30 @@ actions:
     outputs:
       highly_sensitive:
         cohort: output/final/outcomes/input_outcomes_control.feather
+
+  table1_covs_comparative:
+    run: r:latest analysis/report/table1.R covs comparative
+    needs:
+    - process_treated
+    - match_treated
+    - extract_covs_treated
+    outputs:
+      moderately_sensitive:
+        csv: output/report/table1/table1_covs_comparative_rounded.csv
+        html: output/report/table1/table1_covs_comparative_rounded.html
+
+  table1_covs_relative:
+    run: r:latest analysis/report/table1.R covs relative
+    needs:
+    - process_treated
+    - process_controlactual_1
+    - process_controlactual_2
+    - extract_covs_treated
+    - extract_covs_control
+    outputs:
+      moderately_sensitive:
+        csv: output/report/table1/table1_covs_relative_rounded.csv
+        html: output/report/table1/table1_covs_relative_rounded.html
 
   ## #### End #### 
 

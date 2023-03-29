@@ -26,9 +26,9 @@ args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) == 0) {
   # use for interactive testing
-  stage <- "treated"
+  # stage <- "treated"
   # stage <- "controlpotential"
-  # stage <- "controlactual"
+  stage <- "controlactual"
   # stage <- "controlfinal"
   matching_round <- as.integer("1")
 } else {
@@ -153,7 +153,6 @@ stage_index_date <- list(
 # process variables
 data_processed <- data_extract %>%
   mutate(index_date = !! sym(stage_index_date[[stage]]), .after=1) %>%
-  select(-any_of(unname(unlist(stage_index_date)))) %>%
   # process jcvi variables
   mutate(
     
@@ -274,6 +273,7 @@ data_vax_processed <- data_processed %>%
 
 # join to data_processed
 data_processed <- data_processed %>%
+  select(-any_of("vax_boostautumn_date")) %>% # as it's in data_vax_processed
   left_join(data_vax_processed, by = "patient_id")
 
 # tidy up
@@ -353,7 +353,7 @@ data_eligible <- data_criteria %>%
   filter(include) %>%
   select(patient_id) %>%
   left_join(
-    data_processed, #  maybe select specific variables to keep??
+    data_processed %>% select(-index_date), #  maybe select specific variables to keep??
     by="patient_id"
     ) %>%
   droplevels()
@@ -437,9 +437,9 @@ if (stage == "controlactual") {
   rematch <-
     # first join on exact variables + match_id + trial_date
     inner_join(
-      x=data_treated %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables))),
-      y=data_control %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables))),
-      by = c("match_id", "trial_date", exact_variables)
+      x=data_treated %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables_control))),
+      y=data_control %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables_control))),
+      by = c("match_id", "trial_date", exact_variables_control)
     ) 
   
   
@@ -553,8 +553,10 @@ if (stage == "controlactual") {
     my_skim(
       path = file.path(path_stem, "matching", "data_successful_matchedcontrols_skim.txt")
       )
+  
   data_successful_matchstatus %>% 
     filter(treated==0L) %>% 
+    select(-starts_with("vax_boostautumn")) %>%
     write_rds(
       file.path(path_stem, "matching", "data_successful_matchedcontrols.rds"), 
       compress="gz"

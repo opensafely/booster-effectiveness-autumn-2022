@@ -28,12 +28,6 @@ fs::dir_create(output_dir)
 ## one pow per patient ----
 data_treated <- read_rds(here("output", "treated", "eligible", "data_treated.rds"))
 
-# autumn booster brand info
-data_eligible_treated <- read_csv(
-  here("output", "initial", "eligible", "data_eligible_treated.csv.gz")
-  ) %>%
-  mutate(across(patient_id, as.integer))
-
 print(
   cat(
     glue("data_treated", " data size = ", nrow(data_treated)),
@@ -59,7 +53,7 @@ data_matchingcandidates <- data_treated %>%
     thread_id,
     thread_variable,
     patient_id,
-    index_date,
+    vax_boostautumn_date,
     vax_boostautumn_brand,
     all_of(matching_variables_treated),
   ) %>%
@@ -143,11 +137,11 @@ data_matchstatus <-
           threadmatch_id = NA_integer_,
           treatment = data_thread$treatment,
           weight = 0,
-          index_date = data_thread$index_date
+          vax_boostautumn_date = data_thread$vax_boostautumn_date
         )
       } else {
         as.data.frame(obj_matchit$X) %>%
-          select(index_date) %>%
+          select(vax_boostautumn_date) %>%
           add_column(
             patient_id = data_thread$patient_id,
             matched = !is.na(obj_matchit$subclass),
@@ -173,7 +167,7 @@ data_matchstatus <- data_matchstatus %>%
 write_rds(data_matchstatus, fs::path(output_dir, "data_matchstatus.rds"), compress="gz")
 
 data_matchstatus %>%
-  group_by(index_date, treatment, matched) %>%
+  group_by(vax_boostautumn_date, treatment, matched) %>%
   summarise(
     n=n()
   ) %>%

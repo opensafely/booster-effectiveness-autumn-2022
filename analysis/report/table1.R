@@ -26,11 +26,12 @@ args <- commandArgs(trailingOnly=TRUE)
 
 if(length(args)==0){
   # use for interactive testing
-  stage <- "matching_relative" 
-  # stage <- "matching_comparative" 
+  vars <- "covs" # "covs" "matching
+  effect <- "relative"
   # stage <- "final" 
 } else {
-  stage <- args[[1]]
+  vars <- args[[1]]
+  effect <- args[[2]]
 }
 
 ## create output directories ----
@@ -38,64 +39,77 @@ if(length(args)==0){
 output_dir <- here("output", "report", "table1")
 fs::dir_create(output_dir)
 
-if (stage == "matching_relative") {
-  
-  # source process_relative  
-  source(here("analysis", "process", "process_relative.R"))
-  data_table1 <- data_relative %>%
-    mutate(treated_desc = if_else(treated == 1, "Treated", "Control"))
-  rm(data_relative)
-  
-} else if (stage == "matching_comparative") {
-  
-  # source process_comparative
-  
-} else if (stage == "final") {
-  
-  
-}
+# derive data_stage
+source(here("analysis", "process", "process_postmatch.R"))
 
 # table 1 style baseline characteristics ----
 
 var_labels <- list(
+  
   N  ~ "Total N",
   
-  treated_desc ~ "Status",
+  treated_desc ~ "Status"
   
-  age ~ "Age",
-  age_factor ~ "Age (per year)",
-  agegroup_match ~ "Age group for matching",
-  sex ~ "Sex",
-  ethnicity ~ "Ethnicity",
-  imd_Q5 ~ "Deprivation",
-  region ~ "Region",
+  )
+
+if (vars == "matching") {
   
-  bmi ~ "Body mass index",
+  var_labels <- splice(
+    
+    var_labels,
+    
+    age ~ "Age",
+    age_factor ~ "Age (per year)",
+    agegroup_match ~ "Age group for matching",
+    sex ~ "Sex",
+    ethnicity ~ "Ethnicity",
+    imd_Q5 ~ "Deprivation",
+    region ~ "Region",
+    
+    learndis ~ "Learning disability",
+    sev_mental ~ "Severe mental illness",
+    immunosuppressed ~ "Immunouppressed",
+    
+    # multimorb ~ "Multimorbidity score",
+    
+    cv ~ "Clinically vulnerable",
+    
+    vax_primary_brand ~ "Primary course brand",
+    vax_boostfirst_brand ~ "First booster brand",
+    vax_boostspring_brand ~ "Spring booster brand",
+    vax_boostautumn_brand ~ "Autumn booster brand",
+    
+    # vax_primary_date ~ "Primary course date",
+    # vax_boostfirst_date ~ "First booster date",
+    # vax_boostspring_date ~ "Spring booster date",
+    # vax_boostautumn_date ~ "Autumn booster date",
+    
+    timesincelastvax ~ "Days since last dose"
+    
+  )
+    
+}
+
+if (vars == "covs") {
   
-  learndis ~ "Learning disability",
-  sev_mental ~ "Severe mental illness",
-  immunosuppressed ~ "Immunouppressed",
+  var_labels <- splice(
+    
+    var_labels,
+    
+    flu_vaccine ~ "Flu vaccine",
+    bmi ~ "Body mass index"
+    
+  )
   
-  # multimorb ~ "Multimorbidity score",
+}
   
-  cv ~ "Clinically vulnerable",
-  
-  flu_vaccine ~ "Flu vaccine",
-  
-  vax3_type_descr ~ "Third dose vaccine type",
-  dose12_brand ~ "Primary course vaccine brand",
-  dose3_brand ~ "First booster brand",
-  dose4_brand ~ "Spring booster brand",
-  timesincelastvax ~ "Days since last dose"
-  
-) %>%
+var_labels <- var_labels %>%
   set_names(., map_chr(., all.vars))
 
 map_chr(var_labels[-c(1,2)], ~last(as.character(.)))
 
 # use gtsummary to obtain standardized table 1 data
-tab_summary_baseline <-
-  data_table1 %>%
+tab_summary_baseline <- data_stage %>%
   mutate(
     N = 1L,
     # treated_desc = factor(treated, levels = as.integer(unname(recoder$treated)), names(recoder$treated)),
@@ -130,7 +144,7 @@ raw_stats_redacted <- raw_stats %>%
     variable_levels = replace_na(as.character(variable_levels), "")
   ) 
 
-write_csv(raw_stats_redacted, fs::path(output_dir, "table1_rounded.csv"))
+write_csv(raw_stats_redacted, fs::path(output_dir, glue("table1_{vars}_{effect}_rounded.csv")))
 
 table1_data <- raw_stats_redacted %>%
   rowwise() %>%
@@ -155,15 +169,4 @@ table1_review <- table1_data %>%
   )
 
 # table to help reviewing
-kableExtra::save_kable(table1_review, file = fs::path(output_dir, "table1_rounded.html"))
-
-# table for manuscript
-if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
-
-  table1_review_manuscript <- table1_data %>%
-    filter(var_label != "Age (per year)") %>%
-    flextable::flextable()
-   # TODO formatting
-
-}
-
+kableExtra::save_kable(table1_review, file = fs::path(output_dir, glue("table1_{vars}_{effect}_rounded.html")))

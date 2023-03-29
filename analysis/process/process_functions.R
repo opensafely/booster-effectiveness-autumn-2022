@@ -31,7 +31,7 @@ add_vars <- function(.data, vars, arms) {
   
   if (all(c("treated", "control") %in% arms)) {
     
-    by_vars <- c("patient_id", "trial_id")
+    by_vars <- c("patient_id", "trial_date")
     
   } else if (all(arms == "treated")) {
     
@@ -44,7 +44,7 @@ add_vars <- function(.data, vars, arms) {
     
   }
   
-  source(here::here("analysis", "process", "process_functions.R"))
+  # source(here::here("analysis", "process", "process_functions.R"))
   
   data_vars <- map_dfr(
     arms,

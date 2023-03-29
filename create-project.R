@@ -303,20 +303,40 @@ extract_vars <- function(vars, arm) {
 #   )
 # }
 # 
-# action_table1 <- function(cohort){
-#   action(
-#     name = glue("table1"),
-#     run = glue("r:latest analysis/matching/table1.R"),
-#     arguments = c(cohort),
-#     needs = namelesslst(
-#       glue("process_controlfinal"),
-#     ),
-#     moderately_sensitive= lst(
-#       csv= glue("output/table1/*.csv"),
-#       html= glue("output/table1/*.html")
-#     )
-#   )
-# }
+action_table1 <- function(vars, effect){
+  
+  needs_list <- "process_treated"
+  
+  if (effect == "comparative") needs_list <- c(needs_list, "match_treated")
+  
+  if (effect == "relative") {
+    
+    needs_list <- c(
+      needs_list, 
+      map_chr(1:n_matching_rounds, ~glue("process_controlactual_{.x}"))
+      )
+    
+  }
+  
+  if (vars == "covs") {
+    
+    needs_list <- c(needs_list, "extract_covs_treated")
+    
+    if (effect == "relative") needs_list <- c(needs_list, "extract_covs_control")  
+    
+  }
+  
+  action(
+    name = glue("table1_{vars}_{effect}"),
+    run = "r:latest analysis/report/table1.R",
+    arguments = c(vars, effect),
+    needs = as.list(needs_list),
+    moderately_sensitive = lst(
+      csv = glue("output/report/table1/table1_{vars}_{effect}_rounded.csv"),
+      html = glue("output/report/table1/table1_{vars}_{effect}_rounded.html")
+    )
+  )
+}
 # 
 # action_coverage <- function(cohort){
 #   action(
@@ -494,8 +514,13 @@ actions_list <- splice(
     )
   ),
   
+  # table1 for matched data for comparative effectiveness, matching variables
+  action_table1(
+    vars = "matching",
+    effect = "comparative"
+  ),
+  
   # TODO
-  # table1 for matching variables
   # matching coverage
   
   comment("# # # # # # # # # # # # # # # # # # #", 
@@ -505,8 +530,13 @@ actions_list <- splice(
   
   map(seq_len(n_matching_rounds), ~action_1matchround(.x)) %>% flatten(),
   
+  # table1 for matched data for relative effectiveness, matching variables
+  action_table1(
+    vars = "matching",
+    effect = "relative"
+  ),
+  
   # TODO
-  # table1 for matching variables
   # matching coverage
   
   comment("# # # # # # # # # # # # # # # # # # #", 
@@ -534,6 +564,18 @@ actions_list <- splice(
   extract_vars(vars = "covs", arm = "control"),
   extract_vars(vars = "outcomes", arm = "treated"),
   extract_vars(vars = "outcomes", arm = "control"),
+  
+  # table1 for matched data for comparative effectiveness, covariates
+  action_table1(
+    vars = "covs",
+    effect = "comparative"
+  ),
+  
+  # table1 for matched data for relative effectiveness, covariates
+  action_table1(
+    vars = "covs",
+    effect = "relative"
+  ),
   
   #####
   

@@ -84,7 +84,7 @@ if(matching_round>1){
 
 data_eligible <- bind_rows(data_treated, data_control) %>%
   mutate(
-    treatment_date = if_else(treated==1L, autumnbooster2022_date, as.Date(NA))
+    treatment_date = if_else(treated==1L, vax_boostautumn_date, as.Date(NA))
   ) 
 
 local({
@@ -144,7 +144,7 @@ local({
         # select controls
         treated==0L,
         # remove anyone already vaccinated
-        (autumnbooster2022_date > trial_date) | is.na(autumnbooster2022_date),
+        (vax_boostautumn_date > trial_date) | is.na(vax_boostautumn_date),
         # select only people not already selected as a control
         patient_id %in% candidate_ids
       ) %>%
@@ -170,7 +170,7 @@ local({
             patient_id, 
             treated,
             all_of(c(
-              exact_variables, 
+              exact_variables_control, 
               names(caliper_variables)
               )),
         ),
@@ -189,7 +189,7 @@ local({
         method = "nearest", distance = "glm", # these two options don't really do anything because we only want exact + caliper matching
         replace = FALSE,
         estimand = "ATT",
-        exact = exact_variables,
+        exact = exact_variables_control,
         caliper = caliper_variables, std.caliper=FALSE,
         m.order = "random",
         #verbose = TRUE,
@@ -238,12 +238,12 @@ local({
       filter(!is.na(match_id)) %>% # remove unmatched people. equivalent to weight != 0
       arrange(match_id, desc(treated)) %>%
       left_join(
-        data_eligible %>% select(patient_id, treated, autumnbooster2022_date),
+        data_eligible %>% select(patient_id, treated, vax_boostautumn_date),
         by = c("patient_id", "treated")
       ) %>%
       group_by(match_id) %>%
       mutate(
-        controlistreated_date = autumnbooster2022_date[treated==0], # this only works because of the group_by statement above! do not remove group_by statement!
+        controlistreated_date = vax_boostautumn_date[treated==0], # this only works because of the group_by statement above! do not remove group_by statement!
       ) %>%
       ungroup()
 
@@ -351,7 +351,7 @@ print(
 #       patient_id,
 #       treated,
 #       all_of(
-#         exact_variables#,
+#         exact_variables_control#,
 #         #names(caliper_variables)
 #       ),
 #     ),

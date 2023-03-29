@@ -204,7 +204,7 @@ exact_variables_control <- c(
 
 exact_variables_treated <- c(
   exact_variables_control,
-  "index_date", 
+  "vax_boostautumn_date", 
   NULL
 )
 

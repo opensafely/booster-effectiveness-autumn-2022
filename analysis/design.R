@@ -66,12 +66,12 @@ extract_increment <- 14
 
 study_dates$control_extract = seq(study_dates$studystart, study_dates$recruitmentend, extract_increment)
 
-# reduce the matching rounds for testing
+# reduce the match rounds for testing
 study_dates$control_extract <- study_dates$control_extract[1:2]
 
-# number of matching rounds to perform for each cohort
+# number of match rounds to perform for each cohort
 
-n_matching_rounds <- length(study_dates[["control_extract"]])
+n_match_rounds <- length(study_dates[["control_extract"]])
 
 jsonlite::write_json(study_dates, path = here("lib", "design", "study-dates.json"), auto_unbox=TRUE, pretty =TRUE)
 
@@ -108,58 +108,75 @@ jsonlite::write_json(study_dates, path = here("lib", "design", "study-dates.json
 # 
 # # define treatments ----
 # 
-# treatement_lookup <-
-#   tribble(
-#     ~dose, ~treatment, ~treatment_descr,
-#     "4", "xxx", "xxx",
-#     "3","pfizer", "BNT162b2",
-#     "3", "az", "ChAdOx1-S",
-#     "3", "moderna", "mRNA-1273",
-#     "primary", "pfizer-pfizer", "BNT162b2",
-#     "primary", "az-az", "ChAdOx1-S",
-#     "primary", "moderna-moderna", "mRNA-1273"
-#   )
+treatement_lookup <- tribble(
+  ~course, ~treatment, ~treatment_descr,
+  "boostaumtumn","pfizerbivalent", "BNT162b2-TODO",
+  "boostaumtumn", "modernabivalent", "mRNA-1273-TODO",
+  "boostspring","pfizer", "BNT162b2",
+  "boostspring", "moderna", "mRNA-1273",
+  "boostfirst","pfizer", "BNT162b2",
+  "boostfirst", "moderna", "mRNA-1273",
+  "primary", "pfizer", "BNT162b2",
+  "primary", "az", "ChAdOx1-S",
+  "primary", "moderna", "mRNA-1273"
+)
+
+comparison_definition <- tribble(
+  ~comparison, ~level0, ~level0_descr, ~level1, ~level1_descr,
+  "comparative", "pfizerbivalent", "BNT162b2-TODO", "modernabivalent", "mRNA-1273-TODO",
+  "relative", "unboosted", "Unboosted", "boosted", "Boosted",
+)
+
 # 
 # ## lookups to convert coded variables to full, descriptive variables ----
 # 
-# recoder <-
-#   lst(
-#     subgroups = c(
-#       `Main` = "all",
-#       `Third dose brand` = "vax3_type",
-#       `Prior SARS-CoV-2 infection` = "prior_covid_infection",
-#       `Primary course vaccine brand` = "vax12_type",
-#       `Age` = "agegroup"
-#     ),
-#     status = c(
-#       `Unmatched`= "unmatched",
-#       `Matched` = "matched"
-#     ),
-#     treated = c(
-#       `Two doses` = "0",
-#       `Three doses` = "1"
-#     ),
-#     outcome = set_names(events_lookup$event, events_lookup$event_descr),
-#     all = c(`Main` = "all"),
-#     prior_covid_infection = c(
-#       `No prior SARS-CoV-2 infection` = "FALSE",
-#       `Prior SARS-CoV-2 infection` = "TRUE"
-#     ),
-#     vax12_type = c(
-#       `BNT162b2` = "pfizer-pfizer",
-#       `ChAdOx1-S` = "az-az"
-#     ),
-#     vax3_type = c(
-#       `BNT162b2` = "pfizer",
-#       `mRNA-1273` = "moderna"
-#     ),
-#     agegroup = c(
-#       `18-49 years` = "18-49",
-#       `50-64 years` = "50-64",
-#       `65-79 years` = "65-79",
-#       `80+ years` = "80+"
-#     )
-#   )
+recoder <-
+  lst(
+    # subgroups = c(
+    #   `Main` = "all",
+    #   `Third dose brand` = "vax3_type",
+    #   `Prior SARS-CoV-2 infection` = "prior_covid_infection",
+    #   `Primary course vaccine brand` = "vax12_type",
+    #   `Age` = "agegroup"
+    # ),
+    status = c(
+      `Unmatched`= "unmatched",
+      `Matched` = "matched"
+    )#,
+    # outcome = set_names(events_lookup$event, events_lookup$event_descr),
+    # all = c(`Main` = "all"),
+    # prior_covid_infection = c(
+    #   `No prior SARS-CoV-2 infection` = "FALSE",
+    #   `Prior SARS-CoV-2 infection` = "TRUE"
+    # ),
+    # vax12_type = c(
+    #   `BNT162b2` = "pfizer-pfizer",
+    #   `ChAdOx1-S` = "az-az"
+    # ),
+    # vax3_type = c(
+    #   `BNT162b2` = "pfizer",
+    #   `mRNA-1273` = "moderna"
+    # ),
+    # agegroup = c(
+    #   `18-49 years` = "18-49",
+    #   `50-64 years` = "50-64",
+    #   `65-79 years` = "65-79",
+    #   `80+ years` = "80+"
+    # )
+  )
+
+# for the treated variables which are coded as 0 or 1
+for (i in c("comparative", "relative")) {
+  treatment_levels <- comparison_definition %>% filter(comparison==i) %>% select(matches("level\\d_descr")) %>% unlist() 
+  recoder[[i]] <- set_names(
+    as.integer(str_extract(names(treatment_levels), "\\d")),
+    unname(treatment_levels)
+  )
+  rm(treatment_levels)
+}
+
+
+
 # 
 # # subgroups <- c("all", "vax3_type", "prior_covid_infection", "vax12_type", "agegroup")
 # subgroups <- "all"
@@ -188,7 +205,7 @@ jsonlite::write_json(study_dates, path = here("lib", "design", "study-dates.json
 # }
 # 
 # 
-# matching variables ----
+# match variables ----
 
 # exact variables
 exact_variables_control <- c(
@@ -217,8 +234,8 @@ caliper_variables <- c(
   NULL
 )
 
-matching_variables_control <- c(exact_variables_control, names(caliper_variables))
-matching_variables_treated <- c(exact_variables_treated, names(caliper_variables))
+match_variables_control <- c(exact_variables_control, names(caliper_variables))
+match_variables_treated <- c(exact_variables_treated, names(caliper_variables))
 
 # # covariates ----
 # 

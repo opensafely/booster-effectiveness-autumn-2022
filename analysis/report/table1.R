@@ -39,8 +39,27 @@ if(length(args)==0){
 output_dir <- here("output", effect, "table1")
 fs::dir_create(output_dir)
 
-# derive data_stage
+# derive data_matched
 source(here("analysis", "process", "process_postmatch.R"))
+
+# add derive extra variables and add covariates if necessary
+if (vars == "match") {
+  data_matched <- data_matched %>%
+    # derive extra variables
+    mutate(
+      timesincelastvax = as.integer(trial_date - lastvaxbeforeindex_date)
+    )
+}
+if (vars == "covs") {
+  if (effect == "comparative") {
+    data_matched <- data_matched %>%
+      add_vars(vars = "covs", arms = "treated")
+  }
+  if (effect == "relative") {
+    data_matched <- data_matched %>%
+      add_vars(vars = "covs", arms = c("treated", "control"))
+  }
+}
 
 # table 1 style baseline characteristics ----
 
@@ -109,7 +128,7 @@ var_labels <- var_labels %>%
 map_chr(var_labels[-c(1,2)], ~last(as.character(.)))
 
 # use gtsummary to obtain standardized table 1 data
-tab_summary_baseline <- data_stage %>%
+tab_summary_baseline <- data_matched %>%
   mutate(
     N = 1L,
     treated_desc = factor(treated, levels = as.integer(unname(recoder[[effect]])), names(recoder[[effect]])),

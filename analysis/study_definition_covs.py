@@ -37,11 +37,11 @@ study = StudyDefinition(
   
   # This line defines the study population
   population = patients.which_exist_in_file(
-    f_path=f"output/final/eligible/data_matched{arm}.csv.gz"
+    f_path=f"output/postmatch/eligible/data_matched{arm}.csv.gz"
     ),
 
   trial_date = patients.with_value_from_file(
-    f_path=f"output/final/eligible/data_matched{arm}.csv.gz", 
+    f_path=f"output/postmatch/eligible/data_matched{arm}.csv.gz", 
     returning="trial_date", 
     returning_type="date", 
     date_format="YYYY-MM-DD"

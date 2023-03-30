@@ -1,6 +1,6 @@
 # # # # # # # # # # # # # # # # # # # # #
-# Purpose: describe matching results
-# reports on matching coverage
+# Purpose: describe match results
+# reports on match coverage
 # # # # # # # # # # # # # # # # # # # # #
 
 
@@ -12,13 +12,11 @@ library('tidyverse')
 library('lubridate')
 library('here')
 library('glue')
-library('arrow')
 
 ## import local functions and parameters ---
 
 source(here("analysis", "design.R"))
 source(here("lib", "functions", "utility.R"))
-source(here("lib", "functions", "redaction.R"))
 
 # import command-line arguments ----
 
@@ -27,16 +25,12 @@ args <- commandArgs(trailingOnly=TRUE)
 
 if(length(args)==0){
   # use for interactive testing
-  cohort <- "mrna"
+  effect <- "relative"
+  # effect <- "relative"
 } else {
   #FIXME replace with actual eventual action variables
-  cohort <- args[[1]]
+  effect <- args[[1]]
 }
-
-
-## get cohort-specific parameters study dates and parameters ----
-dates <- study_dates[[cohort]]
-
 
 if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
   
@@ -46,28 +40,31 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
   output_dir <- here("manuscript")
   fs::dir_create(output_dir)
   
-  data_coverage_rounded <- read_csv(here(release_dir, "matching", "data_coverage.csv"))
+  data_coverage_rounded <- read_csv(here(release_dir, "match", "data_coverage.csv"))
   
   
 } else {
   
   ## create output directories ----
   
-  output_dir <- here("output", cohort, "match", "coverage")
+  output_dir <- here("output", effect, "coverage")
   fs::dir_create(output_dir)
   
-  ## Import data and derive some variables ----
-  data_matched <- read_rds(ghere("output", cohort, "match", "data_matched.rds")) 
+  if (effect == "comparative") {
+    data_matchstatus_path <- here("output", "treated", "match", "data_matchstatus.rds")
+  }
+  if (effect == "relative") {
+    data_matchstatus_path <- ghere("output", "matchround{n_match_rounds}", "controlactual", "match", "data_matchstatus_allrounds.rds")
+  }
+  data_matchstatus <- read_rds(data_matchstatus_path)
   
-  data_treatedeligible_matchstatus <- read_rds(here("output", cohort, "match", "data_treatedeligible_matchstatus.rds"))
   
-  # matching coverage for boosted people
+  # match coverage for boosted people
   data_coverage <-
-    data_treatedeligible_matchstatus %>%
-    mutate(eligible=1) %>%
-    group_by(vax3_type, vax3_date) %>%
+    data_matchstatus %>%
+    group_by(treated, trial_date) %>%
     summarise(
-      n_eligible = sum(eligible, na.rm=TRUE),
+      n_eligible = n(),
       n_matched = sum(matched, na.rm=TRUE),
       .groups = "keep"
     ) %>%
@@ -81,30 +78,30 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
       names_prefix = "n_",
       values_to = "n"
     ) %>%
-    arrange(vax3_type, vax3_date, status) %>%
-    group_by(vax3_type, vax3_date, status) %>%
+    arrange(treated, trial_date, status) %>%
+    group_by(treated, trial_date, status) %>%
     summarise(
       n = sum(n),
       .groups = "keep"
     ) %>%
-    ungroup(vax3_date) %>%
+    ungroup(trial_date) %>%
     complete(
-      vax3_date = full_seq(.$vax3_date, 1), # go X days before to
+      trial_date = full_seq(.$trial_date, 1), # go X days before to
       fill = list(n=0)
     ) %>%
     mutate(
       cumuln = cumsum(n)
     ) %>%
     ungroup() %>%
-    mutate(
-      status = factor(status, levels=c("unmatched", "matched")),
-    ) %>%
-    arrange(vax3_type, status, vax3_date) 
+    # mutate(
+    #   status = factor(status, levels=unname(recoder$status)),
+    # ) %>%
+    arrange(treated, status, trial_date) 
   
   # save for release
   data_coverage_rounded <-
     data_coverage %>%
-    group_by(vax3_type, status) %>%
+    group_by(treated, status) %>%
     mutate(
       cumuln = roundmid_any(cumuln, to = threshold),
       n = diff(c(0,cumuln)),
@@ -115,19 +112,19 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
   
 }
 
-## plot matching coverage ----
+## plot match coverage ----
 
 data_plot <- data_coverage_rounded %>%
   mutate(
-    vax3_type_indicator = vax3_type=="pfizer",
-    treatment_descr = fct_recoderelevel(as.character(vax3_type), recoder$vax3_type),
-    status_descr = fct_recoderelevel(status, recoder$status),
-    n=n*((vax3_type_indicator*2) - 1),
-    cumuln=cumuln*((vax3_type_indicator*2) - 1)
+    # vax3_type_indicator = vax3_type=="pfizer",
+    treated_descr = fct_recoderelevel(treated, recoder[[effect]]), #TODO
+    status_descr = fct_recoderelevel(status, recoder$status), #TODO
+    n=n*((treated*2) - 1),
+    cumuln=cumuln*((treated*2) - 1)
   )
 
-xmin <- min(data_plot$vax3_date )
-xmax <- max(data_plot$vax3_date )+1
+xmin <- min(data_plot$trial_date)
+xmax <- max(data_plot$trial_date)+1
 
 # this is necessary because there is an older version of a package in opensafely and I think it requires breaks to be unique
 if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
@@ -136,20 +133,28 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
   y_labels <- waiver()
 }
 
-colour_palette <- c(
-  "BNT162b2" = "#e7298a", # dark pink 
-  "mRNA-1273" = "#7570b3" # dark purple 
+colour_palette <- list(
+  comparative = c(
+    "#e7298a", # dark pink 
+    "#7570b3" # dark purple 
+  ),
+  relative = c(
+    # change thes to something different from comparative
+    "#e7298a", # dark pink 
+    "#7570b3" # dark purple 
+  )
 )
+names(colour_palette[[effect]]) <- names(recoder[[effect]])
 
 plot_coverage_n <-
   data_plot %>%
   ggplot() +
   geom_col(
     aes(
-      x=vax3_date+0.5,
+      x=trial_date+0.5,
       y=n,
-      group=paste0(vax3_type,status),
-      fill=treatment_descr,
+      group=paste0(treated, status),
+      fill=treated_descr,
       alpha=status,
       # alpha=fct_rev(status),
       colour=NULL
@@ -160,7 +165,7 @@ plot_coverage_n <-
   ) +
   geom_hline(yintercept = 0, colour="black") +
   scale_x_date(
-    breaks = unique(lubridate::ceiling_date(data_coverage_rounded$vax3_date, "1 month")),
+    breaks = unique(lubridate::ceiling_date(data_coverage_rounded$trial_date, "1 month")),
     limits = c(xmin-1, NA),
     labels = scales::label_date("%b %Y"),
     expand = expansion(add=7),
@@ -169,8 +174,8 @@ plot_coverage_n <-
     labels = y_labels,
     expand = expansion(c(0, NA)),
   ) +
-  scale_fill_manual(values = colour_palette) +
-  scale_colour_manual(values = colour_palette) +
+  scale_fill_manual(values = colour_palette[[effect]]) +
+  scale_colour_manual(values = colour_palette[[effect]]) +
   scale_alpha_discrete(range= c(0.8,0.4))+
   labs(
     x="Date",
@@ -198,17 +203,17 @@ plot_coverage_cumuln <-
   ggplot()+
   geom_area(
     aes(
-      x=vax3_date+0.5,
+      x=trial_date+0.5,
       y=cumuln,
-      group=paste0(vax3_type,status),
-      fill=treatment_descr,
+      group=paste0(treated_descr,status),
+      fill=treated_descr,
       alpha=status,
       # alpha=fct_rev(status),
       colour=NULL
     ),
     position=position_stack(reverse=TRUE),
     width=1
-  )+
+  ) +
   geom_rect(xmin=xmin, xmax= xmax+1, ymin=-6, ymax=6, fill="grey", colour="transparent")+
   scale_x_date(
     breaks = unique(lubridate::ceiling_date(data_coverage_rounded$vax3_date, "1 month")),
@@ -220,8 +225,8 @@ plot_coverage_cumuln <-
     labels = y_labels,
     expand = expansion(c(0, NA))
   )+
-  scale_fill_manual(values = colour_palette) +
-  scale_colour_manual(values = colour_palette) +
+  scale_fill_manual(values = colour_palette[[effect]]) +
+  scale_colour_manual(values = colour_palette[[effect]]) +
   scale_alpha_discrete(range= c(0.8,0.4))+
   labs(
     x="Date",

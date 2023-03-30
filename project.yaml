@@ -99,8 +99,8 @@ actions:
   ## Match treated for comparative effectiveness 
   ## # # # # # # # # # # # # # # # # # # # 
 
-  match_treated:
-    run: r:latest analysis/match/match_treated.R
+  match_comparative:
+    run: r:latest analysis/match/match_comparative.R
     needs:
     - process_initial
     - process_treated
@@ -112,7 +112,7 @@ actions:
     run: r:latest analysis/report/table1.R match comparative
     needs:
     - process_treated
-    - match_treated
+    - match_comparative
     outputs:
       moderately_sensitive:
         csv: output/comparative/table1/table1_match_comparative_rounded.csv
@@ -122,7 +122,7 @@ actions:
     run: r:latest analysis/match/coverage.R comparative
     needs:
     - process_treated
-    - match_treated
+    - match_comparative
     outputs:
       moderately_sensitive:
         csv: output/comparative/coverage/*.csv
@@ -279,7 +279,6 @@ actions:
     run: r:latest analysis/match/coverage.R relative
     needs:
     - process_treated
-    - process_controlactual_1
     - process_controlactual_2
     outputs:
       moderately_sensitive:
@@ -298,7 +297,7 @@ actions:
   process_ids:
     run: r:latest analysis/process/process_ids.R
     needs:
-    - match_treated
+    - match_comparative
     - process_controlactual_2
     outputs:
       highly_sensitive:
@@ -350,7 +349,7 @@ actions:
     run: r:latest analysis/report/table1.R covs comparative
     needs:
     - process_treated
-    - match_treated
+    - match_comparative
     - extract_covs_treated
     outputs:
       moderately_sensitive:

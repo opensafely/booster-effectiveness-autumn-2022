@@ -212,68 +212,69 @@ extract_vars <- function(vars, arm) {
   
 }
 
-# 
-# actions_model <- function(cohort, subgroup, outcome){
-#   
-#   model_needs <- namelesslst(
-#     glue("process_controlfinal")
-#   )
-#   if (outcome %in% c("cvddeath", "cancerdeath")) {
-#     model_needs <- namelesslst(
-#       glue("process_controlfinal"),
-#       glue("extract_noncoviddeathcause")
-#     )
-#   }
-#   
-#   splice(
-#     
-#     comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
-#             glue("cohort={cohort}; subgroup={subgroup}; outcome={outcome};"),
-#             "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
-#     
-#     # km
-#     action(
-#       name = glue("km_{subgroup}_{outcome}"),
-#       run = glue("r:latest analysis/model/km.R"),
-#       arguments = c(cohort, subgroup, outcome),
-#       needs = model_needs,
-#       moderately_sensitive= lst(
-#         rds = glue("output/models/km/{subgroup}/{outcome}/*.csv"),
-#         png = glue("output/models/km/{subgroup}/{outcome}/*.png")
-#       )
-#     ),
-#     # cox
-#     expand_grid(
-#       cohort=cohort,
-#       subgroup=subgroup,
-#       outcome=outcome,
-#       type=c("unadj", "adj"),
-#       cuts=c("cuts", "overall")
-#     ) %>%
-#       pmap(
-#         function(type, cohort, subgroup, outcome, cuts) {
-#           
-#           # don't add suffix when cuts="cuts" to avoid having to rerun models that
-#           # have already completed
-#           name_suffix <- if_else(cuts == "cuts", "", paste0("_", cuts))
-#           
-#           action(
-#             name = glue("cox_{type}_{subgroup}_{outcome}", name_suffix),
-#             run = glue("r:latest analysis/model/cox.R"),
-#             arguments = c(cohort, type, subgroup, outcome, cuts),
-#             needs = model_needs,
-#             moderately_sensitive= lst(
-#               csv = glue("output/models/cox_{type}/{subgroup}/{outcome}/cox_{type}_contrasts_{cuts}_*.csv")
-#             )
-#           )
-#         }
-#       ) %>%
-#       unlist(recursive = FALSE)
-#     
-#   )
-# }
-# 
-# 
+
+actions_model <- function(effect, subgroup, outcome){
+
+  model_needs <- namelesslst(
+    glue("process_controlfinal")
+  )
+  if (outcome %in% c("cvddeath", "cancerdeath")) {
+    model_needs <- namelesslst(
+      glue("process_controlfinal"),
+      glue("extract_noncoviddeathcause")
+    )
+  }
+
+  splice(
+
+    comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
+            glue("cohort={cohort}; subgroup={subgroup}; outcome={outcome};"),
+            "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
+
+    # km
+    action(
+      name = glue("km_{effect}_{subgroup}_{outcome}"),
+      run = glue("r:latest analysis/model/km.R"),
+      arguments = c(effect, subgroup, outcome),
+      needs = model_needs,
+      moderately_sensitive= lst(
+        rds = glue("output/{effect}/model/km/{subgroup}/{outcome}/*.csv"),
+        png = glue("output/{effect}/model/km/{subgroup}/{outcome}/*.png")
+      )
+    )#,
+    
+    # # cox
+    # expand_grid(
+    #   cohort=cohort,
+    #   subgroup=subgroup,
+    #   outcome=outcome,
+    #   type=c("unadj", "adj"),
+    #   cuts=c("cuts", "overall")
+    # ) %>%
+    #   pmap(
+    #     function(type, cohort, subgroup, outcome, cuts) {
+    # 
+    #       # don't add suffix when cuts="cuts" to avoid having to rerun models that
+    #       # have already completed
+    #       name_suffix <- if_else(cuts == "cuts", "", paste0("_", cuts))
+    # 
+    #       action(
+    #         name = glue("cox_{type}_{subgroup}_{outcome}", name_suffix),
+    #         run = glue("r:latest analysis/model/cox.R"),
+    #         arguments = c(cohort, type, subgroup, outcome, cuts),
+    #         needs = model_needs,
+    #         moderately_sensitive= lst(
+    #           csv = glue("output/models/cox_{type}/{subgroup}/{outcome}/cox_{type}_contrasts_{cuts}_*.csv")
+    #         )
+    #       )
+    #     }
+    #   ) %>%
+    #   unlist(recursive = FALSE)
+
+  )
+}
+
+
 # ## model action function ----
 # action_combine <- function(
 #     cohort
@@ -339,34 +340,28 @@ action_table1 <- function(vars, effect){
 }
 
 action_coverage <- function(effect){
+  
+  needs_list <- "process_treated"
+  
+  if (effect == "comparative") needs_list <- c(needs_list, "match_comparative")
+  
+  if (effect == "relative") {
+    
+    needs_list <- c(needs_list, glue("process_controlactual_{n_match_rounds}"))
+    
+  }
+  
   action(
     name = glue("coverage_{effect}"),
     run = "r:latest analysis/match/coverage.R",
     arguments = c(effect),
-    needs = namelesslst(
-      glue("process_controlfinal"),
-    ),
+    needs = as.list(needs_list),
     moderately_sensitive= lst(
-      csv= glue("output/match/coverage/*.csv"),
-      png= glue("output/match/coverage/*.png"),
+      csv= glue("output/{effect}/coverage/*.csv"),
+      png= glue("output/{effect}/coverage/*.png"),
     )
   )
 }
-# 
-# action_cinc_dose4 <- function(cohort){
-#   action(
-#     name = glue("cinc_dose4"),
-#     run = glue("r:latest analysis/model/cinc_dose4.R"),
-#     arguments = c(cohort),
-#     needs = namelesslst(
-#       glue("process_controlfinal"),
-#     ),
-#     moderately_sensitive= lst(
-#       csv= glue("output/models/cinc_dose4/*.csv"),
-#       png= glue("output/models/cinc_dose4/*.png")
-#     )
-#   )
-# }
 
 # specify project ----
 
@@ -520,8 +515,8 @@ actions_list <- splice(
     effect = "comparative"
   ),
   
-  # TODO
   # match coverage
+  action_coverage("comparative"),
   
   comment("# # # # # # # # # # # # # # # # # # #", 
           "Extract, process and match control data", 
@@ -536,8 +531,8 @@ actions_list <- splice(
     effect = "relative"
   ),
   
-  # TODO
   # match coverage
+  action_coverage("relative"),
   
   comment("# # # # # # # # # # # # # # # # # # #", 
           "Extract and process covs and outcomes", 
@@ -576,6 +571,14 @@ actions_list <- splice(
     vars = "covs",
     effect = "relative"
   ),
+  
+  comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
+          "Fit models to estimate comparative effectiveness",
+          "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
+  
+  comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
+          "Fit models to estimate relative effectiveness",
+          "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
   
   #####
   

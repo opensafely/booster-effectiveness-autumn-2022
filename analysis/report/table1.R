@@ -1,5 +1,5 @@
 # # # # # # # # # # # # # # # # # # # # #
-# Purpose: describe matching results
+# Purpose: describe match results
 # creates "table 1"
 # # # # # # # # # # # # # # # # # # # # #
 
@@ -26,8 +26,8 @@ args <- commandArgs(trailingOnly=TRUE)
 
 if(length(args)==0){
   # use for interactive testing
-  vars <- "covs" # "covs" "matching
-  effect <- "relative"
+  vars <- "match" # "covs" "match
+  effect <- "comparative"
   # stage <- "final" 
 } else {
   vars <- args[[1]]
@@ -36,7 +36,7 @@ if(length(args)==0){
 
 ## create output directories ----
 
-output_dir <- here("output", "report", "table1")
+output_dir <- here("output", effect, "table1")
 fs::dir_create(output_dir)
 
 # derive data_stage
@@ -52,7 +52,7 @@ var_labels <- list(
   
   )
 
-if (vars == "matching") {
+if (vars == "match") {
   
   var_labels <- splice(
     
@@ -60,7 +60,7 @@ if (vars == "matching") {
     
     age ~ "Age",
     age_factor ~ "Age (per year)",
-    agegroup_match ~ "Age group for matching",
+    agegroup_match ~ "Age group for match",
     sex ~ "Sex",
     ethnicity ~ "Ethnicity",
     imd_Q5 ~ "Deprivation",
@@ -112,7 +112,7 @@ map_chr(var_labels[-c(1,2)], ~last(as.character(.)))
 tab_summary_baseline <- data_stage %>%
   mutate(
     N = 1L,
-    # treated_desc = factor(treated, levels = as.integer(unname(recoder$treated)), names(recoder$treated)),
+    treated_desc = factor(treated, levels = as.integer(unname(recoder[[effect]])), names(recoder[[effect]])),
     # summarise for each year of age
     age_factor = factor(age, levels=sort(unique(age)))
   ) %>%

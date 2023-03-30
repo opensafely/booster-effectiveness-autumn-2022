@@ -2,7 +2,7 @@
 
 if (effect == "comparative") {
   
-  data_stage <- local({
+  data_matched <- local({
     
     # read treated data
     data_treated <- read_rds(here("output", "treated", "eligible", "data_treated.rds"))
@@ -24,7 +24,7 @@ if (effect == "comparative") {
 
 if (effect == "relative") {
   
-  data_stage <- local({
+  data_matched <- local({
     
     # read data
     data_matchstatus_allrounds <- read_rds(
@@ -48,20 +48,6 @@ if (effect == "relative") {
       )
     )
     
-    # # import covariates and outcomes
-    # import_vars <- function(vars) {
-    #   
-    #   map_dfr(
-    #     c("treated", "control"),
-    #     ~arrow::read_feather(here("output", "final", vars, glue("input_{vars}_", .x, ".feather")))
-    #   ) %>%
-    #     process_input()
-    #   
-    # }
-    # 
-    # data_covs <- import_vars("covs")
-    # data_outcomes <- import_vars("outcomes")
-    
     # combine all datasets
     data_relative <- bind_rows(data_treated, data_control) %>%
       mutate(treated_desc = factor(treated, levels = c(0,1), labels = c("Unboosted", "Boosted")))
@@ -71,34 +57,3 @@ if (effect == "relative") {
   })
   
 }
-
-if (vars == "match") {
-  
-  data_stage <- data_stage %>%
-    # derive extra variables
-    mutate(
-      timesincelastvax = as.integer(trial_date - lastvaxbeforeindex_date)
-    )
-  
-}
-
-if (vars == "covs") {
-  
-  if (effect == "comparative") {
-    
-    data_stage <- data_stage %>%
-      add_vars(vars = "covs", arms = "treated")
-    
-  }
-  
-  if (effect == "relative") {
-    
-    data_stage <- data_stage %>%
-      add_vars(vars = "covs", arms = c("treated", "control"))
-    
-  }
-  
-  
-}
-
-  

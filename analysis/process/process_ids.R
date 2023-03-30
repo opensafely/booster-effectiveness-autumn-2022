@@ -21,16 +21,16 @@ source(here("lib", "functions", "utility.R"))
 # source(here("analysis", "process", "process_functions.R"))
 
 # create output directory
-outdir <- here("output", "final", "eligible")
+outdir <- here("output", "postmatch", "eligible")
 fs::dir_create(outdir)
 
 # read matched data for comparative and relative effectiveness
 
 # comparative:
-data_matchstatus_comparative <-read_rds(here("output", "treated", "matching", "data_matchstatus.rds"))
+data_matchstatus_comparative <-read_rds(here("output", "treated", "match", "data_matchstatus.rds"))
 
 # relative:
-data_matchstatus_relative <-read_rds(ghere("output", "matchround{n_matching_rounds}", "controlactual", "matching", "data_matchstatus_allrounds.rds"))
+data_matchstatus_relative <-read_rds(ghere("output", "matchround{n_match_rounds}", "controlactual", "match", "data_matchstatus_allrounds.rds"))
 
 # treated and matched:
 data_matchedtreated <- bind_rows(
@@ -86,7 +86,7 @@ data_matchedcontrol %>%
 # my_skim(data_extract, path = ghere("output", "final", "extract", "input_controlfinal_skim.txt"))
 # 
 # # process the final dataset ----
-# data_matchstatus <- read_rds(ghere("output", cohort, "matchround{n_matching_rounds_list[[cohort]]}", "actual", "data_matchstatus_allrounds.rds"))
+# data_matchstatus <- read_rds(ghere("output", cohort, "matchround{n_match_rounds_list[[cohort]]}", "actual", "data_matchstatus_allrounds.rds"))
 # 
 # data_treatedeligible <- read_rds(ghere("output", xxx, "treated", "data_treatedeligible.rds"))
 # 
@@ -101,16 +101,16 @@ data_matchedcontrol %>%
 # # import extracted data from controls
 # 
 # 
-# # import final dataset of matched controls, including matching variables
+# # import final dataset of matched controls, including match variables
 # # alternative to this is re-extracting everything in the study definition
 # data_control <- 
 #   data_matchstatus %>% filter(treated==0L) %>%
 #   left_join(
 #     map_dfr(
-#       seq_len(n_matching_rounds_list[[cohort]]), 
+#       seq_len(n_match_rounds_list[[cohort]]), 
 #       ~{read_rds(ghere("output", cohort, glue("matchround", .x), "actual", "data_successful_matchedcontrols.rds"))}
 #     ) %>% select(-match_id, -trial_date, -treated, -controlistreated_date), # remove to avoid clash with already-stored variables
-#     by=c("patient_id", "matching_round")
+#     by=c("patient_id", "match_round")
 #   ) %>%
 #   # merge with outcomes data
 #   left_join(
@@ -121,7 +121,7 @@ data_matchedcontrol %>%
 #     treated=0L
 #   )
 # 
-# # check final data agrees with matching status
+# # check final data agrees with match status
 # 
 # all(data_control$patient_id %in% (data_matchstatus %>% filter(treated==0L) %>% pull(patient_id)))
 # all((data_matchstatus %>% filter(treated==0L) %>% pull(patient_id)) %in% data_control$patient_id)
@@ -138,7 +138,7 @@ data_matchedcontrol %>%
 #   select(
 #     ends_with("_id"),
 #     starts_with(other_variables),
-#     any_of(c(matching_variables, covariates, events_lookup$event_var, subgroups))
+#     any_of(c(match_variables, covariates, events_lookup$event_var, subgroups))
 #   )
 # 
 # # for reading into analysis scripts
@@ -171,7 +171,7 @@ data_matchedcontrol %>%
 #     path = here("output", cohort, "match", "data_matched_treated_skim.txt")
 #   )
 # 
-# # matching status of all treated, eligible people ----
+# # match status of all treated, eligible people ----
 # 
 # data_treatedeligible_matchstatus <- 
 #   left_join(

@@ -32,11 +32,13 @@ add_vars <- function(.data, vars, arms) {
   if (all(c("treated", "control") %in% arms)) {
     
     by_vars <- c("patient_id", "trial_date")
+    remove_vars <- NULL
     
   } else if (all(arms == "treated")) {
     
     # omit trial_id here as not needed and will slow down
     by_vars <- "patient_id"
+    remove_vars <- "trial_date"
     
   } else {
     
@@ -53,6 +55,8 @@ add_vars <- function(.data, vars, arms) {
     process_input()
   
   .data %>%
+    # the next line is to move trial_date when arms=="treated"
+    select(-all_of(remove_vars)) %>%
     left_join(data_vars, by = by_vars)
   
 }
@@ -78,22 +82,21 @@ add_vars <- function(.data, vars, arms) {
 
 ################################################################################
 
-# process_outcome <- function(.data) {
-#   
-#   .data %>%
-#     mutate(
-#       
-#       # earliest covid event after study start
-#       anycovid_date = pmin(postest_date, covidemergency_date, covidadmitted_date, covidcritcare_date, coviddeath_date, na.rm=TRUE),
-#       
-#       noncoviddeath_date = if_else(!is.na(death_date) & is.na(coviddeath_date), death_date, as.Date(NA_character_)),
-#       # cvd or cancer deaths must be non-covid
-#       # cvddeath_date = if_else(!is.na(cvddeath_date) & is.na(coviddeath_date), death_date, as.Date(NA_character_)),
-#       # cancerdeath_date = if_else(!is.na(cancerdeath_date) & is.na(coviddeath_date), death_date, as.Date(NA_character_)),
-#       
-#       covidcritcareordeath_date = pmin(covidcritcare_date, coviddeath_date, na.rm=TRUE),
-#       
-#       fracture_date = pmin(fractureemergency_date, fractureadmitted_date, fracturedeath_date, na.rm=TRUE)
-#       
-#     )
-# }
+process_outcomes <- function(.data) {
+
+  .data %>%
+    mutate(
+
+      noncoviddeath_date = if_else(!is.na(death_date) & is.na(coviddeath_date), death_date, as.Date(NA_character_)),
+      # cvd or cancer deaths must be non-covid
+      # cvddeath_date = if_else(!is.na(cvddeath_date) & is.na(coviddeath_date), death_date, as.Date(NA_character_)),
+      # cancerdeath_date = if_else(!is.na(cancerdeath_date) & is.na(coviddeath_date), death_date, as.Date(NA_character_)),
+
+      covidcritcareordeath_date = pmin(covidcritcare_date, coviddeath_date, na.rm=TRUE),
+
+      fracture_date = pmin(fractureemergency_date, fractureadmitted_date, fracturedeath_date, na.rm=TRUE)
+      
+      # TODO also derive censoring events here
+
+    )
+}

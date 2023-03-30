@@ -307,7 +307,7 @@ action_table1 <- function(vars, effect){
   
   needs_list <- "process_treated"
   
-  if (effect == "comparative") needs_list <- c(needs_list, "match_treated")
+  if (effect == "comparative") needs_list <- c(needs_list, "match_comparative")
   
   if (effect == "relative") {
     
@@ -503,8 +503,8 @@ actions_list <- splice(
           "# # # # # # # # # # # # # # # # # # #"),
   
   action(
-    name = "match_treated",
-    run = "r:latest analysis/match/match_treated.R",
+    name = "match_comparative",
+    run = "r:latest analysis/match/match_comparative.R",
     needs = namelesslst(
       "process_initial",
       "process_treated"
@@ -552,7 +552,7 @@ actions_list <- splice(
     name = "process_ids",
     run = "r:latest analysis/process/process_ids.R",
     needs = namelesslst(
-      "match_treated",
+      "match_comparative",
       glue("process_controlactual_{n_match_rounds}")
     ),
     highly_sensitive = lst(

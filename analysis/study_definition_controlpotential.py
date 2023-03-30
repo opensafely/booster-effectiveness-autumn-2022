@@ -15,7 +15,7 @@ from cohortextractor import (
 )
 
 # define params
-matching_round = int(params["matching_round"])
+match_round = int(params["match_round"])
 index_date = params["index_date"]
 
 ############################################################

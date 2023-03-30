@@ -51,13 +51,29 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
   fs::dir_create(output_dir)
   
   if (effect == "comparative") {
-    data_matchstatus_path <- here("output", "treated", "match", "data_matchstatus.rds")
+    
+    data_matchstatus <- read_rds(here("output", "treated", "match", "data_matchstatus.rds"))
+    
   }
   if (effect == "relative") {
-    data_matchstatus_path <- ghere("output", "matchround{n_match_rounds}", "controlactual", "match", "data_matchstatus_allrounds.rds")
+    
+    data_matchstatus <- read_rds(ghere("output", "matchround{n_match_rounds}", "controlactual", "match", "data_matchstatus_allrounds.rds"))
+    
+    data_matchstatus <- data_matchstatus %>%
+      # when effect=relative one plot marching for treated individuals 
+      filter(treated == 1) %>%
+      right_join(
+        # read in data from all people eligible for the treated group
+        read_rds(here("output", "treated", "eligible", "data_treated.rds")) %>%
+          select(patient_id, trial_date = vax_boostautumn_date), 
+        by = c("patient_id", "trial_date")
+        ) %>%
+      mutate(
+        treated = 1,
+        matched = !is.na(match_id)
+      )
+      
   }
-  data_matchstatus <- read_rds(data_matchstatus_path)
-  
   
   # match coverage for boosted people
   data_coverage <-
@@ -140,8 +156,8 @@ colour_palette <- list(
   ),
   relative = c(
     # change thes to something different from comparative
-    "#e7298a", # dark pink 
-    "#7570b3" # dark purple 
+    "#e7298a", # dark pink
+    "#7570b3" # dark purple
   )
 )
 names(colour_palette[[effect]]) <- names(recoder[[effect]])

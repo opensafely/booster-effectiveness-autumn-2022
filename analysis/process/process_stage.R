@@ -30,7 +30,7 @@ if (length(args) == 0) {
   # stage <- "controlpotential"
   stage <- "controlactual"
   # stage <- "controlfinal"
-  matching_round <- as.integer("1")
+  match_round <- as.integer("1")
 } else {
   stage <- args[[1]]
   if (stage %in% "treated") {
@@ -38,9 +38,9 @@ if (length(args) == 0) {
       stop("No additional args to be specified when `stage=\"treated\"")
   } else {
     if (length(args) == 1) {
-      stop("`matching_round` must be specified when `stage=\"controlpotential\"` or \"controlactual\"")
+      stop("`match_round` must be specified when `stage=\"controlpotential\"` or \"controlactual\"")
     }
-    matching_round <- as.integer(args[[2]]) # NULL if treated    
+    match_round <- as.integer(args[[2]]) # NULL if treated    
   } 
 } 
 
@@ -50,10 +50,10 @@ if (stage == "treated") {
   fs::dir_create(file.path(path_stem, "flowchart"))
   custom_path <- file.path(path_stem, "dummydata", "dummydata_treated.feather")
 } else if (stage %in% c("controlpotential", "controlactual")) {
-  path_stem <- ghere("output", "matchround{matching_round}", stage)
-  fs::dir_create(file.path(path_stem, "matching"))
+  path_stem <- ghere("output", "matchround{match_round}", stage)
+  fs::dir_create(file.path(path_stem, "match"))
   custom_path <- here("output", "matchround1", "controlpotential", "dummydata", "dummydata_controlpotential.feather")
-  matching_round_date <- study_dates$control_extract[matching_round]
+  match_round_date <- study_dates$control_extract[match_round]
 }
 fs::dir_create(file.path(path_stem, "eligible"))
 fs::dir_create(file.path(path_stem, "process"))
@@ -71,7 +71,7 @@ if (stage == "controlactual") {
   ## trial info for potential matches in round X
   data_potential_matchstatus <- 
     read_rds(
-      ghere("output", "matchround{matching_round}", "controlpotential", "matching", "data_potential_matchstatus.rds")
+      ghere("output", "matchround{match_round}", "controlpotential", "match", "data_potential_matchstatus.rds")
       ) %>% 
     filter(matched==1L)
   
@@ -123,7 +123,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
 }
 
 
-# add certain matching variables
+# add certain match variables
 if (stage == "controlactual") {
   
   # add: treated 
@@ -146,7 +146,7 @@ my_skim(data_extract, path = file.path(path_stem, "extract", glue("input_{stage}
 # define index_date depending on stage
 stage_index_date <- list(
   treated = "vax_boostautumn_date",
-  controlpotential = "matching_round_date",
+  controlpotential = "match_round_date",
   controlactual = "trial_date"
 )
 
@@ -409,7 +409,7 @@ if (stage == "treated") {
   
 }
 
-# check matching (only when stage="actual") ----
+# check match (only when stage="actual") ----
 if (stage == "controlactual") { 
   
   data_control <- data_eligible
@@ -425,13 +425,13 @@ if (stage == "controlactual") {
       by="patient_id"
     )
   
-  matching_candidates <- 
+  match_candidates <- 
     bind_rows(data_treated, data_control) %>%
     arrange(treated, match_id, trial_date)
   
   #print missing values
-  matching_candidates_missing <- map(matching_candidates, ~any(is.na(.x)))
-  sort(names(matching_candidates_missing[unlist(matching_candidates_missing)]))
+  match_candidates_missing <- map(match_candidates, ~any(is.na(.x)))
+  sort(names(match_candidates_missing[unlist(match_candidates_missing)]))
   
   # rematch ----
   rematch <-
@@ -469,16 +469,16 @@ if (stage == "controlactual") {
     mutate(matched=1)
   
   data_successful_match <-
-    matching_candidates %>%
+    match_candidates %>%
     inner_join(rematch, by=c("match_id", "trial_date", "matched")) %>%
     mutate(
-      matching_round = matching_round
+      match_round = match_round
     ) %>%
     arrange(trial_date, match_id, treated)
   
   ###
   
-  matchstatus_vars <- c("patient_id", "match_id", "trial_date", "matching_round", "treated", "controlistreated_date")
+  matchstatus_vars <- c("patient_id", "match_id", "trial_date", "match_round", "treated", "controlistreated_date")
   
   data_successful_matchstatus <- data_successful_match %>% 
     # keep all variables from the processed data as they are required for adjustments in the cox model
@@ -496,10 +496,10 @@ if (stage == "controlactual") {
   
   ## pick up all previous successful matches ----
   
-  if (matching_round > 1) {
+  if (match_round > 1) {
     
     data_matchstatusprevious <- read_rds(
-      ghere("output", "matchround{matching_round-1}", "controlactual", "matching", "data_matchstatus_allrounds.rds")
+      ghere("output", "matchround{match_round-1}", "controlactual", "match", "data_matchstatus_allrounds.rds")
     )
     
     data_matchstatus_allrounds <- 
@@ -518,12 +518,12 @@ if (stage == "controlactual") {
   # save all successful matches
   data_matchstatus_allrounds %>%
     write_rds(
-      file.path(path_stem, "matching", "data_matchstatus_allrounds.rds"), 
+      file.path(path_stem, "match", "data_matchstatus_allrounds.rds"), 
       compress="gz"
       )
   
   # # output all included patient ids for final study definition
-  # if (matching_round == n_matching_rounds) {
+  # if (match_round == n_match_rounds) {
   #   
   #   fs::dir_create(here("output", "final", "eligible"))
   #   
@@ -551,14 +551,14 @@ if (stage == "controlactual") {
   
   data_eligible %>%
     my_skim(
-      path = file.path(path_stem, "matching", "data_successful_matchedcontrols_skim.txt")
+      path = file.path(path_stem, "match", "data_successful_matchedcontrols_skim.txt")
       )
   
   data_successful_matchstatus %>% 
     filter(treated==0L) %>% 
     select(-starts_with("vax_boostautumn")) %>%
     write_rds(
-      file.path(path_stem, "matching", "data_successful_matchedcontrols.rds"), 
+      file.path(path_stem, "match", "data_successful_matchedcontrols.rds"), 
       compress="gz"
       )
   

@@ -29,7 +29,7 @@ fct_case_when <- function(...) {
 # fct_recoderelevel(variable_coded,  c(`code1`="full name 1", `code2` = "full name 2"))
 fct_recoderelevel <- function(x, lookup){
   stopifnot(!is.na(names(lookup)))
-  factor(x, levels=lookup, labels=names(lookup))
+  factor(x, levels=unname(lookup), labels=names(lookup))
 }
 
 # function for printing summaries of datasets to txt files

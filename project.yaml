@@ -100,23 +100,33 @@ actions:
   ## # # # # # # # # # # # # # # # # # # # 
 
   match_treated:
-    run: r:latest analysis/matching/match_treated.R
+    run: r:latest analysis/match/match_treated.R
     needs:
     - process_initial
     - process_treated
     outputs:
       highly_sensitive:
-        rds: output/treated/matching/*.rds
+        rds: output/treated/match/*.rds
 
-  table1_matching_comparative:
-    run: r:latest analysis/report/table1.R matching comparative
+  table1_match_comparative:
+    run: r:latest analysis/report/table1.R match comparative
     needs:
     - process_treated
     - match_treated
     outputs:
       moderately_sensitive:
-        csv: output/report/table1/table1_matching_comparative_rounded.csv
-        html: output/report/table1/table1_matching_comparative_rounded.html
+        csv: output/comparative/table1/table1_match_comparative_rounded.csv
+        html: output/comparative/table1/table1_match_comparative_rounded.html
+
+  coverage_comparative:
+    run: r:latest analysis/match/coverage.R comparative
+    needs:
+    - process_treated
+    - match_treated
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative/coverage/*.csv
+        png: output/comparative/coverage/*.png
 
   ## # # # # # # # # # # # # # # # # # # # 
   ## Extract, process and match control data 
@@ -126,7 +136,7 @@ actions:
   extract_controlpotential_1:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
       --output-file output/matchround1/controlpotential/extract/input_controlpotential.feather
-      --param matching_round=1 --param index_date=2022-09-12
+      --param match_round=1 --param index_date=2022-09-12
     needs:
     - design
     - process_initial
@@ -149,19 +159,19 @@ actions:
         data_controlpotential_skim: output/matchround1/controlpotential/eligible/*.txt
 
   match_controlpotential_1:
-    run: r:latest analysis/matching/match_controlpotential.R 1
+    run: r:latest analysis/match/match_controlpotential.R 1
     needs:
     - process_treated
     - process_controlpotential_1
     outputs:
       highly_sensitive:
-        rds: output/matchround1/controlpotential/matching/*.rds
-        csv: output/matchround1/controlpotential/matching/*.csv.gz
+        rds: output/matchround1/controlpotential/match/*.rds
+        csv: output/matchround1/controlpotential/match/*.csv.gz
 
   extract_controlactual_1:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
       --output-file output/matchround1/controlactual/extract/input_controlactual.feather
-      --param matching_round=1
+      --param match_round=1
     needs:
     - design
     - match_controlpotential_1
@@ -181,7 +191,7 @@ actions:
     - extract_controlactual_1
     outputs:
       highly_sensitive:
-        rds: output/matchround1/controlactual/matching/*.rds
+        rds: output/matchround1/controlactual/match/*.rds
       moderately_sensitive:
         input_controlactual_skim: output/matchround1/controlactual/extract/*.txt
         eligible_skim: output/matchround1/controlactual/eligible/*.txt
@@ -190,7 +200,7 @@ actions:
   extract_controlpotential_2:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
       --output-file output/matchround2/controlpotential/extract/input_controlpotential.feather
-      --param matching_round=2 --param index_date=2022-09-26
+      --param match_round=2 --param index_date=2022-09-26
     needs:
     - design
     - process_initial
@@ -214,20 +224,20 @@ actions:
         data_controlpotential_skim: output/matchround2/controlpotential/eligible/*.txt
 
   match_controlpotential_2:
-    run: r:latest analysis/matching/match_controlpotential.R 2
+    run: r:latest analysis/match/match_controlpotential.R 2
     needs:
     - process_treated
     - process_controlpotential_2
     - process_controlactual_1
     outputs:
       highly_sensitive:
-        rds: output/matchround2/controlpotential/matching/*.rds
-        csv: output/matchround2/controlpotential/matching/*.csv.gz
+        rds: output/matchround2/controlpotential/match/*.rds
+        csv: output/matchround2/controlpotential/match/*.csv.gz
 
   extract_controlactual_2:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
       --output-file output/matchround2/controlactual/extract/input_controlactual.feather
-      --param matching_round=2
+      --param match_round=2
     needs:
     - design
     - match_controlpotential_2
@@ -248,22 +258,33 @@ actions:
     - process_controlactual_1
     outputs:
       highly_sensitive:
-        rds: output/matchround2/controlactual/matching/*.rds
+        rds: output/matchround2/controlactual/match/*.rds
       moderately_sensitive:
         input_controlactual_skim: output/matchround2/controlactual/extract/*.txt
         eligible_skim: output/matchround2/controlactual/eligible/*.txt
         process_skim: output/matchround2/controlactual/process/*.txt
 
-  table1_matching_relative:
-    run: r:latest analysis/report/table1.R matching relative
+  table1_match_relative:
+    run: r:latest analysis/report/table1.R match relative
     needs:
     - process_treated
     - process_controlactual_1
     - process_controlactual_2
     outputs:
       moderately_sensitive:
-        csv: output/report/table1/table1_matching_relative_rounded.csv
-        html: output/report/table1/table1_matching_relative_rounded.html
+        csv: output/relative/table1/table1_match_relative_rounded.csv
+        html: output/relative/table1/table1_match_relative_rounded.html
+
+  coverage_relative:
+    run: r:latest analysis/match/coverage.R relative
+    needs:
+    - process_treated
+    - process_controlactual_1
+    - process_controlactual_2
+    outputs:
+      moderately_sensitive:
+        csv: output/relative/coverage/*.csv
+        png: output/relative/coverage/*.png
 
   ## # # # # # # # # # # # # # # # # # # # 
   ## Extract and process covs and outcomes 
@@ -281,47 +302,49 @@ actions:
     - process_controlactual_2
     outputs:
       highly_sensitive:
-        ids: output/final/eligible/*.csv.gz
+        ids: output/postmatch/eligible/*.csv.gz
 
   extract_covs_treated:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_covs
-      --output-file output/final/covs/input_covs_treated.feather --param arm=treated
+      --output-file output/postmatch/covs/input_covs_treated.feather --param arm=treated
     needs:
     - design
     - process_ids
     outputs:
       highly_sensitive:
-        cohort: output/final/covs/input_covs_treated.feather
+        cohort: output/postmatch/covs/input_covs_treated.feather
 
   extract_covs_control:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_covs
-      --output-file output/final/covs/input_covs_control.feather --param arm=control
+      --output-file output/postmatch/covs/input_covs_control.feather --param arm=control
     needs:
     - design
     - process_ids
     outputs:
       highly_sensitive:
-        cohort: output/final/covs/input_covs_control.feather
+        cohort: output/postmatch/covs/input_covs_control.feather
 
   extract_outcomes_treated:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_outcomes
-      --output-file output/final/outcomes/input_outcomes_treated.feather --param arm=treated
+      --output-file output/postmatch/outcomes/input_outcomes_treated.feather --param
+      arm=treated
     needs:
     - design
     - process_ids
     outputs:
       highly_sensitive:
-        cohort: output/final/outcomes/input_outcomes_treated.feather
+        cohort: output/postmatch/outcomes/input_outcomes_treated.feather
 
   extract_outcomes_control:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_outcomes
-      --output-file output/final/outcomes/input_outcomes_control.feather --param arm=control
+      --output-file output/postmatch/outcomes/input_outcomes_control.feather --param
+      arm=control
     needs:
     - design
     - process_ids
     outputs:
       highly_sensitive:
-        cohort: output/final/outcomes/input_outcomes_control.feather
+        cohort: output/postmatch/outcomes/input_outcomes_control.feather
 
   table1_covs_comparative:
     run: r:latest analysis/report/table1.R covs comparative
@@ -331,8 +354,8 @@ actions:
     - extract_covs_treated
     outputs:
       moderately_sensitive:
-        csv: output/report/table1/table1_covs_comparative_rounded.csv
-        html: output/report/table1/table1_covs_comparative_rounded.html
+        csv: output/comparative/table1/table1_covs_comparative_rounded.csv
+        html: output/comparative/table1/table1_covs_comparative_rounded.html
 
   table1_covs_relative:
     run: r:latest analysis/report/table1.R covs relative
@@ -344,8 +367,8 @@ actions:
     - extract_covs_control
     outputs:
       moderately_sensitive:
-        csv: output/report/table1/table1_covs_relative_rounded.csv
-        html: output/report/table1/table1_covs_relative_rounded.html
+        csv: output/relative/table1/table1_covs_relative_rounded.csv
+        html: output/relative/table1/table1_covs_relative_rounded.html
 
   ## #### End #### 
 

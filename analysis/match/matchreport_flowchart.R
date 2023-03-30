@@ -102,7 +102,7 @@ data_match_flow  <- data_matched  %>%
   )
 
 # count number in each category
-flowchart_matching <- data_match_flow %>% group_by(crit) %>% count() %>%
+flowchart_match <- data_match_flow %>% group_by(crit) %>% count() %>%
   right_join(flow_categories, by = "crit") %>%
   arrange(crit) %>% 
   mutate(across(n, ~if_else(is.na(.x), 0L, .x))) 
@@ -111,7 +111,7 @@ flowchart_matching <- data_match_flow %>% group_by(crit) %>% count() %>%
 flow_match_final <- flow_boxes %>%
   # join to the counts for each criteria
   fuzzy_join(
-    flowchart_matching, 
+    flowchart_match, 
     by = c("box_crit" = "crit"), 
     match_fun = str_detect,
     mode = "left"

@@ -20,7 +20,7 @@ source(here("analysis", "design.R"))
 
 # create output directories ----
 
-output_dir <- here("output", "treated", "matching")
+output_dir <- here("output", "treated", "match")
 fs::dir_create(output_dir)
 
 # Prepare data ----
@@ -36,45 +36,43 @@ print(
   )
 )
 
-## select all matching candidates and variables necessary for matching
+## select all match candidates and variables necessary for match
 # encode all exact variables that are characters as factors
 char_to_factor <- data_treated %>%
   select(all_of(exact_variables_treated)) %>%
   select(where(is.character)) %>%
   names()
 
-data_matchingcandidates <- data_treated %>%
+data_matchcandidates <- data_treated %>%
   mutate(
     # create variable to parallelise on (just pick an exact match variable??)
     thread_variable = agegroup_match,
-    thread_id = dense_rank(thread_variable)
+    thread_id = dense_rank(thread_variable),
+    # matchit needs a binary variables for match; pfizerbivalent=0, modernabivalent=1
+    treated = as.integer(vax_boostautumn_brand == (comparison_definition %>% filter(comparison=="comparative") %>% pull(level1))),
   ) %>%
   select(
     thread_id,
     thread_variable,
     patient_id,
     vax_boostautumn_date,
-    vax_boostautumn_brand,
-    all_of(matching_variables_treated),
-  ) %>%
-  mutate(
-    # matchit needs a binary variables for matching; pfizerbivalent=1, modernabivalent=0
-    treatment = vax_boostautumn_brand == "pfizerbivalent"
+    treated,
+    all_of(match_variables_treated),
   ) %>%
   mutate(across(all_of(char_to_factor), as.factor)) %>%
   arrange(patient_id)
 
 # tidy up 
-rm(data_treated, data_eligible_treated)
+rm(data_treated)
 
-# check for any missing data in data_matchingcandidates
-check_missing <- data_matchingcandidates %>%
+# check for any missing data in data_matchcandidates
+check_missing <- data_matchcandidates %>%
   map_int(~sum(is.na(.x)))
 
 if (any(check_missing > 0)) {
   cat("Number of missing entries in each column:\n")
   print(check_missing)
-  stop("Matching will fail if there are missing values.")
+  stop("match will fail if there are missing values.")
 }
 
 # create function that catches errors in case no matches are found within a thread
@@ -93,10 +91,10 @@ print(cluster)
 #register it to be used by %dopar%
 registerDoParallel(cl = cluster)
 
-# create parallel matching streams
-matchthreads <- unique(as.character(data_matchingcandidates$thread_variable))
+# create parallel match streams
+matchthreads <- unique(as.character(data_matchcandidates$thread_variable))
 
-table(data_matchingcandidates$thread_variable, useNA="ifany")
+table(data_matchcandidates$thread_variable, useNA="ifany")
 
 ## match in parallel ----
 data_matchstatus <-
@@ -108,22 +106,22 @@ data_matchstatus <-
     
     #for(matchthread in matchthreads){
     
-    data_thread <- data_matchingcandidates %>%
+    data_thread <- data_matchcandidates %>%
       filter(thread_variable==matchthread)
     
-    # run matching algorithm
+    # run match algorithm
     obj_matchit <-
       safely_matchit(
-        formula = treatment ~ 1,
+        formula = treated ~ 1,
         data = data_thread,
-        method = "nearest", distance = "glm", # these two options don't really do anything because we only want exact + caliper matching
+        method = "nearest", distance = "glm", # these two options don't really do anything because we only want exact + caliper match
         replace = FALSE,
         estimand = "ATT",
         exact = exact_variables_treated,
         caliper = caliper_variables, std.caliper=FALSE,
         m.order = "data", # data is sorted on (effectively random) patient ID
         #verbose = TRUE,
-        ratio = 1L # could also consider exact matching only, with n:m ratio, determined by availability
+        ratio = 1L # could also consider exact match only, with n:m ratio, determined by availability
       )[[1]]
     
     ## process matchit object to give one row per candidate, matched status (0/1) and match id
@@ -135,19 +133,19 @@ data_matchstatus <-
           matched = FALSE,
           thread_id = data_thread$thread_id,
           threadmatch_id = NA_integer_,
-          treatment = data_thread$treatment,
+          treated = data_thread$treated,
           weight = 0,
-          vax_boostautumn_date = data_thread$vax_boostautumn_date
+          trial_date = data_thread$vax_boostautumn_date
         )
       } else {
         as.data.frame(obj_matchit$X) %>%
-          select(vax_boostautumn_date) %>%
+          select(trial_date = vax_boostautumn_date) %>%
           add_column(
             patient_id = data_thread$patient_id,
             matched = !is.na(obj_matchit$subclass),
             thread_id = data_thread$thread_id,
             threadmatch_id = as.integer(as.character(obj_matchit$subclass)),
-            treatment = obj_matchit$treat,
+            treated = obj_matchit$treat,
             weight = obj_matchit$weights,
             .before = 1
           ) %>% as_tibble()
@@ -167,7 +165,7 @@ data_matchstatus <- data_matchstatus %>%
 write_rds(data_matchstatus, fs::path(output_dir, "data_matchstatus.rds"), compress="gz")
 
 data_matchstatus %>%
-  group_by(vax_boostautumn_date, treatment, matched) %>%
+  group_by(trial_date, treated, matched) %>%
   summarise(
     n=n()
   ) %>%

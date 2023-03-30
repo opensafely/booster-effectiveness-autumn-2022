@@ -2,11 +2,11 @@
 # # # # # # # # # # # # # # # # # # # # #
 # This script:
 # imports processed data
-# chooses matching sets for each sequential trial
-# outputs matching summary
+# chooses match sets for each sequential trial
+# outputs match summary
 #
 # The script must be accompanied by one argument:
-# `matching_round` - the matching round (1,2,3,...)
+# `match_round` - the match round (1,2,3,...)
 
 # # # # # # # # # # # # # # # # # # # # #
 
@@ -31,16 +31,16 @@ args <- commandArgs(trailingOnly=TRUE)
 
 if(length(args)==0){
   # use for interactive testing
-  matching_round <- as.integer("1")
+  match_round <- as.integer("1")
 } else {
-  matching_round <- as.integer(args[[1]])
+  match_round <- as.integer(args[[1]])
 }
 
 ## get cohort-specific parameters study dates and parameters ----
-matching_round_date <- study_dates$control_extract[matching_round]
+match_round_date <- study_dates$control_extract[match_round]
 
 ## create output directory ----
-fs::dir_create(ghere("output", "matchround{matching_round}", "controlpotential", "matching"))
+fs::dir_create(ghere("output", "matchround{match_round}", "controlpotential", "match"))
 
 # Import datasets ----
 
@@ -50,15 +50,15 @@ data_treated <- read_rds(here("output", "treated", "eligible", "data_treated.rds
 
 ## import control cohort ----
 data_control <- read_rds(
-  ghere("output", "matchround{matching_round}", "controlpotential", "eligible", "data_controlpotential.rds")
+  ghere("output", "matchround{match_round}", "controlpotential", "eligible", "data_controlpotential.rds")
   ) %>% 
   mutate(treated=0L)
 
-# remove already-matched people from previous matching rounds
-if(matching_round>1){
+# remove already-matched people from previous match rounds
+if(match_round>1){
   
   data_matchstatusprevious <- read_rds(
-    ghere("output", "matchround{matching_round-1L}", "controlactual", "matching", "data_matchstatus_allrounds.rds")
+    ghere("output", "matchround{match_round-1L}", "controlactual", "match", "data_matchstatus_allrounds.rds")
     ) %>%
     select(patient_id, treated)
   
@@ -80,7 +80,7 @@ if(matching_round>1){
 
 }
 
-## import matching variables ----
+## import match variables ----
 
 data_eligible <- bind_rows(data_treated, data_control) %>%
   mutate(
@@ -89,7 +89,7 @@ data_eligible <- bind_rows(data_treated, data_control) %>%
 
 local({
 
-  ## sequential trial matching routine is as follows:
+  ## sequential trial match routine is as follows:
   # each daily trial includes all n people who were vaccinated on that day (treated=1) and
   # a sample of n controls (treated=0) who:
   # - had not been vaccinated on or before that day (still at risk of treatment);
@@ -107,14 +107,14 @@ local({
   # initialise list of candidate controls
   candidate_ids <- data_control$patient_id
 
-  # initialise matching summary data
+  # initialise match summary data
   data_treated <- NULL
   data_matched <- NULL
 
   #trial=1
   for(trial in trials){
 
-    cat("matching trial ", trial, "\n")
+    cat("match trial ", trial, "\n")
     trial_time <- trial-1
     trial_date <- study_dates$studystart + trial_time
     
@@ -162,7 +162,7 @@ local({
       next
     }
   
-    matching_candidates_i <- 
+    match_candidates_i <- 
       bind_rows(data_treated_i, data_control_i) %>%
       left_join(
         data_eligible %>% 
@@ -181,19 +181,19 @@ local({
     safely_matchit <- purrr::safely(matchit)
     
     set.seed(10)
-    # run matching algorithm
+    # run match algorithm
     obj_matchit_i <-
       safely_matchit(
         formula = treated ~ 1,
-        data = matching_candidates_i,
-        method = "nearest", distance = "glm", # these two options don't really do anything because we only want exact + caliper matching
+        data = match_candidates_i,
+        method = "nearest", distance = "glm", # these two options don't really do anything because we only want exact + caliper match
         replace = FALSE,
         estimand = "ATT",
         exact = exact_variables_control,
         caliper = caliper_variables, std.caliper=FALSE,
         m.order = "random",
         #verbose = TRUE,
-        ratio = 1L # 1:1 matching
+        ratio = 1L # 1:1 match
       )[[1]]
 
     
@@ -207,18 +207,18 @@ local({
     data_matchstatus_i <-
       if(is.null(obj_matchit_i)){
         tibble(
-          patient_id = matching_candidates_i$patient_id,
+          patient_id = match_candidates_i$patient_id,
           matched = FALSE,
           #thread_id = data_thread$thread_id,
           match_id = NA_integer_,
-          treated = matching_candidates_i$treated,
+          treated = match_candidates_i$treated,
           weight = 0,
           trial_time = trial_time,
           trial_date = trial_date,
         )
       } else {
         tibble(
-          patient_id = matching_candidates_i$patient_id,
+          patient_id = match_candidates_i$patient_id,
           matched = !is.na(obj_matchit_i$subclass),
           #thread_id = data_thread$thread_id,
           match_id = as.integer(as.character(obj_matchit_i$subclass)),
@@ -232,7 +232,7 @@ local({
     
     # summary info for recruited people
     # - one row per person
-    # - match_id is within matching_i
+    # - match_id is within match_i
     data_matched_i <-
       data_matchstatus_i %>%
       filter(!is.na(match_id)) %>% # remove unmatched people. equivalent to weight != 0
@@ -274,7 +274,7 @@ local({
       controlistreated_date
     )
 
-  # matching status for all treated people and their controls (if matched).
+  # match status for all treated people and their controls (if matched).
   # includes: unmatched treated; matched treated; matched control
   data_matchstatus <<-
     data_treated %>%
@@ -293,10 +293,10 @@ local({
   unmatched_control_ids <<- candidate_ids
 })
  
-# output matching status ----
+# output match status ----
 data_matchstatus %>%
   write_rds(
-    ghere("output", "matchround{matching_round}", "controlpotential", "matching", "data_potential_matchstatus.rds"), 
+    ghere("output", "matchround{match_round}", "controlpotential", "match", "data_potential_matchstatus.rds"), 
     compress="gz"
     )
 
@@ -324,7 +324,7 @@ data_matchstatus %>%
     trial_date=as.character(trial_date)
   ) %>%
   write_csv(
-    ghere("output", "matchround{matching_round}", "controlpotential", "matching", "potential_matchedcontrols.csv.gz")
+    ghere("output", "matchround{match_round}", "controlpotential", "match", "potential_matchedcontrols.csv.gz")
     )
 
 
@@ -341,7 +341,7 @@ print(
 # should be zero
 # 
 # 
-# ## output dataset containing all matched pairs + matching factors
+# ## output dataset containing all matched pairs + match factors
 # data_matched <-
 #   data_matchstatus %>%
 #   filter(matched==1L) %>%
@@ -360,4 +360,4 @@ print(
 #   arrange(trial_date, match_id, treated)
 # 
 # 
-# write_rds(data_matched, fs::path(output_dir, glue("data_potential_matched{matching_round}.rds")), compress="gz")
+# write_rds(data_matched, fs::path(output_dir, glue("data_potential_matched{match_round}.rds")), compress="gz")

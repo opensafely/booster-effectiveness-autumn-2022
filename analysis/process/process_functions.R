@@ -48,7 +48,7 @@ add_vars <- function(.data, vars, arms) {
   
   data_vars <- map_dfr(
     arms,
-    ~arrow::read_feather(here("output", "final", vars, glue("input_{vars}_", .x, ".feather")))
+    ~arrow::read_feather(here("output", "postmatch", vars, glue("input_{vars}_", .x, ".feather")))
   ) %>%
     process_input()
   

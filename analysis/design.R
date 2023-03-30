@@ -175,7 +175,7 @@ for (i in c("comparative", "relative")) {
   rm(treatment_levels)
 }
 
-
+maxfup <- 50
 
 # 
 # # subgroups <- c("all", "vax3_type", "prior_covid_infection", "vax12_type", "agegroup")
@@ -237,31 +237,28 @@ caliper_variables <- c(
 match_variables_control <- c(exact_variables_control, names(caliper_variables))
 match_variables_treated <- c(exact_variables_treated, names(caliper_variables))
 
-# # covariates ----
-# 
-# covariates_model <- c(
-#   "sex",
-#   "ethnicity",
-#   "imd_Q5",
-#   "bmi",
-#   "learndis",
-#   "sev_mental",
-#   "immunosuppressed",
-#   "multimorb",
-#   "pregnancy",
-#   "vax12_gap",
-#   "time_since_infection",
-#   "prior_test_cat",
-#   "flu_vaccine"
-# )
-# 
-# covariates_summarise <- c(
-#   "cv",
-#   "cev"
-# )
-# 
-# covariates <- c(covariates_model, covariates_summarise)
-# 
+# covariates ----
+
+covariates_model <- c(
+  "sex",
+  "ethnicity",
+  "imd_Q5",
+  "bmi",
+  "learndis",
+  "sev_mental",
+  "immunosuppressed",
+  # "multimorb",
+  "flu_vaccine"
+)
+
+censor_vars <- list(
+  comparative = c(
+    "death_date",
+    "dereg_date"
+  )
+)
+censor_vars[["relative"]] <- c(censor_vars[["comparative"]], "controlistreated_date")
+#
 # # other variables -----
 # # keep all variables starting with these strings
 # other_variables <- c("trial", "treated", "control", "match", "vax", "jcvi")

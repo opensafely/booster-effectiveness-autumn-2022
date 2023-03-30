@@ -32,7 +32,7 @@ data_matchstatus_comparative <-read_rds(here("output", "treated", "match", "data
 # relative:
 data_matchstatus_relative <-read_rds(ghere("output", "matchround{n_match_rounds}", "controlactual", "match", "data_matchstatus_allrounds.rds"))
 
-# treated and matched:
+# treated and matched in ether comparative or relative matching
 data_matchedtreated <- bind_rows(
   data_matchstatus_comparative %>% 
     filter(matched) %>% 

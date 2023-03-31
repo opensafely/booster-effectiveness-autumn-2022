@@ -59,7 +59,7 @@ data_matched <- data_matched %>%
 covariates_model <- NULL
 
 # process the data for the model
-source(here("analysis", "model", "process_premodel.R"))
+source(here("analysis", "process", "process_premodel.R"))
 
 ## cumulative risk differences ----
 

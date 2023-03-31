@@ -1,10 +1,20 @@
 # # # # # # # # # # # # # # # # # # # # #
 # Purpose: describe match results
 # creates "table 1"
+# this file takes the following arguments:
+# - vars: the variables to summarise
+#   - vars="match" will only include the variables used in matching, so it can 
+#     be run before the other covaraiets are extracted
+#   - vars="covs" will only include the model covariates which are extracted at
+#     a later stage
+# - effect: 
+#   - effect="comparative" will summarise data for the matched pfizer and moderna arms
+#   - effect="relative" will summarise data for the matched treated and control arms
 # # # # # # # # # # # # # # # # # # # # #
 
 # Preliminaries ----
-## Import libraries ----
+
+# Import libraries 
 library('tidyverse')
 library('lubridate')
 library('here')
@@ -13,17 +23,13 @@ library('arrow')
 library('gt')
 library('gtsummary')
 
-## import local functions and parameters ---
-
+# import local functions and parameters
 source(here("analysis", "design.R"))
 source(here("analysis", "process", "process_functions.R"))
 source(here("lib", "functions", "utility.R"))
-# source(here("lib", "functions", "redaction.R"))
 
-# import command-line arguments ----
-
+# import command-line arguments 
 args <- commandArgs(trailingOnly=TRUE)
-
 if(length(args)==0){
   # use for interactive testing
   vars <- "match" # "covs" "match
@@ -34,8 +40,7 @@ if(length(args)==0){
   effect <- args[[2]]
 }
 
-## create output directories ----
-
+# create output directories 
 output_dir <- here("output", effect, "table1")
 fs::dir_create(output_dir)
 
@@ -47,6 +52,8 @@ if (vars == "match") {
   data_matched <- data_matched %>%
     # derive extra variables
     mutate(
+      # lastvaxbeforeindex_date was a matching variable, but more meaningful 
+      # to summarise as timesincelastvax
       timesincelastvax = as.integer(trial_date - lastvaxbeforeindex_date)
     )
 }
@@ -163,13 +170,14 @@ raw_stats_redacted <- raw_stats %>%
     variable_levels = replace_na(as.character(variable_levels), "")
   ) 
 
-write_csv(raw_stats_redacted, fs::path(output_dir, glue("table1_{vars}_{effect}_rounded.csv")))
+write_csv(raw_stats_redacted, file.path(output_dir, glue("table1_{vars}_{effect}_rounded.csv")))
 
 table1_data <- raw_stats_redacted %>%
   rowwise() %>%
   transmute(
     var_label,
-    # gt creates a column called `label` when run locally, `variable_labels` when run in opensafely (probs different versions)
+    # gt creates a column called `label` when run locally, `variable_labels` 
+    # when run in opensafely (probs different versions)
     # label,
     variable_levels,
     by,

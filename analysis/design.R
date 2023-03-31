@@ -75,39 +75,33 @@ n_match_rounds <- length(study_dates[["control_extract"]])
 
 jsonlite::write_json(study_dates, path = here("lib", "design", "study-dates.json"), auto_unbox=TRUE, pretty =TRUE)
 
-# # define outcomes ----
-# 
-# events_lookup <- tribble(
-#   ~event, ~event_var, ~event_descr,
-# 
-#   # other
-#   "dereg", "dereg_date", "Deregistration date",
-# 
-#   # effectiveness
-#   "postest", "postest_date", "Positive SARS-CoV-2 test",
-#   "covidadmitted", "covidadmitted_date", "COVID-19 hospitalisation",
-#   "covidcritcare", "covidcritcare_date", "COVID-19 critical care",
-#   "coviddeath", "coviddeath_date", "COVID-19 death",
-#   "covidcritcareordeath", "covidcritcareordeath_date", "COVID-19 critical care or death",
-# 
-#   # other
-#   "emergency", "emergency_date", "A&E attendance",
-#   "emergencyhosp", "emergencyhosp_date", "A&E attendance with disharge to hospital",
-#   "covidemergency", "covidemergency_date", "COVID-19 A&E attendance",
-#   "covidemergencyhosp", "covidemergencyhosp_date", "COVID-19 A&E attendance with disharge to hospital",
-#   "noncoviddeath", "noncoviddeath_date", "Non-COVID-19 death",
-#   "cvdnoncoviddeath", "cvdnoncoviddeath_date", "CVD-related non-COVID-19 death",
-#   "cancernoncoviddeath", "cancernoncoviddeath_date", "Cancer-related non-COVID-19 death",
-#   "death", "death_date", "Any death",
-#   "fracture", "fracture_date", "Fracture"
-# 
-# )
-# 
-# # outcomes <- c("postest",  "covidadmitted", "covidcritcareordeath", "coviddeath", "emergency", "covidemergency", "noncoviddeath")
-# outcomes <- c("covidadmitted", "coviddeath", "noncoviddeath", "cvdnoncoviddeath", "cancernoncoviddeath", "fracture")
-# 
-# # define treatments ----
-# 
+# define outcomes ----
+
+events_lookup <- tribble(
+  ~event, ~event_var, ~event_descr,
+
+  # other
+  "dereg", "dereg_date", "Deregistration date",
+
+  # effectiveness
+  "covidadmitted", "covidadmitted_date", "COVID-19 hospitalisation",
+  # "covidcritcare", "covidcritcare_date", "COVID-19 critical care",
+  "coviddeath", "coviddeath_date", "COVID-19 death",
+  # "covidcritcareordeath", "covidcritcareordeath_date", "COVID-19 critical care or death",
+
+  # other
+  "noncoviddeath", "noncoviddeath_date", "Non-COVID-19 death",
+  # "cvdnoncoviddeath", "cvdnoncoviddeath_date", "CVD-related non-COVID-19 death",
+  # "cancernoncoviddeath", "cancernoncoviddeath_date", "Cancer-related non-COVID-19 death",
+  # "death", "death_date", "Any death",
+  "fracture", "fracture_date", "Fracture"
+
+)
+
+outcomes <- c("covidadmitted", "coviddeath", "noncoviddeath", "fracture")
+
+# define treatments ----
+
 treatement_lookup <- tribble(
   ~course, ~treatment, ~treatment_descr,
   "boostaumtumn","pfizerbivalent", "BNT162b2-TODO",
@@ -126,44 +120,29 @@ comparison_definition <- tribble(
   "comparative", "pfizerbivalent", "BNT162b2-TODO", "modernabivalent", "mRNA-1273-TODO",
   "relative", "unboosted", "Unboosted", "boosted", "Boosted",
 )
+# TODO find the correct way to specify pfizer and moderna bivalent
 
-# 
-# ## lookups to convert coded variables to full, descriptive variables ----
-# 
+# lookups to convert coded variables to full, descriptive variables ----
 recoder <-
   lst(
-    # subgroups = c(
-    #   `Main` = "all",
-    #   `Third dose brand` = "vax3_type",
-    #   `Prior SARS-CoV-2 infection` = "prior_covid_infection",
-    #   `Primary course vaccine brand` = "vax12_type",
-    #   `Age` = "agegroup"
-    # ),
+    subgroups = c(
+      `Main` = "all"#,
+      # `Age` = "agegroup"
+    ),
     status = c(
       `Unmatched`= "unmatched",
       `Matched` = "matched"
-    )#,
-    # outcome = set_names(events_lookup$event, events_lookup$event_descr),
-    # all = c(`Main` = "all"),
-    # prior_covid_infection = c(
-    #   `No prior SARS-CoV-2 infection` = "FALSE",
-    #   `Prior SARS-CoV-2 infection` = "TRUE"
-    # ),
-    # vax12_type = c(
-    #   `BNT162b2` = "pfizer-pfizer",
-    #   `ChAdOx1-S` = "az-az"
-    # ),
-    # vax3_type = c(
-    #   `BNT162b2` = "pfizer",
-    #   `mRNA-1273` = "moderna"
-    # ),
-    # agegroup = c(
-    #   `18-49 years` = "18-49",
+    ),
+    outcome = set_names(events_lookup$event, events_lookup$event_descr),
+    all = c(`Main` = "all"),
+    # agegroup_match = c(
     #   `50-64 years` = "50-64",
-    #   `65-79 years` = "65-79",
-    #   `80+ years` = "80+"
+    #   `65-74 years` = "65-74",
+    #   `75+ years` = "75+",
     # )
   )
+
+subgroups <- "all"
 
 # for the treated variables which are coded as 0 or 1
 for (i in c("comparative", "relative")) {
@@ -175,11 +154,6 @@ for (i in c("comparative", "relative")) {
   rm(treatment_levels)
 }
 
-# 
-# # subgroups <- c("all", "vax3_type", "prior_covid_infection", "vax12_type", "agegroup")
-# subgroups <- "all"
-# 
-# 
 ## follow-up time ----
 
 fup_params <- lst(
@@ -194,21 +168,12 @@ fup_params <- lst(
   # maximum follow-up
   maxfup = max(postbaselinecuts),
 )
-# 
-# jsonlite::write_json(fup_params, path = here("lib", "design", "fup-params.json"), auto_unbox=TRUE, pretty =TRUE)
-# 
-# # split into named objects until scripts updated
-# for(i in 1:length(fup_params)){
-#   assign(names(fup_params)[i],fup_params[[i]])
-# }
-# 
-# 
+
 # match variables ----
 
 # exact variables
 exact_variables_control <- c(
   "agegroup_match",
-  # "dosesbeforeindex_n",
   "vax_primary_brand",
   "vax_boostfirst_brand",
   "vax_boostspring_brand",
@@ -261,21 +226,11 @@ censor_vars[["relative"]] <- c(censor_vars[["comparative"]], "controlistreated_d
 # # keep all variables starting with these strings
 # other_variables <- c("trial", "treated", "control", "match", "vax", "jcvi")
 # 
-# # variant_options <- c("ignore", "split", "restrict")
-# # 
-# # # define variant dates ----
-# # variant_dates <- tribble(
-# #   ~variant, ~start_date, 
-# #   "delta", study_dates$mrna$start_date, 
-# #   "transition", as.Date("2021-12-01"), 
-# #   "omicron", as.Date("2022-01-01"),
-# # ) %>% 
-# #   mutate(end_date = lead(start_date, default = study_dates$studyend_date))
-# # 
-# # analysis table
-# km_args <- expand_grid(
-#   model=c("km", "cox_unadj", "cox_adj"),
-#   subgroup=subgroups,
-#   outcome=outcomes,
-# ) 
-# 
+# analysis table
+model_args <- expand_grid(
+  effect=c("comparative", "relative"),
+  model=c("km", "cox_unadj", "cox_adj"),
+  subgroup=subgroups,
+  outcome=outcomes,
+)
+

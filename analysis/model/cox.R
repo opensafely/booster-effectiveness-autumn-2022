@@ -1,23 +1,10 @@
 
 # # # # # # # # # # # # # # # # # # # # #
 # Purpose: 
-#  - import matched data
-#  - adds outcome variable and restricts follow-up
-#  - Fit Cox models
-#  - The script must be accompanied by three arguments:
-#    `cohort` - pfizer or moderna
-#    `type` - unadj, adj (Cox model adjustment)
-#    `subgroup` - prior_covid_infection, vax12_type, cev, age65plus
-#    `outcome` - the dependent variable
-#    `variant_option` - ignore (ignore variant era), 
-#                     - split (split fup according to variant era), 
-#                     - restrict (restrict fup to each variant era)
-#    `cuts` - the follow-up periods during which to estimate HRs
 
 # # # # # # # # # # # # # # # # # # # # #
 
 # Preliminaries ----
-
 
 ## Import libraries ----
 library('tidyverse')
@@ -25,54 +12,65 @@ library('here')
 library('glue')
 library('survival')
 
-
 ## import local functions and parameters ---
 
 source(here("analysis", "design.R"))
 source(here("lib", "functions", "utility.R"))
 source(here("lib", "functions", "survival.R"))
-
+source(here("analysis", "process", "process_functions.R"))
 
 # import command-line arguments ----
 
 args <- commandArgs(trailingOnly=TRUE)
 
-
 if(length(args)==0){
   # use for interactive testing
-  cohort <- "mrna"
-  type <- "unadj"
-  subgroup <- "vax3_type"
-  variant_option <- "ignore" # ignore, split, restrict (delta, transition, omicron)
-  outcome <- "cvddeath"
-  cuts <- "cuts"
+  effect <- "comparative"
+  model <- "cox_adj"
+  subgroup <- "all"
+  outcome <- "covidadmitted"
   
 } else {
-  cohort <- args[[1]]
-  type <- args[[2]]
+  effect <- args[[1]]
+  model <- args[[2]]
   subgroup <- args[[3]]
-  variant_option <- args[[4]]
-  outcome <- args[[5]]
-  cuts <- args[[6]]
+  outcome <- args[[4]]
 }
 
-if (subgroup!="all" & variant_option != "ignore") 
-  stop("Must set `variant`=\"ignore\" for subgroup analyses.")
-
 # create output directories ----
-output_dir <- ghere("output", cohort, "models", "cox_{type}", subgroup, variant_option, outcome)
+output_dir <- ghere("output", effect, "model", model, subgroup, outcome)
 fs::dir_create(output_dir)
 
 # derive symbolic arguments for programming with
-
-cohort_sym <- sym(cohort)
 subgroup_sym <- sym(subgroup)
 
-# read and process data_matched ----
-source(here("analysis", "model", "process_data_model.R"))
 source(here("analysis", "model", "merge_or_drop.R"))
 
-rm(data_surv)
+# read and process data_matched ----
+source(here("analysis", "process", "process_postmatch.R"))
+
+arms <- "treated"
+if (effect == "relative") arms <- c(arms, "control")
+
+# add outcomes data
+data_matched <- data_matched %>%
+  add_vars(vars = "outcomes", arms = arms) %>%
+  process_outcomes() 
+
+# because we don't need the covariates  for unadjusted models
+if (model == "cox_unadj") covariates_model <- NULL
+if (model == "cox_adj") {
+  
+  # add covariates data
+  data_matched <- data_matched %>%
+    add_vars(vars = "covs", arms = arms) %>%
+    process_covs() 
+  
+}
+
+source(here("analysis", "process", "process_premodel.R"))
+
+# rm(data_surv)
 
 # cox models ----
 
@@ -93,7 +91,7 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL){
     # create variable for cuts[1] for tstart in tmerge
     mutate(time0 = cuts[1])
   
-  # derive fup_split (extra processing required when variant_option %in% c("split", "restrict"))
+  # derive fup_split 
   fup_split <-
     data %>%
     select(new_id, treated) %>%
@@ -107,51 +105,6 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL){
       new_id, period_id, fupstart_time, fupend_time# fup_time
     ) %>%
     mutate(across(period_id, factor, labels = fup_period_labels))
-  
-  
-  # extra processing for variant_option %in% c("split", "restrict")
-  if (variant_option == "split") {
-    
-    fup_split <- fup_split %>%
-      left_join(
-        fup_split_variant, by = "new_id"
-      ) %>%
-      # update fupstart_time and fupend_time to be within variant periods
-      mutate(across(fupstart_time, ~pmax(.x, variantstart_day))) %>%
-      mutate(across(fupend_time, ~pmin(.x, variantend_day))) %>%
-      filter(
-        # only keep rows where fup start and end times make sense
-        fupstart_time <= fupend_time
-      ) %>%
-      mutate(variant = variant_dates$variant[variant_id]) %>%
-      select(new_id, variant, period_id, fupstart_time, fupend_time)
-    
-  } else if (variant_option == "restrict") {
-    
-    fup_split <- fup_split %>%
-      left_join(
-        data %>% distinct(new_id, variant), by = "new_id"
-      )
-    
-  }
-  
-  # add variant label for follow-up periods
-  if (variant_option %in% c("split", "restrict")) {
-    
-    fup_period_labels <- str_c(
-      rep(fup_period_labels, each = nrow(variant_dates)), 
-      variant_dates$variant, 
-      sep = "; "
-    )
-    
-    fup_split <- fup_split %>%
-      mutate(across(period_id, 
-                    ~factor(
-                      str_c(as.character(.x), variant, sep = "; "),
-                      levels = fup_period_labels
-                    ))) 
-    
-  }
   
   data_split <-
     tmerge(
@@ -277,17 +230,20 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL){
 }
 
 # apply contrast functions ----
-cat(glue("---- Start fitting Cox model ----"), "\n")
-
-if (cuts == "cuts") cuts_arg <- postbaselinecuts 
-if (cuts == "overall") cuts_arg <- c(0,maxfup)
-
+cat(glue("---- Start fitting overall Cox model ----"), "\n")
 cox_out <- coxcontrast(
-  data_matched, 
-  adj = type == "adj",
-  cuts = cuts_arg
+  data_surv, 
+  adj = model == "cox_adj",
+  cuts = fup_params$postbaselinecuts
 )
+write_csv(cox_out, file.path(output_dir, glue("{model}_contrasts_overall_rounded.csv")))
+cat(glue("---- overall Cox model complete! ----"), "\n")
 
-write_csv(cox_out, fs::path(output_dir, glue("cox_{type}_contrasts_{cuts}_rounded.csv")))
-
-cat(glue("---- Cox model complete! ----"), "\n")
+cat(glue("---- Start fitting cuts Cox model ----"), "\n")
+cox_out <- coxcontrast(
+  data_surv, 
+  adj = model == "cox_adj",
+  cuts = c(0, fup_params$maxfup)
+)
+write_csv(cox_out, file.path(output_dir, glue("{model}_contrasts_cuts_rounded.csv")))
+cat(glue("---- cuts Cox model complete! ----"), "\n")

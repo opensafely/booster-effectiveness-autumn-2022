@@ -27,7 +27,7 @@ flow_stats_rounded <- function(.data, to) {
 ################################################################################
 add_vars <- function(.data, vars, arms) {
   
-  stopifnot("`vars` must be \"covs\" or \"outcomes\"" = vars %in% c("covs", "outcomes"))
+  stopifnot("`vars` must be \"covs\" or \"outcomes\"" = (vars == "covs" | vars == "outcomes"))
   
   if (all(c("treated", "control") %in% arms)) {
     
@@ -73,23 +73,16 @@ add_vars <- function(.data, vars, arms) {
 }
 
 ################################################################################
-# process_covs <- function(.data) {
-#   
-#   .data %>%
-#     mutate(
-#       
-#       bmi = factor(bmi, levels = c("Not obese", "Obese I (30-34.9)", "Obese II (35-39.9)", "Obese III (40+)")),
-#       
-#       prior_test_cat = cut(
-#         prior_test_frequency, 
-#         breaks=c(0, 1, 2, 3, Inf), 
-#         labels=c("0", "1", "2", "3+"), 
-#         right=FALSE
-#         )
-#       
-#     )  
-#   
-# }
+process_covs <- function(.data) {
+
+  .data %>%
+    mutate(
+
+      bmi = factor(bmi, levels = c("Not obese", "Obese I (30-34.9)", "Obese II (35-39.9)", "Obese III (40+)")),
+
+    )
+
+}
 
 ################################################################################
 

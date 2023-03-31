@@ -8,7 +8,7 @@ if (effect == "comparative") {
     data_treated <- read_rds(here("output", "treated", "eligible", "data_treated.rds"))
     
     # read match status
-    data_matchstatus <- read_rds(here("output", "treated", "match", "data_matchstatus.rds")) %>%
+    data_matchstatus <- read_rds(here("output", "comparative", "match", "data_matchstatus.rds")) %>%
       filter(matched) %>%
       select(patient_id, treated, trial_date)
     

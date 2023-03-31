@@ -13,7 +13,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   rbern <- purrr::rbernoulli
   
   # population size for dummy data (note this will be multiplied by 2)
-  # note this reduces substanitally when applying initial inclusion criteria
+  # this reduces substanitally when applying initial inclusion criteria
   population_size <- 200000
   
   # study dates in days from studystart_date
@@ -98,7 +98,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
     select(-c(boosterfirst, boosterspring, boosterautumn)) %>%
     mutate(patient_id = row_number(), .before = 1) 
   
-  
+  # process dummy data to have same format as study definition
   data_vax_long <- data_vax_wide %>%
     pivot_longer(
       cols = matches("vax_\\w+_\\w+"),
@@ -128,7 +128,6 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
       values_from = date,
       names_glue = "covid_vax_disease_{index}_date"
     )
-  
   
   data_vax_brand <- data_vax_long %>%
     group_by(patient_id, brand) %>%
@@ -160,7 +159,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   
 } else {
   
-  # save empty outputs to keep the project yaml happy
+  # save empty outputs to keep the project yaml happy but not waste storage
   tibble() %>%
     arrow::write_feather(sink = file.path(custom_dummy_path, "empty.feather"))
   

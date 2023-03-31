@@ -20,7 +20,7 @@ source(here("analysis", "design.R"))
 
 # create output directories ----
 
-output_dir <- here("output", "treated", "match")
+output_dir <- here("output", "comparative", "match")
 fs::dir_create(output_dir)
 
 # Prepare data ----
@@ -164,6 +164,7 @@ data_matchstatus <- data_matchstatus %>%
 
 write_rds(data_matchstatus, fs::path(output_dir, "data_matchstatus.rds"), compress="gz")
 
+# summarise match statusb for each trial date
 data_matchstatus %>%
   group_by(trial_date, treated, matched) %>%
   summarise(
@@ -171,29 +172,29 @@ data_matchstatus %>%
   ) %>%
   print(n=1000)
 
+# I've commented out the sampling for now, as not in use, but can reintroduce if needed
 
-
-## bootstrap sampling ----
-
-## bootstrap sample matched pairs and use this sampling throughout the analysis
-## doing it here avoids repeating the sampling process in each individual outcome script
-## and provides consistency across different analyses
-## but the leg work is still done by the analysis scripts
-
-boot_n <- 500 # more than necessary, can select fewer in the analysis scripts
-
-boot_id <- seq_len(boot_n)
-
-match_ids <- unique(data_matchstatus$match_id[!is.na(data_matchstatus$match_id)])
-
-set.seed(20220506)
-
-boot_samples <-
-  tibble(boot_id) %>%
-  mutate(
-    match_id = map(boot_id, ~sample(match_ids, size=length(match_ids), replace=TRUE))
-  ) %>%
-  unnest(match_id)
-
-write_rds(boot_samples, fs::path(output_dir, "boot_samples.rds"), compress="gz")
-
+# ## bootstrap sampling ----
+# 
+# ## bootstrap sample matched pairs and use this sampling throughout the analysis
+# ## doing it here avoids repeating the sampling process in each individual outcome script
+# ## and provides consistency across different analyses
+# ## but the leg work is still done by the analysis scripts
+# 
+# boot_n <- 500 # more than necessary, can select fewer in the analysis scripts
+# 
+# boot_id <- seq_len(boot_n)
+# 
+# match_ids <- unique(data_matchstatus$match_id[!is.na(data_matchstatus$match_id)])
+# 
+# set.seed(20220506)
+# 
+# boot_samples <-
+#   tibble(boot_id) %>%
+#   mutate(
+#     match_id = map(boot_id, ~sample(match_ids, size=length(match_ids), replace=TRUE))
+#   ) %>%
+#   unnest(match_id)
+# 
+# write_rds(boot_samples, fs::path(output_dir, "boot_samples.rds"), compress="gz")
+# 

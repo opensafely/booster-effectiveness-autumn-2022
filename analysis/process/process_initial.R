@@ -1,6 +1,12 @@
 ######################################
 
 # This script:
+# - loads input_initial
+# - applies the initial inclusion criteria based on vaccination data
+# - saves:
+#   - flowchart
+#   - data for input into subsequent actions
+#   - data for input into subsequent study definitions
 
 ######################################
 
@@ -20,7 +26,9 @@ path_stem <- here("output", "initial")
 fs::dir_create(file.path(path_stem, "eligible"))
 fs::dir_create(file.path(path_stem, "flowchart"))
 
-# define extract_path
+# Load data ----
+
+# load studydef data
 data_studydef <- arrow::read_feather(
   file.path(path_stem, "extract", "input_initial.feather")
 ) %>%
@@ -28,11 +36,12 @@ data_studydef <- arrow::read_feather(
 
 if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   
+  # read custom dummydata
   data_dummy <- arrow::read_feather(
     file.path(path_stem, "dummydata", "dummydata_initial.feather")
   )
   
-  # check dummydata
+  # check custom and studydef dummydata match
   source(here::here("analysis", "dummydata", "dummydata_check.R"))
   dummydata_check(
     dummydata_studydef = data_studydef,
@@ -45,9 +54,10 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
 } else {
   
   data_extract <- data_studydef
-  rm(data_studydef)
   
 }
+
+rm(data_studydef)
 
 data_extract %>%
   my_skim(
@@ -99,6 +109,8 @@ data_vax <- data_any %>%
     data_extract %>% select(patient_id, age), 
     by = "patient_id"
   )
+
+rm(data_any, data_brand)
 
 # identify doses that meet the primary course criteria
 data_vax <- data_vax %>%

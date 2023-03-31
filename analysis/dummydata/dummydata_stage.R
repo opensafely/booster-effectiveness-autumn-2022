@@ -125,15 +125,6 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   # treated
   data_stage %>%
     filter(!is.na(vax_boostautumn_date)) %>%
-    # # covariates
-    # mutate(
-    #   bmi = sample(
-    #     x = c("Not obese", "Obese I (30-34.9)", "Obese II (35-39.9)", "Obese III (40+)"),
-    #     size = nrow(.),
-    #     replace = TRUE
-    #   ),
-    #   flu_vaccine = rbern(n = nrow(.), p = 0.7)
-    # ) %>%
     arrow::write_feather(file.path(custom_dummy_path_treated, "dummydata_treated.feather"))
   
   # potential 
@@ -143,7 +134,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   
 } else {
   
-  # save empty outputs to keep the project yaml happy
+  # save empty outputs to keep the project yaml happy but not waste storage
   tibble() %>%
     arrow::write_feather(sink = file.path(custom_dummy_path_treated, "empty.feather"))
   

@@ -76,14 +76,6 @@ action_1matchround <- function(match_round){
 
   control_extract_date <- study_dates[["control_extract"]][match_round]
   
-  # # define highly sensitive output for process_controlactual as conditional on match round
-  # process_controlactual_output <- lst(
-  #   rds = glue("output/matchround{match_round}/controlactual/match/*.rds"),
-  # )
-  # if (match_round == n_match_rounds) {
-  #   process_controlactual_output[["ids_final"]] <- glue("output/final/eligible/*.csv.gz")
-  # }
-
   match_actions <- splice(
     action(
       name = glue("extract_controlpotential_{match_round}"),
@@ -213,22 +205,35 @@ extract_vars <- function(vars, arm) {
 }
 
 
-actions_model <- function(effect, subgroup, outcome){
-
-  model_needs <- namelesslst(
-    glue("process_controlfinal")
-  )
-  if (outcome %in% c("cvddeath", "cancerdeath")) {
-    model_needs <- namelesslst(
-      glue("process_controlfinal"),
-      glue("extract_noncoviddeathcause")
-    )
+actions_model <- function(effect, subgroup, outcome) {
+  
+  needs_list <- list()
+  needs_list[["km"]] <- c("process_treated", "extract_outcomes_treated")
+  
+  if (effect == "comparative") {
+    
+    needs_list[["km"]] <- c(needs_list[["km"]], "match_comparative")
+    needs_list[["adj"]] <- c(needs_list[["km"]], "extract_covs_treated")
+    
   }
-
+  
+  if (effect == "relative") {
+    
+    needs_list[["km"]] <- c(
+      needs_list[["km"]], 
+      map_chr(1:n_match_rounds, ~glue("process_controlactual_{.x}")),
+      "extract_outcomes_control"
+    )
+    needs_list[["adj"]] <- c(needs_list[["km"]], "extract_covs_control")
+    
+  }
+  
+  needs_list[["unadj"]] <- needs_list[["km"]]
+  
   splice(
 
     comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
-            glue("cohort={cohort}; subgroup={subgroup}; outcome={outcome};"),
+            glue("subgroup={subgroup}; outcome={outcome};"),
             "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
 
     # km
@@ -236,40 +241,33 @@ actions_model <- function(effect, subgroup, outcome){
       name = glue("km_{effect}_{subgroup}_{outcome}"),
       run = glue("r:latest analysis/model/km.R"),
       arguments = c(effect, subgroup, outcome),
-      needs = model_needs,
+      needs = needs_list[["km"]],
       moderately_sensitive= lst(
         rds = glue("output/{effect}/model/km/{subgroup}/{outcome}/*.csv"),
         png = glue("output/{effect}/model/km/{subgroup}/{outcome}/*.png")
       )
-    )#,
+    ),
     
-    # # cox
-    # expand_grid(
-    #   cohort=cohort,
-    #   subgroup=subgroup,
-    #   outcome=outcome,
-    #   type=c("unadj", "adj"),
-    #   cuts=c("cuts", "overall")
-    # ) %>%
-    #   pmap(
-    #     function(type, cohort, subgroup, outcome, cuts) {
-    # 
-    #       # don't add suffix when cuts="cuts" to avoid having to rerun models that
-    #       # have already completed
-    #       name_suffix <- if_else(cuts == "cuts", "", paste0("_", cuts))
-    # 
-    #       action(
-    #         name = glue("cox_{type}_{subgroup}_{outcome}", name_suffix),
-    #         run = glue("r:latest analysis/model/cox.R"),
-    #         arguments = c(cohort, type, subgroup, outcome, cuts),
-    #         needs = model_needs,
-    #         moderately_sensitive= lst(
-    #           csv = glue("output/models/cox_{type}/{subgroup}/{outcome}/cox_{type}_contrasts_{cuts}_*.csv")
-    #         )
-    #       )
-    #     }
-    #   ) %>%
-    #   unlist(recursive = FALSE)
+    # cox
+    expand_grid(
+      model=c("cox_unadj", "cox_adj"),
+    ) %>%
+      pmap(
+        function(model) {
+
+          action(
+            name = glue("{model}_{effect}_{subgroup}_{outcome}"),
+            run = "r:latest analysis/model/cox.R",
+            arguments = c(effect, model, subgroup, outcome),
+            needs = needs_list[[model]],
+            moderately_sensitive= lst(
+              csv = glue("output/{effect}/model/{model}/{subgroup}/{outcome}/*.csv")
+            )
+          )
+          
+        }
+      ) %>%
+      unlist(recursive = FALSE)
 
   )
 }
@@ -505,7 +503,7 @@ actions_list <- splice(
       "process_treated"
     ),
     highly_sensitive = lst(
-      rds = "output/treated/match/*.rds"
+      rds = "output/comparative/match/*.rds"
     )
   ),
   
@@ -576,9 +574,39 @@ actions_list <- splice(
           "Fit models to estimate comparative effectiveness",
           "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
   
+  expand_grid(
+    subgroup=subgroups,
+    outcome=outcomes,
+  ) %>%
+    pmap(
+      function(subgroup, outcome) {
+        actions_model(
+          effect = "comparative",
+          subgroup = subgroup,
+          outcome = outcome
+        )
+      }
+    ) %>%
+    unlist(recursive = FALSE),
+  
   comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
           "Fit models to estimate relative effectiveness",
           "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
+  
+  expand_grid(
+    subgroup=subgroups,
+    outcome=outcomes,
+  ) %>%
+    pmap(
+      function(subgroup, outcome) {
+        actions_model(
+          effect = "relative",
+          subgroup = subgroup,
+          outcome = outcome
+        )
+      }
+    ) %>%
+    unlist(recursive = FALSE),
   
   #####
   

@@ -32,9 +32,9 @@ if(length(args)==0){
   outcome <- "covidadmitted"
   
 } else {
-  cohort <- args[[1]]
+  effect <- args[[1]]
   subgroup <- args[[2]]
-  outcome <- args[[4]]
+  outcome <- args[[3]]
 }
 
 # derive symbolic arguments for programming with
@@ -76,7 +76,7 @@ data_surv <- data_surv %>%
     surv_obj_tidy = map(surv_obj, ~{
       broom::tidy(.x) %>%
         complete(
-          time = seq_len(maxfup), # fill in 1 row for each day of follow up
+          time = seq_len(fup_params$maxfup), # fill in 1 row for each day of follow up
           fill = list(n.event = 0, n.censor = 0) # fill in zero events on those days
         ) %>%
         fill(n.risk, .direction = c("up")) %>% # fill in n.risk on each zero-event day
@@ -399,6 +399,6 @@ write_csv(km_contrasts_rounded_cuts, file.path(output_dir, "km_contrasts_cuts_ro
 cat("---- end km_contrasts_rounded_cuts ----\n")
 
 cat("---- start km_contrasts_rounded_overall ----\n")
-km_contrasts_rounded_overall <- kmcontrasts(data_surv_rounded, c(0,maxfup))
+km_contrasts_rounded_overall <- kmcontrasts(data_surv_rounded, c(0,fup_params$maxfup))
 write_csv(km_contrasts_rounded_overall, file.path(output_dir, "km_contrasts_overall_rounded.csv"))
 cat("---- end km_contrasts_rounded_overall ----\n")

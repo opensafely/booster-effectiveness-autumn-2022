@@ -8,7 +8,7 @@ if (effect == "relative") {
   
   data_matched <- data_matched %>%
     # create a new id to account for the fact that some controls become treated (this is only needed for cox models)
-    group_by(patient_id, match_id, matching_round, treated) %>% 
+    group_by(patient_id, match_id, match_round, treated) %>% 
     mutate(new_id = cur_group_id()) %>% 
     ungroup()
   
@@ -30,7 +30,7 @@ data_matched$censor_date <- do.call(
   pmin, 
   splice(
     map(censor_vars[[effect]], ~data_matched[[.x]]), 
-    data_matched[["trial_date"]] - 1 + maxfup,
+    data_matched[["trial_date"]] - 1 + fup_params$maxfup,
     na.rm = TRUE
     )
   )

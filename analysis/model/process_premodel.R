@@ -2,7 +2,7 @@
 # it is called in analysis/model/km.R and analysis/model/cox.R
 # and creates split data when variant_option="split"
 
-cat("---- start process_data_model\n")
+cat("---- start process_premodel\n")
 
 if (effect == "relative") {
   
@@ -64,4 +64,4 @@ stopifnot("tte_outcome has non-positive event times" = all(check_pos_tte[[1]]))
 
 surv_formula <- formula(Surv(tte_outcome, ind_outcome) ~ 1)
 
-cat("---- end process_data_model ---- \n")
+cat("---- end process_premodel ---- \n")

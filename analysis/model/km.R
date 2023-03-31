@@ -61,13 +61,10 @@ covariates_model <- NULL
 # process the data for the model
 source(here("analysis", "model", "process_premodel.R"))
 
-# TODO from here
-# TODO sort out dummy data for outcomes so that no outcomes or censor events before trial_date
-
-## competing risks cumulative risk differences ----
+## cumulative risk differences ----
 
 # derive data_surv ----
-cat("---- start data_surv ----\n")
+cat("---- start data_surv for km ----\n")
 data_surv <- data_surv %>%
   # this grouping is kept for passing into the km_* functions
   group_by(treated, !!subgroup_sym) %>%
@@ -92,14 +89,13 @@ data_surv <- data_surv %>%
   select(!!subgroup_sym, treated, surv_obj_tidy) %>%
   unnest(surv_obj_tidy) 
 
-cat("---- end data_surv ----\n")
+cat("---- end data_surv for km ----\n")
 
 
 # define km_process function ----
 km_process <- function(.data, round_by){
    
   .data %>% 
-    # group_by(treated, !!subgroup_sym, variant) %>%
     mutate(
     
     lagtime = lag(time, 1, 0),
@@ -116,14 +112,13 @@ km_process <- function(.data, round_by){
 
     n.event = diff(c(0, cml.event)),
     n.censor = diff(c(0, cml.censor)),
-    # n.risk = roundmid_any(N, round_by) - lag(cml.eventcensor, 1, 0), # this won't work when variant_option="split", need to incorporate delayed entries
     n.risk = cml.entry - lag(cml.eventcensor, 1, 0), # (sum of new entries) minus (sum of people no longer under follow-up)
     n.entry = diff(c(0, cml.entry)),
 
     # KM estimate for event of interest, combining censored and competing events as censored
     summand = (1/(n.risk-n.event)) - (1/n.risk), # = n.event / ((n.risk - n.event) * n.risk) but re-written to prevent integer overflow
     surv = cumprod(1 - n.event / n.risk),
-    surv.se = surv * sqrt(cumsum(summand)), #greenwood's formula
+    surv.se = surv * sqrt(cumsum(summand)), # Greenwood's formula
     surv.ln.se = surv.se/surv,
     
     ## standard errors on log scale
@@ -142,8 +137,9 @@ km_process <- function(.data, round_by){
     risk.ln.se = surv.ln.se,
     risk.ll = 1 - surv.ul,
     risk.ul = 1 - surv.ll
+    
   ) %>% select(
-    !!subgroup_sym, variant, treated, time, lagtime, leadtime, interval,
+    !!subgroup_sym, treated, time, lagtime, leadtime, interval,
     cml.event, cml.censor,
     n.entry, n.risk, n.event, n.censor,
     surv, surv.se, surv.ll, surv.ul,
@@ -158,20 +154,18 @@ km_process <- function(.data, round_by){
 # apply function
 cat("---- start data_surv_unrounded ----\n")
 data_surv_unrounded <- km_process(data_surv, 1)
-write_csv(data_surv_unrounded, fs::path(output_dir, "km_estimates_unrounded.csv"))
+# don't need to save as this is only used here to generate unrounded plots for comparison to rounded
+# write_csv(data_surv_unrounded, file.path(output_dir, "km_estimates_unrounded.csv"))
 cat("---- end data_surv_unrounded ----\n")
 
 cat("---- start data_surv_rounded ----\n")
 data_surv_rounded <- km_process(data_surv, threshold)
-write_csv(data_surv_rounded, fs::path(output_dir, "km_estimates_rounded.csv"))
+write_csv(data_surv_rounded, file.path(output_dir, "km_estimates_rounded.csv"))
 cat("---- end data_surv_rounded ----\n")
 
 # define km_plot function ----
 km_plot <- function(.data) {
-  
-  # define variable to facet by
-  if (subgroup == "all") facet_sym <- sym("variant") else facet_sym <- subgroup_sym 
-  
+
   .data %>%
     group_modify(
       ~add_row(
@@ -190,13 +184,13 @@ km_plot <- function(.data) {
       )
     ) %>%
     mutate(
-      treated_descr = fct_recoderelevel(treated, recoder$treated),
+      treated_descr = fct_recoderelevel(treated, recoder[[effect]]),
     ) %>%
     ggplot(aes(group=treated_descr, colour=treated_descr, fill=treated_descr)) +
     geom_step(aes(x=time, y=risk), direction="vh")+
     geom_step(aes(x=time, y=risk), direction="vh", linetype="dashed", alpha=0.5)+
     geom_rect(aes(xmin=lagtime, xmax=time, ymin=risk.ll, ymax=risk.ul), alpha=0.1, colour="transparent")+
-    facet_grid(rows=vars(!!facet_sym))+
+    facet_grid(rows=vars(!!subgroup_sym))+
     scale_color_brewer(type="qual", palette="Set1", na.value="grey") +
     scale_fill_brewer(type="qual", palette="Set1", guide="none", na.value="grey") +
     scale_x_continuous(breaks = seq(0,600,14))+
@@ -220,12 +214,12 @@ km_plot <- function(.data) {
 # apply function
 cat("---- start km_plot_unrounded ----\n")
 km_plot_unrounded <- km_plot(data_surv_unrounded)
-ggsave(filename=fs::path(output_dir, "km_plot_unrounded.png"), km_plot_unrounded, width=20, height=15, units="cm")
+ggsave(filename=file.path(output_dir, "km_plot_unrounded.png"), km_plot_unrounded, width=20, height=15, units="cm")
 cat("---- end km_plot_unrounded ----\n")
 
 cat("---- start km_plot_rounded ----\n")
 km_plot_rounded <- km_plot(data_surv_rounded)
-ggsave(filename=fs::path(output_dir, "km_plot_rounded.png"), km_plot_rounded, width=20, height=15, units="cm")
+ggsave(filename=file.path(output_dir, "km_plot_rounded.png"), km_plot_rounded, width=20, height=15, units="cm")
 cat("---- end km_plot_rounded ----\n")
 
 
@@ -242,10 +236,10 @@ kmcontrasts <- function(data, cuts=NULL){
   data %>%
     filter(time!=0) %>%
     transmute(
-      !!subgroup_sym, variant,
-      treated,
+      !!subgroup_sym, treated,
 
       time, lagtime, interval,
+      
       period_start = as.integer(as.character(cut(time, cuts, right=TRUE, label=cuts[-length(cuts)]))),
       period_end = as.integer(as.character(cut(time, cuts, right=TRUE, label=cuts[-1]))),
       period = cut(time, cuts, right=TRUE, label=paste0(cuts[-length(cuts)]+1, " - ", cuts[-1])),
@@ -268,7 +262,7 @@ kmcontrasts <- function(data, cuts=NULL){
       inc2 = diff(c(0,-log(surv)))
 
     ) %>%
-    group_by(!!subgroup_sym, variant, treated, period_start, period_end, period) %>%
+    group_by(!!subgroup_sym, treated, period_start, period_end, period) %>%
     summarise(
 
       ## time-period-specific quantities
@@ -300,7 +294,6 @@ kmcontrasts <- function(data, cuts=NULL){
       risk.ll = last(risk.ll),
       risk.ul = last(risk.ul),
 
-      
       #cml.haz = last(cml.haz),  # cumulative hazard from time zero to end of time period
 
       cml.rate = last(cml.rate), # event rate from time zero to end of time period
@@ -312,12 +305,15 @@ kmcontrasts <- function(data, cuts=NULL){
       # cml.summand = last(cml.summand), # summand used for estimation of SE of survival
 
       .groups="drop"
+      
     ) %>%
-    ungroup() %>%
+    # ungroup() %>% # not neeeded as .groups = "drop"?
     pivot_wider(
-      id_cols= all_of(c(subgroup, "variant", "period_start", "period_end", "period",  "interval")),
+      
+      id_cols= all_of(c(subgroup, "period_start", "period_end", "period",  "interval")),
       names_from=treated,
       names_glue="{.value}_{treated}",
+      
       values_from=c(
 
         persontime, n.atrisk, n.event, n.censor,
@@ -329,8 +325,10 @@ kmcontrasts <- function(data, cuts=NULL){
 
         cml.event, cml.rate
         )
+      
     ) %>%
     mutate(
+      
       n.nonevent_0 = n.atrisk_0 - n.event_0,
       n.nonevent_1 = n.atrisk_1 - n.event_1,
 
@@ -354,7 +352,6 @@ kmcontrasts <- function(data, cuts=NULL){
 
       ## quantities calculated from time zero until end of time period
       # these should be the same as values calculated on each day of follow up
-
 
       # cumulative incidence rate ratio
       cmlirr = cml.rate_1 / cml.rate_0,
@@ -382,28 +379,26 @@ kmcontrasts <- function(data, cuts=NULL){
       rd.ll = rd + qnorm(0.025)*rd.se,
       rd.ul = rd + qnorm(0.975)*rd.se,
 
-
-
       # cumulative incidence rate difference
       #cmlird = cml.rate_1 - cml.rate_0
+    
     )
 }
 
 
 # apply function
-cat("---- start km_contrasts_rounded_daily ----\n")
-km_contrasts_rounded_daily <- kmcontrasts(data_surv_rounded)
-write_csv(km_contrasts_rounded_daily, fs::path(output_dir, "km_contrasts_daily_rounded.csv"))
-cat("---- end km_contrasts_rounded_daily ----\n")
+# don't do daily as this can be applied to km_estimates_rounded.csv after release (save memory)
+# cat("---- start km_contrasts_rounded_daily ----\n")
+# km_contrasts_rounded_daily <- kmcontrasts(data_surv_rounded)
+# write_csv(km_contrasts_rounded_daily, file.path(output_dir, "km_contrasts_daily_rounded.csv"))
+# cat("---- end km_contrasts_rounded_daily ----\n")
 
 cat("---- start km_contrasts_rounded_cuts ----\n")
-km_contrasts_rounded_cuts <- kmcontrasts(data_surv_rounded, postbaselinecuts)
-write_csv(km_contrasts_rounded_cuts, fs::path(output_dir, "km_contrasts_cuts_rounded.csv"))
+km_contrasts_rounded_cuts <- kmcontrasts(data_surv_rounded, fup_params$postbaselinecuts)
+write_csv(km_contrasts_rounded_cuts, file.path(output_dir, "km_contrasts_cuts_rounded.csv"))
 cat("---- end km_contrasts_rounded_cuts ----\n")
 
 cat("---- start km_contrasts_rounded_overall ----\n")
 km_contrasts_rounded_overall <- kmcontrasts(data_surv_rounded, c(0,maxfup))
-write_csv(km_contrasts_rounded_overall, fs::path(output_dir, "km_contrasts_overall_rounded.csv"))
+write_csv(km_contrasts_rounded_overall, file.path(output_dir, "km_contrasts_overall_rounded.csv"))
 cat("---- end km_contrasts_rounded_overall ----\n")
-
-cat("script complete")

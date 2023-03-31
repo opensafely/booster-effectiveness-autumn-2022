@@ -52,7 +52,18 @@ add_vars <- function(.data, vars, arms) {
     arms,
     ~arrow::read_feather(here("output", "postmatch", vars, glue("input_{vars}_", .x, ".feather")))
   ) %>%
-    process_input()
+    process_input() 
+  
+  if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
+    
+    # if dummy data remove all dates before trial_date
+    data_vars <- data_vars %>% 
+      mutate(across(
+        ends_with("_date"), 
+        ~if_else(.x < trial_date, as.Date(NA_character_), .x)
+        ))
+    
+  }
   
   .data %>%
     # the next line is to move trial_date when arms=="treated"

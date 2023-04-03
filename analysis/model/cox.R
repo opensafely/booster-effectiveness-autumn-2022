@@ -1,35 +1,34 @@
-
 # # # # # # # # # # # # # # # # # # # # #
 # Purpose: 
-
+# fit cox models to estimate hazard ratios
+# arguments:
+# - effect: comparative, relative
+# - model: cox_unadj, cox_adj
+# - subgroup
+# - outcome
 # # # # # # # # # # # # # # # # # # # # #
 
 # Preliminaries ----
-
-## Import libraries ----
+# Import libraries
 library('tidyverse')
 library('here')
 library('glue')
 library('survival')
 
-## import local functions and parameters ---
-
+# import local functions and parameters
 source(here("analysis", "design.R"))
 source(here("lib", "functions", "utility.R"))
 source(here("lib", "functions", "survival.R"))
+# load process_functions for add_vars, process_covs, and process_outcomes
 source(here("analysis", "process", "process_functions.R"))
 
-# import command-line arguments ----
-
+# import command-line arguments 
 args <- commandArgs(trailingOnly=TRUE)
-
 if(length(args)==0){
-  # use for interactive testing
   effect <- "comparative"
   model <- "cox_adj"
   subgroup <- "all"
   outcome <- "covidadmitted"
-  
 } else {
   effect <- args[[1]]
   model <- args[[2]]
@@ -37,14 +36,12 @@ if(length(args)==0){
   outcome <- args[[4]]
 }
 
-# create output directories ----
+# create output directories
 output_dir <- ghere("output", effect, "model", model, subgroup, outcome)
 fs::dir_create(output_dir)
 
 # derive symbolic arguments for programming with
 subgroup_sym <- sym(subgroup)
-
-source(here("analysis", "model", "merge_or_drop.R"))
 
 # read and process data_matched ----
 source(here("analysis", "process", "process_postmatch.R"))
@@ -70,13 +67,7 @@ if (model == "cox_adj") {
 
 source(here("analysis", "process", "process_premodel.R"))
 
-# rm(data_surv)
-
 # cox models ----
-
-# variant = "ignore": ignore the effect of variant
-# variant = "split": split follow-up time by variants
-# variant = "delta"/"transition"/"omicron": restrict to a variant era
 coxcontrast <- function(data, adj = FALSE, cuts=NULL){
   
   if (is.null(cuts)) {
@@ -157,6 +148,8 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL){
     
   # add covariates if fitting adjusted model
   if (adj) {
+    
+    source(here("analysis", "model", "merge_or_drop.R"))
     
     data_cox <- data_cox %>%
       mutate(

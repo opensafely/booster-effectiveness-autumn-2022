@@ -11,51 +11,44 @@
 # # # # # # # # # # # # # # # # # # # # #
 
 # Preliminaries ----
-
-## Import libraries ----
+# Import libraries
 library(tidyverse)
 library(lubridate)
 library(here)
 library(glue)
 library(MatchIt)
 
-## import local functions and parameters ---
-
+# import local functions and parameters
 source(here("analysis", "design.R"))
-
 source(here("lib", "functions", "utility.R"))
 
-# import command-line arguments ----
-
+# import command-line arguments
 args <- commandArgs(trailingOnly=TRUE)
-
 if(length(args)==0){
-  # use for interactive testing
   match_round <- as.integer("1")
 } else {
   match_round <- as.integer(args[[1]])
 }
 
-## get cohort-specific parameters study dates and parameters ----
+# get cohort-specific parameters study dates and parameters
 match_round_date <- study_dates$control_extract[match_round]
 
-## create output directory ----
+# create output directory
 fs::dir_create(ghere("output", "matchround{match_round}", "controlpotential", "match"))
 
 # Import datasets ----
-
-## import treated cohort ----
+# import treated cohort
 data_treated <- read_rds(here("output", "treated", "eligible", "data_treated.rds")) %>%
   mutate(treated=1L)
 
-## import control cohort ----
+# import control cohort 
 data_control <- read_rds(
   ghere("output", "matchround{match_round}", "controlpotential", "eligible", "data_controlpotential.rds")
   ) %>% 
   mutate(treated=0L)
 
 # remove already-matched people from previous match rounds
-if(match_round>1){
+if(match_round > 1) {
   
   data_matchstatusprevious <- read_rds(
     ghere("output", "matchround{match_round-1L}", "controlactual", "match", "data_matchstatus_allrounds.rds")
@@ -80,12 +73,13 @@ if(match_round>1){
 
 }
 
-## import match variables ----
-
+# bind to create dataset of all eligibile individuals
 data_eligible <- bind_rows(data_treated, data_control) %>%
   mutate(
     treatment_date = if_else(treated==1L, vax_boostautumn_date, as.Date(NA))
   ) 
+
+rm(data_treated, data_control)
 
 local({
 
@@ -105,7 +99,7 @@ local({
   trials <- seq(start_trial_time+1, end_trial_time, 1) 
   
   # initialise list of candidate controls
-  candidate_ids <- data_control$patient_id
+  candidate_ids <- data_eligible %>% filter(treated==0) %>% pull(patient_id)
 
   # initialise match summary data
   data_treated <- NULL
@@ -186,7 +180,9 @@ local({
       safely_matchit(
         formula = treated ~ 1,
         data = match_candidates_i,
-        method = "nearest", distance = "glm", # these two options don't really do anything because we only want exact + caliper match
+        # these method and distance options don't really do anything because we
+        # only want exact + caliper match
+        method = "nearest", distance = "glm", 
         replace = FALSE,
         estimand = "ATT",
         exact = exact_variables_control,
@@ -201,8 +197,6 @@ local({
       message("Skipping trial ", trial, " - No exact matches found.")
       next
     }
-    
-    
     
     data_matchstatus_i <-
       if(is.null(obj_matchit_i)){

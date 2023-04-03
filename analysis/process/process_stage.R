@@ -1,9 +1,10 @@
 ######################################
 
 # This script:
-# - processes and applied eligibility criteria for the treated data and the 
-#   control data at each stage of the matching process
-
+# processes data and applies eligibility criteria  
+# arguments: stage, match_round
+# - stage = treated, potentialcontrol or actualcontrol
+# - match_round only required when stage = potentialcontrol or actualcontrol
 ######################################
 
 # Preliminaries ----
@@ -31,7 +32,6 @@ if (length(args) == 0) {
   stage <- "treated"
   # stage <- "controlpotential"
   # stage <- "controlactual"
-  # stage <- "controlfinal"
   match_round <- as.integer("1")
 } else {
   stage <- args[[1]]
@@ -523,24 +523,6 @@ if (stage == "controlactual") {
       file.path(path_stem, "match", "data_matchstatus_allrounds.rds"), 
       compress="gz"
       )
-  
-  # # output all included patient ids for final study definition
-  # if (match_round == n_match_rounds) {
-  #   
-  #   fs::dir_create(here("output", "final", "eligible"))
-  #   
-  #   # save ids for reading into final study definition
-  #   bind_rows(
-  #     data_treated,
-  #     data_matchstatus_allrounds
-  #   ) %>% 
-  #     select(patient_id, trial_date, match_id) %>%
-  #     mutate(across(trial_date, as.character)) %>%
-  #     write_csv(
-  #       here("output", "final", "eligible", "ids_final.csv.gz")
-  #     )
-  #   
-  # }
   
   ## size of dataset
   print("data_matchstatus_allrounds treated/untreated numbers")

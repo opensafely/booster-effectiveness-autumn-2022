@@ -1,32 +1,29 @@
 # # # # # # # # # # # # # # # # # # # # #
-# Purpose: describe match results
-# reports on match coverage
+# Purpose: create plots of matching coverage
+# arguments: effect
+# - effect=comparative: include all boosted individuals, plot coverage 
+#   split by brand, matches for comparative effectiveness analysis
+# - effect=relative unclude all boosted individuals, don't split by brand,
+#   matches for relative effectiveness analysis
 # # # # # # # # # # # # # # # # # # # # #
 
-
 # Preliminaries ----
-
-
-## Import libraries ----
+# Import libraries
 library('tidyverse')
 library('lubridate')
 library('here')
 library('glue')
 
-## import local functions and parameters ---
-
+# import local functions and parameters
 source(here("analysis", "design.R"))
 source(here("lib", "functions", "utility.R"))
 
-# import command-line arguments ----
-
+# import command-line arguments
 args <- commandArgs(trailingOnly=TRUE)
-
-
 if(length(args)==0){
   # use for interactive testing
   effect <- "relative"
-  # effect <- "relative"
+  # effect <- "comparative"
 } else {
   #FIXME replace with actual eventual action variables
   effect <- args[[1]]
@@ -34,36 +31,35 @@ if(length(args)==0){
 
 if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
   
-  ## Import released data ----
-  release_dir <- "release20230105"
-  
-  output_dir <- here("manuscript")
+  # Import released data
+  release_dir <- ""
+  output_dir <- ""
   fs::dir_create(output_dir)
-  
-  data_coverage_rounded <- read_csv(here(release_dir, "match", "data_coverage.csv"))
+  data_coverage_rounded <- read_csv("")
   
   
 } else {
   
-  ## create output directories ----
-  
+  # create output directories
   output_dir <- here("output", effect, "coverage")
   fs::dir_create(output_dir)
   
   if (effect == "comparative") {
     
-    data_matchstatus <- read_rds(here("output", "treated", "match", "data_matchstatus.rds"))
+    data_matchstatus <- read_rds(here("output", "comparative", "match", "data_matchstatus.rds"))
     
   }
+  
   if (effect == "relative") {
     
     data_matchstatus <- read_rds(ghere("output", "matchround{n_match_rounds}", "controlactual", "match", "data_matchstatus_allrounds.rds"))
     
     data_matchstatus <- data_matchstatus %>%
-      # when effect=relative one plot marching for treated individuals 
+      # only keep treated individuals who were successfully matched
       filter(treated == 1) %>%
+      # join data from all people eligible for the treated group to include 
+      # unmatched treated individuals
       right_join(
-        # read in data from all people eligible for the treated group
         read_rds(here("output", "treated", "eligible", "data_treated.rds")) %>%
           select(patient_id, trial_date = vax_boostautumn_date), 
         by = c("patient_id", "trial_date")
@@ -75,7 +71,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
       
   }
   
-  # match coverage for boosted people
+  # match coverage
   data_coverage <-
     data_matchstatus %>%
     group_by(treated, trial_date) %>%
@@ -109,9 +105,6 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
       cumuln = cumsum(n)
     ) %>%
     ungroup() %>%
-    # mutate(
-    #   status = factor(status, levels=unname(recoder$status)),
-    # ) %>%
     arrange(treated, status, trial_date) 
   
   # save for release
@@ -132,7 +125,6 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
 
 data_plot <- data_coverage_rounded %>%
   mutate(
-    # vax3_type_indicator = vax3_type=="pfizer",
     treated_descr = fct_recoderelevel(treated, recoder[[effect]]), #TODO
     status_descr = fct_recoderelevel(status, recoder$status), #TODO
     n=n*((treated*2) - 1),
@@ -142,7 +134,8 @@ data_plot <- data_coverage_rounded %>%
 xmin <- min(data_plot$trial_date)
 xmax <- max(data_plot$trial_date)+1
 
-# this is necessary because there is an older version of a package in opensafely and I think it requires breaks to be unique
+# this is necessary because there is an older version of a package in 
+# opensafely and I think it requires breaks to be unique
 if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
   y_labels <- ~scales::label_number(accuracy = 1, big.mark=",")(abs(.x))
 } else {
@@ -155,13 +148,14 @@ colour_palette <- list(
     "#7570b3" # dark purple 
   ),
   relative = c(
-    # change thes to something different from comparative
+    # change this to something different from comparative
     "#e7298a", # dark pink
     "#7570b3" # dark purple
   )
 )
 names(colour_palette[[effect]]) <- names(recoder[[effect]])
 
+# plot daily coverage
 plot_coverage_n <-
   data_plot %>%
   ggplot() +
@@ -176,7 +170,6 @@ plot_coverage_n <-
       colour=NULL
     ),
     position=position_stack(reverse=TRUE),
-    #alpha=0.8,
     width=1
   ) +
   geom_hline(yintercept = 0, colour="black") +
@@ -210,10 +203,9 @@ plot_coverage_n <-
   ) +
   NULL
 
-plot_coverage_n
-
 ggsave(plot_coverage_n, filename="coverage_count.png", path=output_dir)
 
+# plot cumulative daily coverage
 plot_coverage_cumuln <-
   data_plot %>%
   ggplot()+
@@ -261,7 +253,5 @@ plot_coverage_cumuln <-
     legend.position = "bottom"
   )+
   NULL
-
-plot_coverage_cumuln
 
 ggsave(plot_coverage_cumuln, filename="coverage_stack.png", path=output_dir)

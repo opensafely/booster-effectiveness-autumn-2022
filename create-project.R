@@ -211,24 +211,25 @@ actions_model <- function(effect, subgroup, outcome) {
   needs_list[["km"]] <- c("process_treated", "extract_outcomes_treated")
   
   if (effect == "comparative") {
-    
     needs_list[["km"]] <- c(needs_list[["km"]], "match_comparative")
-    needs_list[["adj"]] <- c(needs_list[["km"]], "extract_covs_treated")
-    
+    needs_list[["cox_adj"]] <- c(needs_list[["km"]], "extract_covs_treated")
   }
   
+  
+  
   if (effect == "relative") {
-    
     needs_list[["km"]] <- c(
       needs_list[["km"]], 
       map_chr(1:n_match_rounds, ~glue("process_controlactual_{.x}")),
       "extract_outcomes_control"
     )
-    needs_list[["adj"]] <- c(needs_list[["km"]], "extract_covs_control")
-    
+    needs_list[["cox_adj"]] <- c(
+      needs_list[["km"]], 
+      "extract_covs_treated", 
+      "extract_covs_control")
   }
   
-  needs_list[["unadj"]] <- needs_list[["km"]]
+  needs_list[["cox_unadj"]] <- needs_list[["km"]]
   
   splice(
 

@@ -98,7 +98,8 @@ events_lookup <- tribble(
 
 )
 
-outcomes <- c("covidadmitted", "coviddeath", "noncoviddeath", "fracture")
+outcomes <- c("covidadmitted", "coviddeath") # restrict to two outcomes for now to keep project.yaml shorter
+# outcomes <- c("covidadmitted", "coviddeath", "noncoviddeath", "fracture")
 
 # define treatments ----
 

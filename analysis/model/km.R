@@ -1,32 +1,30 @@
 # # # # # # # # # # # # # # # # # # # # #
 # Purpose: 
-
+# derive and plot km estimates
+# arguments:
+# - effect: comparative, relative
+# - subgroup
+# - outcome
 # # # # # # # # # # # # # # # # # # # # #
 
 # Preliminaries ----
-
-
-## Import libraries ----
+# Import libraries
 library('tidyverse')
 library('here')
 library('glue')
 library('survival')
 
-
-## import local functions and parameters ---
-
+# import local functions and parameters
 source(here("analysis", "design.R"))
 source(here("lib", "functions", "utility.R"))
 source(here("lib", "functions", "survival.R"))
+# load process_functions for add_vars and process_outcomes
 source(here("analysis", "process", "process_functions.R"))
 
-# import command-line arguments ----
 
+# import command-line arguments
 args <- commandArgs(trailingOnly=TRUE)
-
-
 if(length(args)==0){
-  # use for interactive testing
   effect <- "comparative"
   subgroup <- "all"
   outcome <- "covidadmitted"
@@ -40,13 +38,14 @@ if(length(args)==0){
 # derive symbolic arguments for programming with
 subgroup_sym <- sym(subgroup)
 
-# create output directories ----
+# create output directories
 output_dir <- ghere("output", effect, "model", "km", subgroup, outcome)
 fs::dir_create(output_dir)
 
 # read and process data_matched ----
 source(here("analysis", "process", "process_postmatch.R"))
 
+# define arms for the add_vars function
 arms <- "treated"
 if (effect == "relative") arms <- c(arms, "control")
 
@@ -90,7 +89,6 @@ data_surv <- data_surv %>%
   unnest(surv_obj_tidy) 
 
 cat("---- end data_surv for km ----\n")
-
 
 # define km_process function ----
 km_process <- function(.data, round_by){
@@ -187,22 +185,22 @@ km_plot <- function(.data) {
       treated_descr = fct_recoderelevel(treated, recoder[[effect]]),
     ) %>%
     ggplot(aes(group=treated_descr, colour=treated_descr, fill=treated_descr)) +
-    geom_step(aes(x=time, y=risk), direction="vh")+
-    geom_step(aes(x=time, y=risk), direction="vh", linetype="dashed", alpha=0.5)+
+    geom_step(aes(x=time, y=risk), direction="vh") +
+    geom_step(aes(x=time, y=risk), direction="vh", linetype="dashed", alpha=0.5) +
     geom_rect(aes(xmin=lagtime, xmax=time, ymin=risk.ll, ymax=risk.ul), alpha=0.1, colour="transparent")+
-    facet_grid(rows=vars(!!subgroup_sym))+
+    facet_grid(rows=vars(!!subgroup_sym)) +
     scale_color_brewer(type="qual", palette="Set1", na.value="grey") +
     scale_fill_brewer(type="qual", palette="Set1", guide="none", na.value="grey") +
-    scale_x_continuous(breaks = seq(0,600,14))+
-    scale_y_continuous(expand = expansion(mult=c(0,0.01)))+
-    coord_cartesian(xlim=c(0, NA))+
+    scale_x_continuous(breaks = seq(0,600,14)) +
+    scale_y_continuous(expand = expansion(mult=c(0,0.01))) +
+    coord_cartesian(xlim=c(0, NA)) +
     labs(
       x="Days",
       y="Cumulative incidence",
       colour=NULL,
       title=NULL
-    )+
-    theme_bw()+
+    ) +
+    theme_bw() +
     theme(
       axis.line.x = element_line(colour = "black"),
       panel.grid.minor.x = element_blank(),

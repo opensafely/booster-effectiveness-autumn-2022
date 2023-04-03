@@ -156,7 +156,7 @@ for (i in c("comparative", "relative")) {
 }
 
 ## follow-up time ----
-
+# TODO these need to be reviewed
 fup_params <- lst(
   # length of baseline period
   baselinedays = 14,
@@ -211,7 +211,8 @@ covariates_model <- c(
   "learndis",
   "sev_mental",
   "immunosuppressed",
-  # "multimorb",
+  # "multimorb", # TODO add this back in
+  # TODO add time since covid hospitalisaion variable
   "flu_vaccine"
 )
 

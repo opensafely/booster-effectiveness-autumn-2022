@@ -115,10 +115,15 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
         rbern(n = nrow(.), p = 0.1),
         admitted_unplanned_0_date,
         NA_integer_
+      ),
+      discharged_covid_0_date = if_else(
+        !is.na(admitted_covid_0_date),
+        discharged_unplanned_0_date,
+        NA_integer_
       )
     ) %>%
     mutate(across(
-      c(admitted_unplanned_0_date, discharged_unplanned_0_date, admitted_planned_0_date, discharged_planned_0_date, admitted_covid_0_date),
+      matches("(admitted|discharged)_\\w+_date"),
       ~ index_date + .x
     ))
   

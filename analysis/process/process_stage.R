@@ -313,40 +313,48 @@ data_criteria <- data_processed %>%
       !is.na(discharged_unplanned_0_date) & (discharged_unplanned_0_date < index_date) ~ TRUE,
       TRUE ~ FALSE
     ),
+    isnot_inhospitalcovid = case_when(
+      is.na(admitted_covid_0_date) ~ TRUE,
+      !is.na(discharged_covid_0_date) & ((index_date - discharged_covid_0_date) >= 30) ~ TRUE,
+      TRUE ~ FALSE
+    ),
     
     # better to have the c*_descr next to the c* definition here, to ensure both updated following changes
     # quite inefficient though in terms of memory, so encode as factors
-    c0_descr = factor("Satisfying initial eligibility criteria"), 
-    c0 = TRUE, 
+    c00_descr = factor("Satisfying initial eligibility criteria"), 
+    c00 = TRUE, 
     
-    c1_descr = factor("  Registered with a TPP practice for less than one year"), 
-    c1 = c0 & has_follow_up_previous_1year,
+    c01_descr = factor("  Registered with a TPP practice for less than one year"), 
+    c01 = c00 & has_follow_up_previous_1year,
     
-    c2_descr = factor("  Undefined dose between studystart and index date"),
-    c2 = c1 & no_undefineddose,
+    c02_descr = factor("  Undefined dose between studystart and index date"),
+    c02 = c01 & no_undefineddose,
     
-    c3_descr = factor("  Less than 3 months (91 days) since most recent vaccine dose"),
-    c3 = c2 & lastdoseinterval,
+    c03_descr = factor("  Less than 3 months (91 days) since most recent vaccine dose"),
+    c03 = c02 & lastdoseinterval,
     
-    c4_descr = factor("  Missing sex, IMD, ethnicity, geographical region"),
-    c4 = c3 & has_sex & has_imd & has_ethnicity & has_region,
+    c04_descr = factor("  Missing sex, IMD, ethnicity, geographical region"),
+    c04 = c03 & has_sex & has_imd & has_ethnicity & has_region,
     
-    c5_descr = factor("  Care home residents, where known"),
-    c5 = c4 & isnot_carehomeresident,
+    c05_descr = factor("  Care home residents, where known"),
+    c05 = c04 & isnot_carehomeresident,
     
-    c6_descr = factor("  Health care workers, where known"),
-    c6 = c5 & isnot_hscworker,
+    c06_descr = factor("  Health care workers, where known"),
+    c06 = c05 & isnot_hscworker,
     
-    c7_descr = factor("  People who are considered to be near death, for example on palliative care pathways"),
-    c7 = c6 & isnot_endoflife,
+    c07_descr = factor("  People who are considered to be near death, for example on palliative care pathways"),
+    c07 = c06 & isnot_endoflife,
     
-    c8_descr = factor("  People who are housebound, where known"),
-    c8 = c7 & isnot_housebound,
+    c08_descr = factor("  People who are housebound, where known"),
+    c08 = c07 & isnot_housebound,
     
-    c9_descr = factor("  People who are in hospital on an unplanned admission"),
-    c9 = c8 & isnot_inhospital,
+    c09_descr = factor("  People who are in hospital on an unplanned admission"),
+    c09 = c08 & isnot_inhospital,
     
-    include = c9
+    c10_descr = factor("  People who had an unplanned hospital admission with covid-19 and were discharged < 30 days ago"),
+    c10 = c09 & isnot_inhospitalcovid,
+    
+    include = c10
     
   )
 
@@ -390,10 +398,10 @@ if (stage == "treated") {
 if (stage == "treated") {
   
   data_flowchart <- data_criteria %>%
-    select(patient_id, matches("^c\\d")) %>%
-    rename_at(vars(matches("^c\\d$")), ~str_c(., "_value")) %>%
+    select(patient_id, matches("^c\\d+")) %>%
+    rename_at(vars(matches("^c\\d+$")), ~str_c(., "_value")) %>%
     pivot_longer(
-      cols = matches("^c\\d"),
+      cols = matches("^c\\d+"),
       names_to = c("crit", ".value"),
       names_pattern = "(.*)_(.*)"
     ) %>%

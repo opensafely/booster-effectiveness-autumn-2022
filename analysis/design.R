@@ -103,7 +103,7 @@ outcomes <- c("covidadmitted", "coviddeath") # restrict to two outcomes for now 
 
 # define treatments ----
 
-treatement_lookup <- tribble(
+treatment_lookup <- tribble(
   ~course, ~treatment, ~treatment_descr,
   "boostaumtumn","pfizerbivalent", "BNT162b2-TODO",
   "boostaumtumn", "modernabivalent", "mRNA-1273-TODO",

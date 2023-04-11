@@ -46,7 +46,7 @@ def generate_vax_variables(index_date):
   **vaccination_date_X(
     name = "covid_vax_az",
     index_date = index_date,
-    n = 2,
+    n = 4,
     product_name_matches="COVID-19 Vaccine Vaxzevria 0.5ml inj multidose vials (AstraZeneca)"
   ),
   

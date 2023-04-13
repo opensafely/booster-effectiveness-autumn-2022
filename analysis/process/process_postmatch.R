@@ -49,11 +49,14 @@ if (effect == "relative") {
     )
     
     # combine all datasets
-    data_relative <- bind_rows(data_treated, data_control) %>%
-      mutate(treated_desc = factor(treated, levels = c(0,1), labels = c("Unboosted", "Boosted")))
+    data_relative <- bind_rows(data_treated, data_control)
     
     return(data_relative)
     
   })
   
 }
+
+# add labels to the treated variable
+data_matched <- data_matched %>%
+  mutate(across(treated, ~fct_recoderelevel(.x, recoder[[effect]])))

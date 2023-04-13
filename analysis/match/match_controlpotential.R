@@ -164,7 +164,7 @@ local({
             patient_id, 
             treated,
             all_of(c(
-              exact_variables_control, 
+              exact_variables_relative, 
               names(caliper_variables)
               )),
         ),
@@ -185,7 +185,7 @@ local({
         method = "nearest", distance = "glm", 
         replace = FALSE,
         estimand = "ATT",
-        exact = exact_variables_control,
+        exact = exact_variables_relative,
         caliper = caliper_variables, std.caliper=FALSE,
         m.order = "random",
         #verbose = TRUE,
@@ -345,7 +345,7 @@ print(
 #       patient_id,
 #       treated,
 #       all_of(
-#         exact_variables_control#,
+#         exact_variables_relative#,
 #         #names(caliper_variables)
 #       ),
 #     ),

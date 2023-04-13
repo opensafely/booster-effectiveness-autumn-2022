@@ -447,9 +447,9 @@ if (stage == "controlactual") {
   rematch <-
     # first join on exact variables + match_id + trial_date
     inner_join(
-      x=data_treated %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables_control))),
-      y=data_control %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables_control))),
-      by = c("match_id", "trial_date", exact_variables_control)
+      x=data_treated %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables_relative))),
+      y=data_control %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables_relative))),
+      by = c("match_id", "trial_date", exact_variables_relative)
     ) 
   
   

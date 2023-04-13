@@ -39,7 +39,7 @@ print(
 ## select all match candidates and variables necessary for match
 # encode all exact variables that are characters as factors
 char_to_factor <- data_treated %>%
-  select(all_of(exact_variables_treated)) %>%
+  select(all_of(exact_variables_comparative)) %>%
   select(where(is.character)) %>%
   names()
 
@@ -57,7 +57,7 @@ data_matchcandidates <- data_treated %>%
     patient_id,
     vax_boostautumn_date,
     treated,
-    all_of(match_variables_treated),
+    all_of(match_variables_comparative),
   ) %>%
   mutate(across(all_of(char_to_factor), as.factor)) %>%
   arrange(patient_id)
@@ -116,7 +116,7 @@ data_matchstatus <-
         method = "nearest", distance = "glm", # these two options don't really do anything because we only want exact + caliper match
         replace = FALSE,
         estimand = "ATT",
-        exact = exact_variables_treated,
+        exact = exact_variables_comparative,
         caliper = caliper_variables, std.caliper=FALSE,
         m.order = "data", # data is sorted on (effectively random) patient ID
         #verbose = TRUE,

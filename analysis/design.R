@@ -98,12 +98,11 @@ events_lookup <- tribble(
 
 )
 
-outcomes <- c("covidadmitted", "coviddeath") # restrict to two outcomes for now to keep project.yaml shorter
-# outcomes <- c("covidadmitted", "coviddeath", "noncoviddeath", "fracture")
+outcomes <- c("covidadmitted", "coviddeath", "noncoviddeath", "fracture")
 
 # define treatments ----
 
-treatement_lookup <- tribble(
+treatment_lookup <- tribble(
   ~course, ~treatment, ~treatment_descr,
   "boostaumtumn","pfizerbivalent", "BNT162b2-TODO",
   "boostaumtumn", "modernabivalent", "mRNA-1273-TODO",
@@ -127,8 +126,8 @@ comparison_definition <- tribble(
 recoder <-
   lst(
     subgroups = c(
-      `Main` = "all"#,
-      # `Age` = "agegroup"
+      `Main` = "all",
+      `Age` = "agegroup"
     ),
     status = c(
       `Unmatched`= "unmatched",
@@ -136,14 +135,14 @@ recoder <-
     ),
     outcome = set_names(events_lookup$event, events_lookup$event_descr),
     all = c(`Main` = "all"),
-    # agegroup_match = c(
-    #   `50-64 years` = "50-64",
-    #   `65-74 years` = "65-74",
-    #   `75+ years` = "75+",
-    # )
+    agegroup_match = c(
+      `50-64 years` = "50-64",
+      `65-74 years` = "65-74",
+      `75+ years` = "75+"
+    )
   )
 
-subgroups <- "all"
+subgroups <- c("all", "agegroup_match")
 
 # for the treated variables which are coded as 0 or 1
 for (i in c("comparative", "relative")) {
@@ -156,7 +155,7 @@ for (i in c("comparative", "relative")) {
 }
 
 ## follow-up time ----
-# TODO these need to be reviewed
+# TODO these need to be reviewed depending on how much follow-up data we have
 fup_params <- lst(
   # length of baseline period
   baselinedays = 14,
@@ -173,7 +172,7 @@ fup_params <- lst(
 # match variables ----
 
 # exact variables
-exact_variables_control <- c(
+exact_variables_relative <- c(
   "agegroup_match",
   "vax_primary_brand",
   "vax_boostfirst_brand",
@@ -183,8 +182,8 @@ exact_variables_control <- c(
   NULL
 )
 
-exact_variables_treated <- c(
-  exact_variables_control,
+exact_variables_comparative <- c(
+  exact_variables_relative,
   "vax_boostautumn_date", 
   NULL
 )
@@ -198,8 +197,8 @@ caliper_variables <- c(
   NULL
 )
 
-match_variables_control <- c(exact_variables_control, names(caliper_variables))
-match_variables_treated <- c(exact_variables_treated, names(caliper_variables))
+match_variables_relative <- c(exact_variables_relative, names(caliper_variables))
+match_variables_comparative <- c(exact_variables_comparative, names(caliper_variables))
 
 # covariates ----
 
@@ -211,8 +210,8 @@ covariates_model <- c(
   "learndis",
   "sev_mental",
   "immunosuppressed",
-  # "multimorb", # TODO add this back in
-  # TODO add time since covid hospitalisaion variable
+  "multimorb", 
+  "timesincecovidadmitted",
   "flu_vaccine"
 )
 

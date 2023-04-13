@@ -98,19 +98,19 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
           NA_integer_
         )
       },
-      admitted_planned_0_date = if_else(
-        rbern(n = nrow(.), p = 0.1) & is.na(admitted_unplanned_0_date),
-        -as.integer(runif(n = nrow(.), 1, 100)),
-        NA_integer_
-      ),
-      discharged_planned_0_date = {
-        length_of_stay_planned = as.integer(rpois(n = nrow(.), 7))
-        if_else(
-          admitted_planned_0_date + length_of_stay_planned < 0,
-          admitted_planned_0_date + length_of_stay_planned,
-          NA_integer_
-        )
-      },
+      # admitted_planned_0_date = if_else(
+      #   rbern(n = nrow(.), p = 0.1) & is.na(admitted_unplanned_0_date),
+      #   -as.integer(runif(n = nrow(.), 1, 100)),
+      #   NA_integer_
+      # ),
+      # discharged_planned_0_date = {
+      #   length_of_stay_planned = as.integer(rpois(n = nrow(.), 7))
+      #   if_else(
+      #     admitted_planned_0_date + length_of_stay_planned < 0,
+      #     admitted_planned_0_date + length_of_stay_planned,
+      #     NA_integer_
+      #   )
+      # },
       admitted_covid_0_date = if_else(
         rbern(n = nrow(.), p = 0.1),
         admitted_unplanned_0_date,

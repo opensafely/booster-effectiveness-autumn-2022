@@ -34,27 +34,27 @@ def generate_pre_variables(index_date):
     find_first_match_in_period=True,
   ), 
 
-  # planned hospital admission
-  admitted_planned_0_date=patients.admitted_to_hospital(
-    returning="date_admitted",
-    on_or_before=f"{index_date} - 1 day",
-    # see https://github.com/opensafely-core/cohort-extractor/pull/497 for codes
-    # see https://docs.opensafely.org/study-def-variables/#sus for more info
-    with_admission_method=["11", "12", "13", "81"],
-    with_patient_classification = ["1"], # ordinary admissions only 
-    date_format="YYYY-MM-DD",
-    find_last_match_in_period=True,
-  ),
-  discharged_planned_0_date=patients.admitted_to_hospital(
-    returning="date_discharged",
-    on_or_after="admitted_planned_0_date + 1 day",
-    # see https://github.com/opensafely-core/cohort-extractor/pull/497 for codes
-    # see https://docs.opensafely.org/study-def-variables/#sus for more info
-    with_admission_method=["11", "12", "13", "81"],
-    with_patient_classification = ["1"], # ordinary admissions only
-    date_format="YYYY-MM-DD",
-    find_first_match_in_period=True
-  ), 
+  # # planned hospital admission
+  # admitted_planned_0_date=patients.admitted_to_hospital(
+  #   returning="date_admitted",
+  #   on_or_before=f"{index_date} - 1 day",
+  #   # see https://github.com/opensafely-core/cohort-extractor/pull/497 for codes
+  #   # see https://docs.opensafely.org/study-def-variables/#sus for more info
+  #   with_admission_method=["11", "12", "13", "81"],
+  #   with_patient_classification = ["1"], # ordinary admissions only 
+  #   date_format="YYYY-MM-DD",
+  #   find_last_match_in_period=True,
+  # ),
+  # discharged_planned_0_date=patients.admitted_to_hospital(
+  #   returning="date_discharged",
+  #   on_or_after="admitted_planned_0_date + 1 day",
+  #   # see https://github.com/opensafely-core/cohort-extractor/pull/497 for codes
+  #   # see https://docs.opensafely.org/study-def-variables/#sus for more info
+  #   with_admission_method=["11", "12", "13", "81"],
+  #   with_patient_classification = ["1"], # ordinary admissions only
+  #   date_format="YYYY-MM-DD",
+  #   find_first_match_in_period=True
+  # ), 
   
   # Positive covid admission prior to study start date
   admitted_covid_0_date=patients.admitted_to_hospital(

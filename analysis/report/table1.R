@@ -74,7 +74,7 @@ var_labels <- list(
   
   N  ~ "Total N",
   
-  treated_desc ~ "Status"
+  treated ~ "Group"
   
   )
 
@@ -138,16 +138,15 @@ map_chr(var_labels[-c(1,2)], ~last(as.character(.)))
 tab_summary_baseline <- data_matched %>%
   mutate(
     N = 1L,
-    treated_desc = factor(treated, levels = as.integer(unname(recoder[[effect]])), names(recoder[[effect]])),
     # summarise for each year of age
     age_factor = factor(age, levels=sort(unique(age)))
   ) %>%
   select(
-    treated_desc,
+    treated,
     any_of(names(var_labels)),
   ) %>%
   tbl_summary(
-    by = treated_desc,
+    by = treated,
     label = unname(var_labels[names(.)]),
     statistic = list(N = "{N}")
   ) 

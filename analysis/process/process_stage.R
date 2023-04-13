@@ -159,22 +159,24 @@ data_processed <- data_extract %>%
   # process jcvi variables
   mutate(
     
-    # multimorb =
-    #   (sev_obesity) +
-    #   (chronic_heart_disease) +
-    #   (chronic_kidney_disease) +
-    #   (diabetes) +
-    #   (chronic_liver_disease) +
-    #   (chronic_resp_disease | asthma) +
-    #   (chronic_neuro_disease),
-    # multimorb = cut(multimorb, breaks = c(0, 1, 2, Inf), labels=c("0", "1", "2+"), right=FALSE),
-    # 
-    # immunosuppressed = immunosuppressed | asplenia,
+    # number of conditions in different organ systems
+    multimorb = sev_obesity + chronic_heart_disease + chronic_kidney_disease +
+      diabetes + chronic_liver_disease + chronic_resp_disease + 
+      chronic_neuro_disease,
+    multimorb = cut(
+      multimorb,
+      breaks = c(0, 1, 2, Inf), 
+      labels=c("0", "1", "2+"),
+      right=FALSE
+      ),
+    
+    # include asplenia in definition of immunosuppressed
+    immunosuppressed = immunosuppressed | asplenia,
     
     # clinically at-risk group
-    cv = immunosuppressed | chronic_kidney_disease | chronic_resp_disease |
-      asthma | diabetes | chronic_liver_disease | chronic_neuro_disease | 
-      chronic_heart_disease | asplenia | learndis | sev_mental,
+    cv = immunosuppressed | chronic_kidney_disease | chronic_resp_disease | 
+      diabetes | chronic_liver_disease | chronic_neuro_disease | 
+      chronic_heart_disease | learndis | sev_mental,
     
     # these are the agegroups by which people were eligible to book vaccine doses
     # note that technically those aged both 65-74 and 75+ could receive from 12 Sept,
@@ -193,8 +195,6 @@ data_processed <- data_extract %>%
     sex = fct_case_when(
       sex == "F" ~ "Female",
       sex == "M" ~ "Male",
-      #sex == "I" ~ "Inter-sex",
-      #sex == "U" ~ "Unknown",
       TRUE ~ NA_character_
     ),
     
@@ -219,7 +219,17 @@ data_processed <- data_extract %>%
       levels = c("1 (most deprived)", "2", "3", "4", "5 (least deprived)")
     )
     
-  ) 
+  ) %>%
+  # process pre-baseline events
+  mutate(
+    timesincecovidadmitted = as.integer(index_date - admitted_covid_0_date),
+    timesincecovidadmitted = fct_case_when(
+      timesincecovidadmitted <= 30 ~ "1-30 days",
+      timesincecovidadmitted <= 180 ~ "31-180 days",
+      timesincecovidadmitted > 180 ~ "181+ days",
+      is.na(timesincecovidadmitted) ~ "Never"
+    )
+  )
 
 rm(data_extract)
 
@@ -351,8 +361,8 @@ data_criteria <- data_processed %>%
     c09_descr = factor("  People who are in hospital on an unplanned admission"),
     c09 = c08 & isnot_inhospital,
     
-    c10_descr = factor("  People who had an unplanned hospital admission with covid-19 and were discharged < 30 days ago"),
-    c10 = c09 & isnot_inhospitalcovid,
+    c10_descr = factor("  People who had an unplanned hospital admission with covid-19 in the past 1-30 days"),
+    c10 = c09 & (timesincecovidadmitted != " 1-30 days"),
     
     include = c10
     
@@ -447,9 +457,9 @@ if (stage == "controlactual") {
   rematch <-
     # first join on exact variables + match_id + trial_date
     inner_join(
-      x=data_treated %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables_control))),
-      y=data_control %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables_control))),
-      by = c("match_id", "trial_date", exact_variables_control)
+      x=data_treated %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables_relative))),
+      y=data_control %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables_relative))),
+      by = c("match_id", "trial_date", exact_variables_relative)
     ) 
   
   

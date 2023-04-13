@@ -39,7 +39,7 @@ print(
 ## select all match candidates and variables necessary for match
 # encode all exact variables that are characters as factors
 char_to_factor <- data_treated %>%
-  select(all_of(exact_variables_treated)) %>%
+  select(all_of(exact_variables_comparative)) %>%
   select(where(is.character)) %>%
   names()
 
@@ -57,7 +57,7 @@ data_matchcandidates <- data_treated %>%
     patient_id,
     vax_boostautumn_date,
     treated,
-    all_of(match_variables_treated),
+    all_of(match_variables_comparative),
   ) %>%
   mutate(across(all_of(char_to_factor), as.factor)) %>%
   arrange(patient_id)
@@ -103,8 +103,7 @@ data_matchstatus <-
     .combine = 'bind_rows',
     .packages = c("dplyr", "MatchIt", "tibble", "lubridate")
   ) %dopar% {
-    
-    #for(matchthread in matchthreads){
+  #for(matchthread in matchthreads){
     
     data_thread <- data_matchcandidates %>%
       filter(thread_variable==matchthread)
@@ -117,7 +116,7 @@ data_matchstatus <-
         method = "nearest", distance = "glm", # these two options don't really do anything because we only want exact + caliper match
         replace = FALSE,
         estimand = "ATT",
-        exact = exact_variables_treated,
+        exact = exact_variables_comparative,
         caliper = caliper_variables, std.caliper=FALSE,
         m.order = "data", # data is sorted on (effectively random) patient ID
         #verbose = TRUE,
@@ -164,37 +163,10 @@ data_matchstatus <- data_matchstatus %>%
 
 write_rds(data_matchstatus, fs::path(output_dir, "data_matchstatus.rds"), compress="gz")
 
-# summarise match statusb for each trial date
+# summarise match status for each trial date
 data_matchstatus %>%
   group_by(trial_date, treated, matched) %>%
   summarise(
     n=n()
   ) %>%
   print(n=1000)
-
-# I've commented out the sampling for now, as not in use, but can reintroduce if needed
-
-# ## bootstrap sampling ----
-# 
-# ## bootstrap sample matched pairs and use this sampling throughout the analysis
-# ## doing it here avoids repeating the sampling process in each individual outcome script
-# ## and provides consistency across different analyses
-# ## but the leg work is still done by the analysis scripts
-# 
-# boot_n <- 500 # more than necessary, can select fewer in the analysis scripts
-# 
-# boot_id <- seq_len(boot_n)
-# 
-# match_ids <- unique(data_matchstatus$match_id[!is.na(data_matchstatus$match_id)])
-# 
-# set.seed(20220506)
-# 
-# boot_samples <-
-#   tibble(boot_id) %>%
-#   mutate(
-#     match_id = map(boot_id, ~sample(match_ids, size=length(match_ids), replace=TRUE))
-#   ) %>%
-#   unnest(match_id)
-# 
-# write_rds(boot_samples, fs::path(output_dir, "boot_samples.rds"), compress="gz")
-# 

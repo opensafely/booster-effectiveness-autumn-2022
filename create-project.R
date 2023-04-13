@@ -231,7 +231,7 @@ actions_model <- function(effect, subgroup, outcome) {
   
   needs_list[["cox_unadj"]] <- needs_list[["km"]]
   
-  splice(
+  actions <- splice(
 
     comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
             glue("subgroup={subgroup}; outcome={outcome};"),
@@ -247,30 +247,43 @@ actions_model <- function(effect, subgroup, outcome) {
         rds = glue("output/{effect}/model/km/{subgroup}/{outcome}/*.csv"),
         png = glue("output/{effect}/model/km/{subgroup}/{outcome}/*.png")
       )
-    ),
+    )
     
-    # cox
-    expand_grid(
-      model=c("cox_unadj", "cox_adj"),
-    ) %>%
-      pmap(
-        function(model) {
-
-          action(
-            name = glue("{model}_{effect}_{subgroup}_{outcome}"),
-            run = "r:latest analysis/model/cox.R",
-            arguments = c(effect, model, subgroup, outcome),
-            needs = needs_list[[model]],
-            moderately_sensitive= lst(
-              csv = glue("output/{effect}/model/{model}/{subgroup}/{outcome}/*.csv")
-            )
-          )
-          
-        }
-      ) %>%
-      unlist(recursive = FALSE)
-
   )
+  
+  if (subgroup == "all") {
+    
+    actions <- splice(
+      
+      actions,
+      
+      # cox
+      expand_grid(
+        model=c("cox_unadj", "cox_adj"),
+      ) %>%
+        pmap(
+          function(model) {
+            
+            action(
+              name = glue("{model}_{effect}_{subgroup}_{outcome}"),
+              run = "r:latest analysis/model/cox.R",
+              arguments = c(effect, model, subgroup, outcome),
+              needs = needs_list[[model]],
+              moderately_sensitive= lst(
+                csv = glue("output/{effect}/model/{model}/{subgroup}/{outcome}/*.csv")
+              )
+            )
+            
+          }
+        ) %>%
+        unlist(recursive = FALSE)
+      
+    )
+      
+  }
+  
+  return(actions)
+    
 }
 
 

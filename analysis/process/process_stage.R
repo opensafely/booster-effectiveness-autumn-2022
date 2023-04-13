@@ -362,7 +362,7 @@ data_criteria <- data_processed %>%
     c09 = c08 & isnot_inhospital,
     
     c10_descr = factor("  People who had an unplanned hospital admission with covid-19 in the past 1-30 days"),
-    c10 = c09 & (timesincecovidadmitted =" 1-30 days"),
+    c10 = c09 & (timesincecovidadmitted != " 1-30 days"),
     
     include = c10
     

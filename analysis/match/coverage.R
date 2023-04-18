@@ -16,6 +16,7 @@ library('glue')
 
 # import local functions and parameters
 source(here("analysis", "design.R"))
+source(here("analysis", "process", "process_functions.R"))
 source(here("lib", "functions", "utility.R"))
 
 # import command-line arguments
@@ -125,11 +126,11 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
 
 data_plot <- data_coverage_rounded %>%
   mutate(
-    treated_descr = fct_recoderelevel(treated, recoder[[effect]]), #TODO
-    status_descr = fct_recoderelevel(status, recoder$status), #TODO
     n=n*((treated*2) - 1),
     cumuln=cumuln*((treated*2) - 1)
-  )
+  ) %>%
+  add_descr(vars = c("treated", "status"), effect = effect, remove = TRUE) 
+  
 
 xmin <- min(data_plot$trial_date)
 xmax <- max(data_plot$trial_date)+1
@@ -163,9 +164,9 @@ plot_coverage_n <-
     aes(
       x=trial_date+0.5,
       y=n,
-      group=paste0(treated, status),
+      group=paste0(treated_descr, status_descr),
       fill=treated_descr,
-      alpha=status,
+      alpha=status_descr,
       # alpha=fct_rev(status),
       colour=NULL
     ),
@@ -213,9 +214,9 @@ plot_coverage_cumuln <-
     aes(
       x=trial_date+0.5,
       y=cumuln,
-      group=paste0(treated_descr,status),
+      group=paste0(treated_descr, status_descr),
       fill=treated_descr,
-      alpha=status,
+      alpha=status_descr,
       # alpha=fct_rev(status),
       colour=NULL
     ),

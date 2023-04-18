@@ -56,7 +56,3 @@ if (effect == "relative") {
   })
   
 }
-
-# add labels to the treated variable
-data_matched <- data_matched %>%
-  mutate(across(treated, ~fct_recoderelevel(.x, recoder[[effect]])))

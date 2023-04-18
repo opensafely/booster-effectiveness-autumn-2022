@@ -104,3 +104,59 @@ process_outcomes <- function(.data) {
 
     )
 }
+
+################################################################################
+
+add_descr <- function(
+    .data, vars, effect = NULL, subgroup = NULL, 
+    remove = FALSE # if TRUE remove the original vars so that only the vars_descr remain
+    ) {
+  
+  stopifnot(
+    "`effect` must be specified when \"treated\" in `vars`" = 
+      !("treated" %in% vars) | !is.null(effect)
+  )
+  
+  stopifnot(
+    "`subgroup` must be specified when \"subgroup_level\" in `vars`" = 
+      !("subgroup" %in% vars) | !is.null(subgroup)
+  )
+  
+  add_desc_var <- function(.data, var) {
+    
+    print_message <- str_c("There is no column called \"", var, "\" in .data")
+    stopifnot(print_message = var %in% names(.data))
+    
+    if (var == "treated") {
+      lookup <- recoder[[effect]]
+    }
+    if (var == "subgroup") {
+      lookup <- recoder[["subgroups"]]
+    }
+    if (var == "subgroup_level") {
+      lookup <- recoder[[subgroup]]
+    }
+    if (var == "status") {
+      lookup <- recoder[["status"]]
+    } 
+    if (var == "outcome") {
+      lookup <- recoder[["outcome"]]
+    }
+    
+   var_descr <- fct_recoderelevel(.data[[var]], lookup)
+    
+   return(var_descr)
+    
+  }
+  
+  names(vars) <- str_c(vars, "_descr")
+  
+  .data <- .data %>% bind_cols(map_dfc(vars, ~add_desc_var(.data, .x)))
+  
+  if (remove) {
+    .data <- .data %>% select(-all_of(vars))
+  }
+  
+  return(.data)
+  
+}

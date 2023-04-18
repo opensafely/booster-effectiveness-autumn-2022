@@ -68,7 +68,7 @@ if (model == "cox_adj") {
 source(here("analysis", "process", "process_premodel.R"))
 
 # cox models ----
-coxcontrast <- function(data, adj = FALSE, cuts=NULL){
+coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
   
   if (is.null(cuts)) {
     stop("Specify `cuts`.")

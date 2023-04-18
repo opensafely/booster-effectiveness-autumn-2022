@@ -130,8 +130,8 @@ recoder <-
       `Age` = "agegroup"
     ),
     status = c(
-      `Unmatched`= "unmatched",
-      `Matched` = "matched"
+      `Matched` = "matched",
+      `Unmatched`= "unmatched"
     ),
     outcome = set_names(events_lookup$event, events_lookup$event_descr),
     all = c(`Main` = "all"),

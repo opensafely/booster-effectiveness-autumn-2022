@@ -28,11 +28,11 @@ if (effect == "comparative") {
 # currently implementing the former
 data_matched$censor_date <- do.call(
   pmin, 
-  splice(
+  list_flatten(list(
     map(censor_vars[[effect]], ~data_matched[[.x]]), 
     data_matched[["trial_date"]] - 1 + fup_params$maxfup,
     na.rm = TRUE
-    )
+    ))
   )
 
 

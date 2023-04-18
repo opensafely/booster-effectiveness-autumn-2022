@@ -68,13 +68,15 @@ if (vars == "covs") {
   }
 }
 
+data_matched <- data_matched %>% add_descr(vars = "treated", effect = effect)
+
 # table 1 style baseline characteristics ----
 
 var_labels <- list(
   
   N  ~ "Total N",
   
-  treated ~ "Group"
+  treated_descr ~ "Group"
   
   )
 
@@ -142,11 +144,11 @@ tab_summary_baseline <- data_matched %>%
     age_factor = factor(age, levels=sort(unique(age)))
   ) %>%
   select(
-    treated,
+    treated_descr,
     any_of(names(var_labels)),
   ) %>%
   tbl_summary(
-    by = treated,
+    by = treated_descr,
     label = unname(var_labels[names(.)]),
     statistic = list(N = "{N}")
   ) 

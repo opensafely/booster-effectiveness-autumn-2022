@@ -164,7 +164,7 @@ cat("---- end data_surv_rounded ----\n")
 # define km_plot function ----
 km_plot <- function(.data) {
 
-  .data %>%
+  p <- .data %>%
     group_modify(
       ~add_row(
         .x,
@@ -181,9 +181,7 @@ km_plot <- function(.data) {
         .before=0
       )
     ) %>%
-    mutate(
-      treated_descr = fct_recoderelevel(treated, recoder[[effect]]),
-    ) %>%
+    add_descr(vars = "treated", effect = effect) %>%
     ggplot(aes(group=treated_descr, colour=treated_descr, fill=treated_descr)) +
     geom_step(aes(x=time, y=risk), direction="vh") +
     geom_step(aes(x=time, y=risk), direction="vh", linetype="dashed", alpha=0.5) +
@@ -207,6 +205,9 @@ km_plot <- function(.data) {
       legend.position=c(.05,.95),
       legend.justification = c(0,1),
     )
+  
+  return(p)
+  
 }
 
 # apply function
@@ -219,7 +220,6 @@ cat("---- start km_plot_rounded ----\n")
 km_plot_rounded <- km_plot(data_surv_rounded)
 ggsave(filename=file.path(output_dir, "km_plot_rounded.png"), km_plot_rounded, width=20, height=15, units="cm")
 cat("---- end km_plot_rounded ----\n")
-
 
 # define km contrast function ----
 # calculate quantities relating to cumulative incidence curve and their ratio / difference / etc

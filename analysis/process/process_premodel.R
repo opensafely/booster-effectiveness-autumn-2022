@@ -21,16 +21,25 @@ if (effect == "comparative") {
   
 }
 
+if (outcome %in% c("covidadmitted", "covidcritcare", "fracture")) {
+  studyend_date <- study_dates$hospitalisationend
+}
+if (outcome %in% c("coviddeath", "noncoviddeath")) {
+  studyend_date <- study_dates$deathend
+}
+
 # Will - can you think of a way to do this within mutate?
 # (when you have a character vector of the names of the censor variables of unknown length)
 # possible with c_across and rowwise, but very slow
-# also, should we be censoring on controlistreated_date or controlistreated_date-1?
-# currently implementing the former
+# also, should we be censoring on controlistreated_date or controlistreated_date-1, 
+# or even controlistreated_date + 7?
+# currently censoring on controlistreated_date
 data_matched$censor_date <- do.call(
   pmin, 
   splice(
     map(censor_vars[[effect]], ~data_matched[[.x]]), 
     data_matched[["trial_date"]] - 1 + fup_params$maxfup,
+    studyend_date,
     na.rm = TRUE
     )
   )

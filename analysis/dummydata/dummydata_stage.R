@@ -46,7 +46,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
     # demo variables
     mutate(
       registered = rbern(n = nrow(.), p=0.99),
-      hasnot_died = rbern(n = nrow(.), p=0.99),
+      has_died = rbern(n = nrow(.), p=0.01),
       has_follow_up_previous_1year = rbern(n = nrow(.), p=0.99),
       sex = sample(x = c("M", "F"), size = nrow(.), replace = TRUE),
       ethnicity = sample(

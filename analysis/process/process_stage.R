@@ -305,7 +305,7 @@ data_criteria <- data_processed %>%
     
     patient_id,
     registered,
-    hasnot_died,
+    hasnot_died = !has_died,
     has_follow_up_previous_1year,
     # all vaccine variables will be missing for patients with an undefineddose
     # as such patients were dropped from data_vax_processed, 

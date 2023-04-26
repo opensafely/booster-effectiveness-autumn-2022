@@ -1,6 +1,6 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # This script:
-# calculates the counts for the flowchart in the manuscript
+# calculates the counts for the flowchart in the matching stage
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -37,16 +37,28 @@ if (effect == "comparative") {
   data_matchstatus <- readr::read_rds(here("output", "comparative", "match", "data_matchstatus.rds")) %>%
     select(patient_id, treated, matched, trial_date)
   
-  flowchart_comparative <- data_matchstatus %>%
+  flowchart_final <- data_matchstatus %>%
     add_descr(vars = "treated", effect = effect, remove = TRUE) %>%
     group_by(treated_descr, matched) %>%
-    count() %>%
+    count(name = "n_matched") %>%
     ungroup(matched) %>%
-    mutate(treated_n = sum(n)) %>%
+    mutate(n_treated = sum(n_matched)) %>%
     ungroup() %>%
-    mutate(total_n = sum(n)) 
-  
-  # TODO
+    mutate(n_total = sum(n_matched)) %>%
+    pivot_longer(cols = starts_with("n_")) %>%
+    mutate(
+      criteria = case_when(
+        name %in% "n_total" 
+        ~ "A: Boosted and eligible",
+        name %in% "n_treated" ~ str_c("B: Boosted with ", treated_descr),
+        name %in% "n_matched" & !matched ~ str_c("C: Boosted with ", treated_descr, " and unmatched"),
+        name %in% "n_matched" & matched ~ str_c("D: Boosted with ", treated_descr, " and matched"),
+      )
+    ) %>%
+    select(criteria, n=value) %>%
+    distinct() %>%
+    arrange(criteria) %>%
+    mutate(across(criteria, ~str_remove(.x, "\\w\\:\\s")))
   
 }
 
@@ -91,10 +103,10 @@ if (effect == "relative") {
         vax_boostautumn_date == start_date & !control & !treated ~ "A",
         vax_boostautumn_date == start_date & !control & treated ~ "B",
         # those who are vaccinated during the recruitment period but not on day 1
-        vax_boostautumn_date <= study_dates$studyend & !control & !treated ~ "C",
-        vax_boostautumn_date <= study_dates$studyend & !control & treated ~ "D",
-        vax_boostautumn_date <= study_dates$studyend & control & !treated ~ "E",
-        vax_boostautumn_date <= study_dates$studyend & control & treated ~ "F",
+        vax_boostautumn_date <= study_dates$recruitmentend & !control & !treated ~ "C",
+        vax_boostautumn_date <= study_dates$recruitmentend & !control & treated ~ "D",
+        vax_boostautumn_date <= study_dates$recruitmentend & control & !treated ~ "E",
+        vax_boostautumn_date <= study_dates$recruitmentend & control & treated ~ "F",
         # those remain unvaccinated at end of recruitment period
         control ~ "H",
         !control ~ "I",
@@ -120,7 +132,7 @@ if (effect == "relative") {
   # define boxes for sequential trial flow
   flow_boxes <- tribble(
     ~box_crit, ~box_descr,
-    "ABCDEF", "Boosted during recruitment period",
+    "ABCDEF", "Boosted and eligible",
     "AC", "Boosted during recruitment period, unmatched as treated, unmatched as control",
     "BDF", "Boosted during recruitment period, matched as treated",
     "E", "Boosted during recruitment period, matched as treated, matched as control",
@@ -130,16 +142,16 @@ if (effect == "relative") {
   )
   
   # count number in each category
-  flowchart_match <- data_match_flow %>% group_by(crit) %>% count() %>%
+  flowchart <- data_match_flow %>% group_by(crit) %>% count() %>%
     right_join(flow_categories, by = "crit") %>%
     arrange(crit) %>% 
     mutate(across(n, ~if_else(is.na(.x), 0L, .x))) 
   
   # boxes
-  flow_match_final <- flow_boxes %>%
+  flowchart_final <- flow_boxes %>%
     # join to the counts for each criteria
     fuzzyjoin::fuzzy_join(
-      flowchart_match, 
+      flowchart, 
       by = c("box_crit" = "crit"), 
       match_fun = str_detect,
       mode = "left"
@@ -157,28 +169,8 @@ if (effect == "relative") {
   
 }
 
-# TODO
-flowchart_final_rounded <- bind_rows(
-  # read unrounded as rounding different (using ceiling_any in process_data.R)
-  read_rds(here("output", "treated", "eligible", "flowchart_treatedeligible.rds"))  %>%
-    # round to match flow_match_final
-    transmute(
-      criteria, crit, 
-      n = roundmid_any(n, to=threshold),
-      n_exclude = lag(n) - n,
-      pct_exclude = n_exclude/lag(n),
-      pct_all = n / first(n),
-      pct_step = n / lag(n),
-    ) %>%
-    mutate(across(starts_with("pct_"), round, 3)),
-  flow_match_final
-) %>%
-  # for easy review, join back after release
-  select(-criteria) %>%
-  select(crit, everything())
-
-# save flowchart_final  
+# save flowchart_match
 write_csv(
-  flowchart_final_rounded,
-  file.path(outdir, "flowchart_final_rounded.csv")
+  flowchart_final,
+  file.path(outdir, "flowchart_unrounded.csv")
 )

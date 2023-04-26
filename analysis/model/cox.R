@@ -45,26 +45,7 @@ subgroup_sym <- sym(subgroup)
 
 # read and process data_matched ----
 source(here("analysis", "process", "process_postmatch.R"))
-
-group <- "treated"
-if (effect == "relative") group <- c(group, "control")
-
-# add outcomes data
-data_matched <- data_matched %>%
-  add_vars(vars = "outcomes", group = group) %>%
-  process_outcomes() 
-
-# because we don't need the covariates  for unadjusted models
-if (model == "cox_unadj") covariates_model <- NULL
-if (model == "cox_adj") {
-  
-  # add covariates data
-  data_matched <- data_matched %>%
-    add_vars(vars = "covs", group = group) %>%
-    process_covs() 
-  
-}
-
+# process data for models
 source(here("analysis", "process", "process_premodel.R"))
 
 # cox models ----

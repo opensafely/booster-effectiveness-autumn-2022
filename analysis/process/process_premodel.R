@@ -4,6 +4,26 @@
 
 cat("---- start process_premodel\n")
 
+# because we only need the covariates for adjusted cox models
+if (model %in% c("km", "cox_unadj")) covariates_model <- NULL
+if (model == "cox_adj") {
+  
+  # add covariates data
+  data_matched <- data_matched %>%
+    add_vars(vars = "covs", group = group) %>%
+    process_covs() 
+  
+}
+
+# define arms for the add_vars function
+group <- "treated"
+if (effect == "relative") group <- c(group, "control")
+
+# add outcomes data
+data_matched <- data_matched %>%
+  add_vars(vars = "outcomes", group = group) %>%
+  process_outcomes() 
+
 if (effect == "relative") {
   
   data_matched <- data_matched %>%

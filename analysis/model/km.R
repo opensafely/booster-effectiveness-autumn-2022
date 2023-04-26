@@ -45,19 +45,8 @@ fs::dir_create(output_dir)
 # read and process data_matched ----
 source(here("analysis", "process", "process_postmatch.R"))
 
-# define arms for the add_vars function
-group <- "treated"
-if (effect == "relative") group <- c(group, "control")
-
-# add outcomes data
-data_matched <- data_matched %>%
-  add_vars(vars = "outcomes", group = group) %>%
-  process_outcomes() 
-
-# because km, we don't need the covariates 
-covariates_model <- NULL
-
 # process the data for the model
+model <- "km"
 source(here("analysis", "process", "process_premodel.R"))
 
 ## cumulative risk differences ----

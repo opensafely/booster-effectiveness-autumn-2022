@@ -46,12 +46,12 @@ fs::dir_create(output_dir)
 source(here("analysis", "process", "process_postmatch.R"))
 
 # define arms for the add_vars function
-arms <- "treated"
-if (effect == "relative") arms <- c(arms, "control")
+group <- "treated"
+if (effect == "relative") group <- c(group, "control")
 
 # add outcomes data
 data_matched <- data_matched %>%
-  add_vars(vars = "outcomes", arms = arms) %>%
+  add_vars(vars = "outcomes", group = group) %>%
   process_outcomes() 
 
 # because km, we don't need the covariates 

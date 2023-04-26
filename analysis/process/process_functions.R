@@ -26,16 +26,16 @@ flow_stats_rounded <- function(.data, to) {
 }
 
 ################################################################################
-add_vars <- function(.data, vars, arms) {
+add_vars <- function(.data, vars, group) {
   
   stopifnot("`vars` must be \"covs\" or \"outcomes\"" = (vars == "covs" | vars == "outcomes"))
   
-  if (all(c("treated", "control") %in% arms)) {
+  if (all(c("treated", "control") %in% group)) {
     
     by_vars <- c("patient_id", "trial_date")
     remove_vars <- NULL
     
-  } else if (all(arms == "treated")) {
+  } else if (all(group == "treated")) {
     
     # omit trial_id here as not needed and will slow down
     by_vars <- "patient_id"
@@ -43,14 +43,17 @@ add_vars <- function(.data, vars, arms) {
     
   } else {
     
-    stop("`arms` must be either c(\"treated\", \"control\") or \"treated\"")
+    stop("`group` must be either c(\"treated\", \"control\") or \"treated\"")
     
   }
   
   # source(here::here("analysis", "process", "process_functions.R"))
   
+  group[group=="treated"] <- "alltreated"
+  group[group=="control"] <- "matchcontrol"
+  
   data_vars <- map_dfr(
-    arms,
+    group,
     ~arrow::read_feather(here("output", "postmatch", vars, glue("input_{vars}_", .x, ".feather")))
   ) %>%
     process_input() 

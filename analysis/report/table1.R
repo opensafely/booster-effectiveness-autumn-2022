@@ -8,6 +8,7 @@
 #   - vars="covs" will only include the model covariates which are extracted at
 #     a later stage
 # - effect: 
+#   - effect="treated" will summarise data for all individuals boosted during the recruitment period
 #   - effect="comparative" will summarise data for the matched pfizer and moderna arms
 #   - effect="relative" will summarise data for the matched treated and control arms
 # # # # # # # # # # # # # # # # # # # # #
@@ -32,9 +33,8 @@ source(here("lib", "functions", "utility.R"))
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
   # use for interactive testing
-  vars <- "match" # "covs" "match
-  effect <- "comparative"
-  # stage <- "final" 
+  vars <- "all" # "covs" "match"
+  effect <- "treated"
 } else {
   vars <- args[[1]]
   effect <- args[[2]]
@@ -44,12 +44,21 @@ if(length(args)==0){
 output_dir <- here("output", effect, "table1")
 fs::dir_create(output_dir)
 
-# derive data_matched
-source(here("analysis", "process", "process_postmatch.R"))
+# get data_table1
+if (effect == "treated") {
+  # read treated data
+  data_table1 <- read_rds(here("output", "treated", "eligible", "data_treated.rds")) %>%
+    rename(trial_date = vax_boostautumn_date)
+} else {
+  # derive data_matched
+  source(here("analysis", "process", "process_postmatch.R"))
+  data_table1 <- data_matched
+  rm(data_matched)
+}
 
 # add derive extra variables and add covariates if necessary
-if (vars == "match") {
-  data_matched <- data_matched %>%
+if (vars %in% c("match", "all")) {
+  data_table1 <- data_table1 %>%
     # derive extra variables
     mutate(
       # lastvaxbeforeindex_date was a matching variable, but more meaningful 
@@ -57,18 +66,26 @@ if (vars == "match") {
       timesincelastvax = as.integer(trial_date - lastvaxbeforeindex_date)
     )
 }
-if (vars == "covs") {
-  if (effect == "comparative") {
-    data_matched <- data_matched %>%
-      add_vars(vars = "covs", arms = "treated")
+
+if (vars %in% c("covs", "all")) {
+  
+  if (effect %in% c("treated", "comparative")) {
+    data_table1 <- data_table1 %>%
+      add_vars(vars = "covs", group = "treated")
   }
+  
   if (effect == "relative") {
-    data_matched <- data_matched %>%
-      add_vars(vars = "covs", arms = c("treated", "control"))
+    data_table1 <- data_table1 %>%
+      add_vars(vars = "covs", group = c("treated", "control"))
   }
+  
 }
 
-data_matched <- data_matched %>% add_descr(vars = "treated", effect = effect)
+if (effect == "treated") {
+  data_table1 <- data_table1 %>% mutate(treated_descr = "All boosted")
+} else {
+  data_table1 <- data_table1 %>% add_descr(vars = "treated", effect = effect)
+}
 
 # table 1 style baseline characteristics ----
 
@@ -80,7 +97,7 @@ var_labels <- list(
   
   )
 
-if (vars == "match") {
+if (vars %in% c("match", "all")) {
   
   var_labels <- splice(
     
@@ -118,7 +135,7 @@ if (vars == "match") {
     
 }
 
-if (vars == "covs") {
+if (vars %in% c("covs", "all")) {
   
   var_labels <- splice(
     
@@ -137,7 +154,7 @@ var_labels <- var_labels %>%
 map_chr(var_labels[-c(1,2)], ~last(as.character(.)))
 
 # use gtsummary to obtain standardized table 1 data
-tab_summary_baseline <- data_matched %>%
+tab_summary_baseline <- data_table1 %>%
   mutate(
     N = 1L,
     # summarise for each year of age

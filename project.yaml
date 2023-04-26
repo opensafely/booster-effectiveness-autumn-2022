@@ -128,6 +128,15 @@ actions:
         csv: output/comparative/coverage/*.csv
         png: output/comparative/coverage/*.png
 
+  flowchart_comparative:
+    run: r:latest analysis/match/match_flowchart.R comparative
+    needs:
+    - process_treated
+    - match_comparative
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative/flowchart/*.csv
+
   ## # # # # # # # # # # # # # # # # # # # 
   ## Extract, process and match control data 
   ## for relative effectiveness analysis 
@@ -285,6 +294,16 @@ actions:
         csv: output/relative/coverage/*.csv
         png: output/relative/coverage/*.png
 
+  flowchart_relative:
+    run: r:latest analysis/match/match_flowchart.R relative
+    needs:
+    - process_treated
+    - process_controlactual_2
+    - process_initial
+    outputs:
+      moderately_sensitive:
+        csv: output/relative/flowchart/*.csv
+
   ## # # # # # # # # # # # # # # # # # # # 
   ## Extract and process covs and outcomes 
   ## for successfully matched data 
@@ -297,60 +316,71 @@ actions:
   process_ids:
     run: r:latest analysis/process/process_ids.R
     needs:
-    - match_comparative
+    - process_treated
     - process_controlactual_2
     outputs:
       highly_sensitive:
         ids: output/postmatch/eligible/*.csv.gz
 
-  extract_covs_treated:
+  extract_covs_alltreated:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_covs
-      --output-file output/postmatch/covs/input_covs_treated.feather --param arm=treated
+      --output-file output/postmatch/covs/input_covs_alltreated.feather --param group=alltreated
     needs:
     - design
     - process_ids
     outputs:
       highly_sensitive:
-        cohort: output/postmatch/covs/input_covs_treated.feather
+        cohort: output/postmatch/covs/input_covs_alltreated.feather
 
-  extract_covs_control:
+  extract_covs_matchcontrol:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_covs
-      --output-file output/postmatch/covs/input_covs_control.feather --param arm=control
+      --output-file output/postmatch/covs/input_covs_matchcontrol.feather --param
+      group=matchcontrol
     needs:
     - design
     - process_ids
     outputs:
       highly_sensitive:
-        cohort: output/postmatch/covs/input_covs_control.feather
+        cohort: output/postmatch/covs/input_covs_matchcontrol.feather
 
-  extract_outcomes_treated:
+  extract_outcomes_alltreated:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_outcomes
-      --output-file output/postmatch/outcomes/input_outcomes_treated.feather --param
-      arm=treated
+      --output-file output/postmatch/outcomes/input_outcomes_alltreated.feather --param
+      group=alltreated
     needs:
     - design
     - process_ids
     outputs:
       highly_sensitive:
-        cohort: output/postmatch/outcomes/input_outcomes_treated.feather
+        cohort: output/postmatch/outcomes/input_outcomes_alltreated.feather
 
-  extract_outcomes_control:
+  extract_outcomes_matchcontrol:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_outcomes
-      --output-file output/postmatch/outcomes/input_outcomes_control.feather --param
-      arm=control
+      --output-file output/postmatch/outcomes/input_outcomes_matchcontrol.feather
+      --param group=matchcontrol
     needs:
     - design
     - process_ids
     outputs:
       highly_sensitive:
-        cohort: output/postmatch/outcomes/input_outcomes_control.feather
+        cohort: output/postmatch/outcomes/input_outcomes_matchcontrol.feather
+
+  table1_all_treated:
+    run: r:latest analysis/report/table1.R all treated
+    needs:
+    - process_treated
+    - extract_covs_alltreated
+    outputs:
+      moderately_sensitive:
+        csv: output/treated/table1/table1_all_treated_rounded.csv
+        html: output/treated/table1/table1_all_treated_rounded.html
 
   table1_covs_comparative:
     run: r:latest analysis/report/table1.R covs comparative
     needs:
     - process_treated
     - match_comparative
-    - extract_covs_treated
+    - extract_covs_alltreated
     outputs:
       moderately_sensitive:
         csv: output/comparative/table1/table1_covs_comparative_rounded.csv
@@ -362,12 +392,39 @@ actions:
     - process_treated
     - process_controlactual_1
     - process_controlactual_2
-    - extract_covs_treated
-    - extract_covs_control
+    - extract_covs_alltreated
+    - extract_covs_matchcontrol
     outputs:
       moderately_sensitive:
         csv: output/relative/table1/table1_covs_relative_rounded.csv
         html: output/relative/table1/table1_covs_relative_rounded.html
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## Combine outputs for report 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  combine_flowchart:
+    run: r:latest analysis/report/combine_flowchart.R
+    needs:
+    - process_initial
+    - process_treated
+    - flowchart_comparative
+    - flowchart_relative
+    outputs:
+      moderately_sensitive:
+        flowchart: output/report/flowchart/*.csv
+
+  combine_table1:
+    run: r:latest analysis/report/combine_table1.R
+    needs:
+    - table1_match_comparative
+    - table1_match_relative
+    - table1_all_treated
+    - table1_covs_comparative
+    - table1_covs_relative
+    outputs:
+      moderately_sensitive:
+        flowchart: output/report/table1/*.csv
 
   ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
   ## Fit models to estimate comparative effectiveness 
@@ -380,7 +437,7 @@ actions:
     run: r:latest analysis/model/km.R comparative all covidadmitted
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - match_comparative
     outputs:
       moderately_sensitive:
@@ -391,7 +448,7 @@ actions:
     run: r:latest analysis/model/cox.R comparative cox_unadj all covidadmitted
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - match_comparative
     outputs:
       moderately_sensitive:
@@ -401,9 +458,9 @@ actions:
     run: r:latest analysis/model/cox.R comparative cox_adj all covidadmitted
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - match_comparative
-    - extract_covs_treated
+    - extract_covs_alltreated
     outputs:
       moderately_sensitive:
         csv: output/comparative/model/cox_adj/all/covidadmitted/*.csv
@@ -416,7 +473,7 @@ actions:
     run: r:latest analysis/model/km.R comparative all coviddeath
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - match_comparative
     outputs:
       moderately_sensitive:
@@ -427,7 +484,7 @@ actions:
     run: r:latest analysis/model/cox.R comparative cox_unadj all coviddeath
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - match_comparative
     outputs:
       moderately_sensitive:
@@ -437,9 +494,9 @@ actions:
     run: r:latest analysis/model/cox.R comparative cox_adj all coviddeath
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - match_comparative
-    - extract_covs_treated
+    - extract_covs_alltreated
     outputs:
       moderately_sensitive:
         csv: output/comparative/model/cox_adj/all/coviddeath/*.csv
@@ -452,7 +509,7 @@ actions:
     run: r:latest analysis/model/km.R comparative all noncoviddeath
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - match_comparative
     outputs:
       moderately_sensitive:
@@ -463,7 +520,7 @@ actions:
     run: r:latest analysis/model/cox.R comparative cox_unadj all noncoviddeath
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - match_comparative
     outputs:
       moderately_sensitive:
@@ -473,9 +530,9 @@ actions:
     run: r:latest analysis/model/cox.R comparative cox_adj all noncoviddeath
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - match_comparative
-    - extract_covs_treated
+    - extract_covs_alltreated
     outputs:
       moderately_sensitive:
         csv: output/comparative/model/cox_adj/all/noncoviddeath/*.csv
@@ -488,7 +545,7 @@ actions:
     run: r:latest analysis/model/km.R comparative all fracture
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - match_comparative
     outputs:
       moderately_sensitive:
@@ -499,7 +556,7 @@ actions:
     run: r:latest analysis/model/cox.R comparative cox_unadj all fracture
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - match_comparative
     outputs:
       moderately_sensitive:
@@ -509,9 +566,9 @@ actions:
     run: r:latest analysis/model/cox.R comparative cox_adj all fracture
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - match_comparative
-    - extract_covs_treated
+    - extract_covs_alltreated
     outputs:
       moderately_sensitive:
         csv: output/comparative/model/cox_adj/all/fracture/*.csv
@@ -524,7 +581,7 @@ actions:
     run: r:latest analysis/model/km.R comparative agegroup_match covidadmitted
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - match_comparative
     outputs:
       moderately_sensitive:
@@ -539,7 +596,7 @@ actions:
     run: r:latest analysis/model/km.R comparative agegroup_match coviddeath
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - match_comparative
     outputs:
       moderately_sensitive:
@@ -554,7 +611,7 @@ actions:
     run: r:latest analysis/model/km.R comparative agegroup_match noncoviddeath
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - match_comparative
     outputs:
       moderately_sensitive:
@@ -569,7 +626,7 @@ actions:
     run: r:latest analysis/model/km.R comparative agegroup_match fracture
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - match_comparative
     outputs:
       moderately_sensitive:
@@ -587,10 +644,10 @@ actions:
     run: r:latest analysis/model/km.R relative all covidadmitted
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - process_controlactual_1
     - process_controlactual_2
-    - extract_outcomes_control
+    - extract_outcomes_matchcontrol
     outputs:
       moderately_sensitive:
         rds: output/relative/model/km/all/covidadmitted/*.csv
@@ -600,10 +657,10 @@ actions:
     run: r:latest analysis/model/cox.R relative cox_unadj all covidadmitted
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - process_controlactual_1
     - process_controlactual_2
-    - extract_outcomes_control
+    - extract_outcomes_matchcontrol
     outputs:
       moderately_sensitive:
         csv: output/relative/model/cox_unadj/all/covidadmitted/*.csv
@@ -612,12 +669,12 @@ actions:
     run: r:latest analysis/model/cox.R relative cox_adj all covidadmitted
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - process_controlactual_1
     - process_controlactual_2
-    - extract_outcomes_control
-    - extract_covs_treated
-    - extract_covs_control
+    - extract_outcomes_matchcontrol
+    - extract_covs_alltreated
+    - extract_covs_matchcontrol
     outputs:
       moderately_sensitive:
         csv: output/relative/model/cox_adj/all/covidadmitted/*.csv
@@ -630,10 +687,10 @@ actions:
     run: r:latest analysis/model/km.R relative all coviddeath
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - process_controlactual_1
     - process_controlactual_2
-    - extract_outcomes_control
+    - extract_outcomes_matchcontrol
     outputs:
       moderately_sensitive:
         rds: output/relative/model/km/all/coviddeath/*.csv
@@ -643,10 +700,10 @@ actions:
     run: r:latest analysis/model/cox.R relative cox_unadj all coviddeath
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - process_controlactual_1
     - process_controlactual_2
-    - extract_outcomes_control
+    - extract_outcomes_matchcontrol
     outputs:
       moderately_sensitive:
         csv: output/relative/model/cox_unadj/all/coviddeath/*.csv
@@ -655,12 +712,12 @@ actions:
     run: r:latest analysis/model/cox.R relative cox_adj all coviddeath
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - process_controlactual_1
     - process_controlactual_2
-    - extract_outcomes_control
-    - extract_covs_treated
-    - extract_covs_control
+    - extract_outcomes_matchcontrol
+    - extract_covs_alltreated
+    - extract_covs_matchcontrol
     outputs:
       moderately_sensitive:
         csv: output/relative/model/cox_adj/all/coviddeath/*.csv
@@ -673,10 +730,10 @@ actions:
     run: r:latest analysis/model/km.R relative all noncoviddeath
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - process_controlactual_1
     - process_controlactual_2
-    - extract_outcomes_control
+    - extract_outcomes_matchcontrol
     outputs:
       moderately_sensitive:
         rds: output/relative/model/km/all/noncoviddeath/*.csv
@@ -686,10 +743,10 @@ actions:
     run: r:latest analysis/model/cox.R relative cox_unadj all noncoviddeath
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - process_controlactual_1
     - process_controlactual_2
-    - extract_outcomes_control
+    - extract_outcomes_matchcontrol
     outputs:
       moderately_sensitive:
         csv: output/relative/model/cox_unadj/all/noncoviddeath/*.csv
@@ -698,12 +755,12 @@ actions:
     run: r:latest analysis/model/cox.R relative cox_adj all noncoviddeath
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - process_controlactual_1
     - process_controlactual_2
-    - extract_outcomes_control
-    - extract_covs_treated
-    - extract_covs_control
+    - extract_outcomes_matchcontrol
+    - extract_covs_alltreated
+    - extract_covs_matchcontrol
     outputs:
       moderately_sensitive:
         csv: output/relative/model/cox_adj/all/noncoviddeath/*.csv
@@ -716,10 +773,10 @@ actions:
     run: r:latest analysis/model/km.R relative all fracture
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - process_controlactual_1
     - process_controlactual_2
-    - extract_outcomes_control
+    - extract_outcomes_matchcontrol
     outputs:
       moderately_sensitive:
         rds: output/relative/model/km/all/fracture/*.csv
@@ -729,10 +786,10 @@ actions:
     run: r:latest analysis/model/cox.R relative cox_unadj all fracture
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - process_controlactual_1
     - process_controlactual_2
-    - extract_outcomes_control
+    - extract_outcomes_matchcontrol
     outputs:
       moderately_sensitive:
         csv: output/relative/model/cox_unadj/all/fracture/*.csv
@@ -741,12 +798,12 @@ actions:
     run: r:latest analysis/model/cox.R relative cox_adj all fracture
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - process_controlactual_1
     - process_controlactual_2
-    - extract_outcomes_control
-    - extract_covs_treated
-    - extract_covs_control
+    - extract_outcomes_matchcontrol
+    - extract_covs_alltreated
+    - extract_covs_matchcontrol
     outputs:
       moderately_sensitive:
         csv: output/relative/model/cox_adj/all/fracture/*.csv
@@ -759,10 +816,10 @@ actions:
     run: r:latest analysis/model/km.R relative agegroup_match covidadmitted
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - process_controlactual_1
     - process_controlactual_2
-    - extract_outcomes_control
+    - extract_outcomes_matchcontrol
     outputs:
       moderately_sensitive:
         rds: output/relative/model/km/agegroup_match/covidadmitted/*.csv
@@ -776,10 +833,10 @@ actions:
     run: r:latest analysis/model/km.R relative agegroup_match coviddeath
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - process_controlactual_1
     - process_controlactual_2
-    - extract_outcomes_control
+    - extract_outcomes_matchcontrol
     outputs:
       moderately_sensitive:
         rds: output/relative/model/km/agegroup_match/coviddeath/*.csv
@@ -793,10 +850,10 @@ actions:
     run: r:latest analysis/model/km.R relative agegroup_match noncoviddeath
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - process_controlactual_1
     - process_controlactual_2
-    - extract_outcomes_control
+    - extract_outcomes_matchcontrol
     outputs:
       moderately_sensitive:
         rds: output/relative/model/km/agegroup_match/noncoviddeath/*.csv
@@ -810,10 +867,10 @@ actions:
     run: r:latest analysis/model/km.R relative agegroup_match fracture
     needs:
     - process_treated
-    - extract_outcomes_treated
+    - extract_outcomes_alltreated
     - process_controlactual_1
     - process_controlactual_2
-    - extract_outcomes_control
+    - extract_outcomes_matchcontrol
     outputs:
       moderately_sensitive:
         rds: output/relative/model/km/agegroup_match/fracture/*.csv

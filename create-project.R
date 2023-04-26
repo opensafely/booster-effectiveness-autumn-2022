@@ -181,24 +181,24 @@ action_1matchround <- function(match_round){
 }
 
 
-extract_vars <- function(vars, arm) {
+extract_vars <- function(vars, group) {
   
   stopifnot("`vars` must be \"covs\" or \"outcomes\"" = vars %in% c("covs", "outcomes"))
   
   action(
-    name = glue("extract_{vars}_{arm}"),
+    name = glue("extract_{vars}_{group}"),
     run = glue(
       "cohortextractor:latest generate_cohort",
       glue(" --study-definition study_definition_{vars}"),
-      glue(" --output-file output/postmatch/{vars}/input_{vars}_{arm}.feather"),
-      " --param arm={arm}"
+      glue(" --output-file output/postmatch/{vars}/input_{vars}_{group}.feather"),
+      " --param group={group}"
     ),
     needs = namelesslst(
       "design",
       "process_ids"
     ),
     highly_sensitive = lst(
-      cohort = glue("output/postmatch/{vars}/input_{vars}_{arm}.feather")
+      cohort = glue("output/postmatch/{vars}/input_{vars}_{group}.feather")
     )
   )
   
@@ -208,11 +208,11 @@ extract_vars <- function(vars, arm) {
 actions_model <- function(effect, subgroup, outcome) {
   
   needs_list <- list()
-  needs_list[["km"]] <- c("process_treated", "extract_outcomes_treated")
+  needs_list[["km"]] <- c("process_treated", "extract_outcomes_alltreated")
   
   if (effect == "comparative") {
     needs_list[["km"]] <- c(needs_list[["km"]], "match_comparative")
-    needs_list[["cox_adj"]] <- c(needs_list[["km"]], "extract_covs_treated")
+    needs_list[["cox_adj"]] <- c(needs_list[["km"]], "extract_covs_alltreated")
   }
   
   
@@ -221,12 +221,12 @@ actions_model <- function(effect, subgroup, outcome) {
     needs_list[["km"]] <- c(
       needs_list[["km"]], 
       map_chr(1:n_match_rounds, ~glue("process_controlactual_{.x}")),
-      "extract_outcomes_control"
+      "extract_outcomes_matchcontrol"
     )
     needs_list[["cox_adj"]] <- c(
       needs_list[["km"]], 
-      "extract_covs_treated", 
-      "extract_covs_control")
+      "extract_covs_alltreated", 
+      "extract_covs_matchcontrol")
   }
   
   needs_list[["cox_unadj"]] <- needs_list[["km"]]
@@ -331,11 +331,11 @@ action_table1 <- function(vars, effect){
     
   }
   
-  if (vars == "covs") {
+  if (vars %in% c("covs", "all")) {
     
-    needs_list <- c(needs_list, "extract_covs_treated")
+    needs_list <- c(needs_list, "extract_covs_alltreated")
     
-    if (effect == "relative") needs_list <- c(needs_list, "extract_covs_control")  
+    if (effect == "relative") needs_list <- c(needs_list, "extract_covs_matchcontrol")  
     
   }
   
@@ -363,7 +363,7 @@ action_coverage <- function(effect){
     
   }
   
-  action(
+  out <- action(
     name = glue("coverage_{effect}"),
     run = "r:latest analysis/match/coverage.R",
     arguments = c(effect),
@@ -373,6 +373,28 @@ action_coverage <- function(effect){
       png= glue("output/{effect}/coverage/*.png"),
     )
   )
+  
+  if (effect == "relative") {
+    
+    needs_list <- c(needs_list, "process_initial")
+    
+  }
+  
+  out <- splice(
+    out,
+    action(
+      name = glue("flowchart_{effect}"),
+      run = "r:latest analysis/match/match_flowchart.R",
+      arguments = c(effect),
+      needs = as.list(needs_list),
+      moderately_sensitive= lst(
+        csv= glue("output/{effect}/flowchart/*.csv"),
+      )
+    )
+  )
+  
+  return(out)
+  
 }
 
 # specify project ----
@@ -559,7 +581,7 @@ actions_list <- splice(
     name = "process_ids",
     run = "r:latest analysis/process/process_ids.R",
     needs = namelesslst(
-      "match_comparative",
+      "process_treated",
       glue("process_controlactual_{n_match_rounds}")
     ),
     highly_sensitive = lst(
@@ -567,10 +589,16 @@ actions_list <- splice(
     )
   ),
   
-  extract_vars(vars = "covs", arm = "treated"),
-  extract_vars(vars = "covs", arm = "control"),
-  extract_vars(vars = "outcomes", arm = "treated"),
-  extract_vars(vars = "outcomes", arm = "control"),
+  extract_vars(vars = "covs", group = "alltreated"),
+  extract_vars(vars = "covs", group = "matchcontrol"),
+  extract_vars(vars = "outcomes", group = "alltreated"),
+  extract_vars(vars = "outcomes", group = "matchcontrol"),
+  
+  # table1 for all treated (including unmatched), all variables
+  action_table1(
+    vars = "all",
+    effect = "treated"
+  ),
   
   # table1 for matched data for comparative effectiveness, covariates
   action_table1(
@@ -582,6 +610,39 @@ actions_list <- splice(
   action_table1(
     vars = "covs",
     effect = "relative"
+  ),
+  
+  comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
+          "Combine outputs for report",
+          "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
+  
+  action(
+    name = "combine_flowchart",
+    run = "r:latest analysis/report/combine_flowchart.R",
+    needs = namelesslst(
+      "process_initial",
+      "process_treated",
+      "flowchart_comparative",
+      "flowchart_relative"
+    ),
+    moderately_sensitive = lst(
+      flowchart = "output/report/flowchart/*.csv"
+    )
+  ),
+  
+  action(
+    name = "combine_table1",
+    run = "r:latest analysis/report/combine_table1.R",
+    needs = namelesslst(
+      "table1_match_comparative",
+      "table1_match_relative",
+      "table1_all_treated",
+      "table1_covs_comparative",
+      "table1_covs_relative"
+    ),
+    moderately_sensitive = lst(
+      flowchart = "output/report/table1/*.csv"
+    )
   ),
   
   comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",

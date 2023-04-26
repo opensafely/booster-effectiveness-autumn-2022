@@ -52,15 +52,7 @@ study = StudyDefinition(
   
   # This line defines the study population
   population=patients.satisfying(
-    """
-    registered
-    AND
-    NOT has_died
-    AND 
-    eligible_initial
-    """,
-    
-    **inclusion_variables,    
+    "eligible_initial",   
 
     # patients that satisfy the original eligibility criteria
     eligible_initial = patients.which_exist_in_file(
@@ -69,6 +61,11 @@ study = StudyDefinition(
 
   ),
     
+  ###############################################################################
+  # inclusion variables
+  ##############################################################################
+  **inclusion_variables,   
+
   ###############################################################################
   # jcvi variables
   ##############################################################################

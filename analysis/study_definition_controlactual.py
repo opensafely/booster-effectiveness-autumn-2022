@@ -51,23 +51,21 @@ study = StudyDefinition(
   
   # This line defines the study population
   population=patients.satisfying(
-    """
-    registered
-    AND
-    NOT has_died
-    AND
-    prematched
-    """,
+    "prematched",
     
-    prematched = patients.which_exist_in_file(f_path=f"output/matchround{match_round}/controlpotential/match/potential_matchedcontrols.csv.gz"),
-    **inclusion_variables,    
+    prematched = patients.which_exist_in_file(f_path=f"output/matchround{match_round}/controlpotential/match/potential_matchedcontrols.csv.gz"), 
 
   ),
 
   trial_date = patients.with_value_from_file(f_path=f"output/matchround{match_round}/controlpotential/match/potential_matchedcontrols.csv.gz", returning="trial_date", returning_type="date", date_format='YYYY-MM-DD'),
   
   match_id = patients.with_value_from_file(f_path=f"output/matchround{match_round}/controlpotential/match/potential_matchedcontrols.csv.gz", returning="match_id", returning_type="int"),
-    
+  
+  ###############################################################################
+  # inclusion variables
+  ##############################################################################
+  **inclusion_variables,   
+
   ###############################################################################
   # jcvi variables
   ##############################################################################

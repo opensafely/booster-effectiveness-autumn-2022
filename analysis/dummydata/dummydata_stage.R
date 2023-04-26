@@ -45,6 +45,8 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
     select(patient_id, age, vax_boostautumn_date) %>%
     # demo variables
     mutate(
+      registered = rbern(n = nrow(.), p=0.99),
+      hasnot_died = rbern(n = nrow(.), p=0.99),
       has_follow_up_previous_1year = rbern(n = nrow(.), p=0.99),
       sex = sample(x = c("M", "F"), size = nrow(.), replace = TRUE),
       ethnicity = sample(

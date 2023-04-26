@@ -46,17 +46,9 @@ study = StudyDefinition(
   
   # This line defines the study population
   population=patients.satisfying(
-    """
-    registered
-    AND
-    NOT has_died
-    AND 
-    eligible_initial
-    """,
-    
-    **inclusion_variables,    
+    "eligible_initial", 
 
-    # patients that satisfy the original eligibility criteria (and have nonmissing autumnbooster2022_date)
+    # patients that satisfy the original eligibility criteria and have autumnbooster2022_date during recruitment period
     eligible_initial = patients.which_exist_in_file(
     f_path=f"output/initial/eligible/data_eligible_treated.csv.gz"
     ),
@@ -69,7 +61,12 @@ study = StudyDefinition(
     returning_type="date", 
     date_format='YYYY-MM-DD'
     ),
-    
+
+  ###############################################################################
+  # inclusion variables
+  ##############################################################################
+  **inclusion_variables,   
+
   ###############################################################################
   # jcvi variables
   ##############################################################################

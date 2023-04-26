@@ -304,6 +304,8 @@ data_criteria <- data_processed %>%
   transmute(
     
     patient_id,
+    registered,
+    hasnot_died,
     has_follow_up_previous_1year,
     # all vaccine variables will be missing for patients with an undefineddose
     # as such patients were dropped from data_vax_processed, 
@@ -334,37 +336,43 @@ data_criteria <- data_processed %>%
     c00_descr = factor("Satisfying initial eligibility criteria"), 
     c00 = TRUE, 
     
-    c01_descr = factor("  Registered with a TPP practice for less than one year"), 
-    c01 = c00 & has_follow_up_previous_1year,
+    c01_descr = factor("  Died before index date"),
+    c01 = c00 & hasnot_died,
     
-    c02_descr = factor("  Undefined dose between studystart and index date"),
-    c02 = c01 & no_undefineddose,
+    c02_descr = factor("  Deregistered before index date"),
+    c02 = c01 & registered,
     
-    c03_descr = factor("  Less than 3 months (91 days) since most recent vaccine dose"),
-    c03 = c02 & lastdoseinterval,
+    c03_descr = factor("  Registered with a TPP practice for less than one year"), 
+    c03 = c02 & has_follow_up_previous_1year,
     
-    c04_descr = factor("  Missing sex, IMD, ethnicity, geographical region"),
-    c04 = c03 & has_sex & has_imd & has_ethnicity & has_region,
+    c04_descr = factor("  Undefined dose between studystart and index date"),
+    c04 = c03 & no_undefineddose,
     
-    c05_descr = factor("  Care home residents, where known"),
-    c05 = c04 & isnot_carehomeresident,
+    c05_descr = factor("  Less than 3 months (91 days) since most recent vaccine dose"),
+    c05 = c04 & lastdoseinterval,
     
-    c06_descr = factor("  Health care workers, where known"),
-    c06 = c05 & isnot_hscworker,
+    c06_descr = factor("  Missing sex, IMD, ethnicity, geographical region"),
+    c06 = c05 & has_sex & has_imd & has_ethnicity & has_region,
     
-    c07_descr = factor("  People who are considered to be near death, for example on palliative care pathways"),
-    c07 = c06 & isnot_endoflife,
+    c07_descr = factor("  Care home residents, where known"),
+    c07 = c06 & isnot_carehomeresident,
     
-    c08_descr = factor("  People who are housebound, where known"),
-    c08 = c07 & isnot_housebound,
+    c08_descr = factor("  Health care workers, where known"),
+    c08 = c07 & isnot_hscworker,
     
-    c09_descr = factor("  People who are in hospital on an unplanned admission"),
-    c09 = c08 & isnot_inhospital,
+    c09_descr = factor("  People who are considered to be near death, for example on palliative care pathways"),
+    c09 = c08 & isnot_endoflife,
     
-    c10_descr = factor("  People who had an unplanned hospital admission with covid-19 in the past 1-30 days"),
-    c10 = c09 & (timesincecovidadmitted != " 1-30 days"),
+    c10_descr = factor("  People who are housebound, where known"),
+    c10 = c09 & isnot_housebound,
     
-    include = c10
+    c11_descr = factor("  People who are in hospital on an unplanned admission"),
+    c11 = c10 & isnot_inhospital,
+    
+    c12_descr = factor("  People who had an unplanned hospital admission with covid-19 in the past 1-30 days"),
+    c12 = c11 & (timesincecovidadmitted != " 1-30 days"),
+    
+    include = c12
     
   )
 
@@ -420,7 +428,7 @@ if (stage == "treated") {
     ungroup() %>%
     rename(criteria = descr) %>%
     arrange(crit) %>%
-    mutate(across(criteria, ~if_else(crit == "c00", str_c(criteria, " and boosted"), as.character(.x)))) %>%
+    mutate(across(criteria, ~if_else(crit == "c00", str_c(criteria, "and boosted"), as.character(.x)))) %>%
     flow_stats_rounded(1)
   
   data_flowchart %>%

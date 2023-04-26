@@ -122,7 +122,7 @@ treatment_lookup <- tribble(
 
 comparison_definition <- tribble(
   ~comparison, ~level0, ~level0_descr, ~level1, ~level1_descr,
-  "comparative", "pfizerbivalent", "BNT162b2-TODO", "modernabivalent", "mRNA-1273-TODO",
+  "comparative", "pfizerbivalent", "Bivalent BNT162b2", "modernabivalent", "Bivalent mRNA-1273",
   "relative", "unboosted", "Unboosted", "boosted", "Boosted",
 )
 # TODO find the correct way to specify pfizer and moderna bivalent

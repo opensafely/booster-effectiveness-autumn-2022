@@ -420,6 +420,7 @@ if (stage == "treated") {
     ungroup() %>%
     rename(criteria = descr) %>%
     arrange(crit) %>%
+    mutate(across(criteria, ~if_else(crit == "c00", str_c(criteria, " and boosted"), as.character(.x)))) %>%
     flow_stats_rounded(1)
   
   data_flowchart %>%

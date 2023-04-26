@@ -88,7 +88,7 @@ if (vars == "match") {
     
     age ~ "Age",
     age_factor ~ "Age (per year)",
-    agegroup_match ~ "Age group for match",
+    agegroup_match ~ "Age group for matching",
     sex ~ "Sex",
     ethnicity ~ "Ethnicity",
     imd_Q5 ~ "Deprivation",
@@ -189,12 +189,11 @@ table1_data <- raw_stats_redacted %>%
     values_from = value
   )
 
-table1_review <- table1_data %>%
+# table to help reviewing
+table1_data %>%
   knitr::kable(format = "html") %>%
   kableExtra::kable_paper() %>%
   kableExtra::kable_styling(
     full_width = FALSE
-  )
-
-# table to help reviewing
-kableExtra::save_kable(table1_review, file = fs::path(output_dir, glue("table1_{vars}_{effect}_rounded.html")))
+  ) %>%
+  kableExtra::save_kable(file = fs::path(output_dir, glue("table1_{vars}_{effect}_rounded.html")))

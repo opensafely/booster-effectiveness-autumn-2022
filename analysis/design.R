@@ -17,6 +17,9 @@ threshold <- 6
 
 # define key dates ----
 
+# https://www.england.nhs.uk/statistics/statistical-work-areas/covid-19-vaccinations/
+# https://www.england.nhs.uk/statistics/wp-content/uploads/sites/2/2023/04/COVID-19-weekly-announced-vaccinations-20-April-2023.xlsm
+
 study_dates <- lst(
   
   boosterautumn = lst(
@@ -26,13 +29,13 @@ study_dates <- lst(
   
   boosterspring = lst(
     start = "2022-03-23",
-    end = "2022-05-30" # TODO review
+    end = "2022-07-30" # based on plot of weekly vaccinations in England
   ),
   
   boosterfirst = lst(
     pfizerstart = "2021-09-16", # first pfizer vaccination in national roll-out
     modernastart = "2021-10-29", # first moderna vaccination in national roll-out
-    end = as.Date(boosterspring$start) - 1, # day before start of spring boost
+    end = as.Date(boosterspring$start) - 7, # 7 days before start of spring boost
   ),
   
   dose2 = lst(
@@ -51,8 +54,10 @@ study_dates <- lst(
     as.Date(boosterautumn$ages65plus), 
     as.Date(boosterautumn$ages50to64)
     ),
-  recruitmentend = "2022-12-24", #TBC
-  studyend = "2023-01-31",# TBC end of available hospitalization data
+  
+  recruitmentend = "2022-12-24", # based on plot of weekly vaccinations in England
+  hospitalisationend = "2023-01-31", # end of available hospitalization data
+  deathend = "2023-02-28" # end of available death data
   
 )
 
@@ -104,8 +109,8 @@ outcomes <- c("covidadmitted", "coviddeath", "noncoviddeath", "fracture")
 
 treatment_lookup <- tribble(
   ~course, ~treatment, ~treatment_descr,
-  "boostaumtumn","pfizerbivalent", "BNT162b2-TODO",
-  "boostaumtumn", "modernabivalent", "mRNA-1273-TODO",
+  "boostaumtumn","pfizerbivalent", "Bivalent BNT162b2",
+  "boostaumtumn", "modernabivalent", "Bivalent mRNA-1273",
   "boostspring","pfizer", "BNT162b2",
   "boostspring", "moderna", "mRNA-1273",
   "boostfirst","pfizer", "BNT162b2",
@@ -162,7 +167,7 @@ fup_params <- lst(
   # length of follow-up period
   postbaselinedays = 28,
   # number of follow-up periods
-  postbaselineperiods = 3,
+  postbaselineperiods = 6,
   # where to split follow-up time after recruitment
   postbaselinecuts = c(0, baselinedays, baselinedays + (1:postbaselineperiods)*postbaselinedays),
   # maximum follow-up

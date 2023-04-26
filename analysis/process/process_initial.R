@@ -15,6 +15,7 @@
 # import libraries
 library(tidyverse)
 library(here)
+library(glue)
 
 # import local functions and parameters
 source(here::here("analysis", "design.R"))
@@ -187,8 +188,8 @@ data_vax <- data_vax %>%
       index <= 2 ~ FALSE,
       # discard if brand missing
       is.na(brand) ~ FALSE,
-      # discard if date after studyend
-      date > study_dates$studyend ~ FALSE,
+      # discard if date after recruitmentend
+      date > study_dates$recruitmentend ~ FALSE,
       # discard if interval since last dose too short
       dayssincelastdose < 91 ~ FALSE,
       # discard if not bivalent
@@ -317,8 +318,14 @@ data_flow <- data_vax %>%
   summarise(across(matches("^c\\d"), .fns=sum)) %>%
   pivot_longer(
     cols=everything(),
-    names_to="criteria",
+    names_to="crit",
     values_to="n"
+  ) %>%
+  mutate(
+    criteria = case_when(
+      crit == "c0" ~ glue("Alive and registered on {study_dates$studystart}, aged >= 50 and two doses received before {study_dates$dose2$end}"),
+      crit == "c1" ~ "Eligible for boosted or unboosted group based on initial eligibility criteria"
+    )
   )
 
 data_flow %>%

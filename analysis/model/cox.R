@@ -208,7 +208,7 @@ cat(glue("---- Start fitting overall Cox model ----"), "\n")
 cox_out <- coxcontrast(
   data_surv, 
   adj = model == "cox_adj",
-  cuts = fup_params$postbaselinecuts
+  cuts = c(0, fup_params$maxfup)
 )
 write_csv(cox_out, file.path(output_dir, glue("{model}_contrasts_overall_rounded.csv")))
 cat(glue("---- overall Cox model complete! ----"), "\n")
@@ -217,7 +217,7 @@ cat(glue("---- Start fitting cuts Cox model ----"), "\n")
 cox_out <- coxcontrast(
   data_surv, 
   adj = model == "cox_adj",
-  cuts = c(0, fup_params$maxfup)
+  cuts = fup_params$postbaselinecuts
 )
 write_csv(cox_out, file.path(output_dir, glue("{model}_contrasts_cuts_rounded.csv")))
 cat(glue("---- cuts Cox model complete! ----"), "\n")

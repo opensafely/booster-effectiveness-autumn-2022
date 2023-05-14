@@ -56,8 +56,11 @@ study = StudyDefinition(
     
     **inclusion_variables,  
 
+    
+
     primarycourse_end = patients.satisfying(
-      f"covid_vax_disease_2_date < '{dose2end_date}'"
+      "covid_vax_disease_2_date < dose2end_date",
+      dose2end_date = patients.fixed_value(dose2end_date),
     ),
 
   ),

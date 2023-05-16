@@ -40,7 +40,7 @@ study_dates <- lst(
   
   dose2 = lst(
     # don't recruit anyone with second vaccination after this date
-    end =  as.Date(boosterfirst$pfizerstart), 
+    end = as.Date(boosterfirst$pfizerstart) - 1, 
   ),
 
   # vaccine schedule dates

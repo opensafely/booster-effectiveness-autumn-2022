@@ -104,7 +104,8 @@ data_vax <- data_any %>%
   arrange(patient_id, index) %>%
   mutate(
     dose1brand = if_else(index == 2, lag(brand), NA_character_),
-    dayssincelastdose = if_else(index > 1, as.integer(date - lag(date)), NA_integer_)
+    dayssincelastdose = if_else(index > 1, as.integer(date - lag(date)), NA_integer_),
+    dateoflastdose = lag(date)
   )  %>%
   left_join(
     data_extract %>% select(patient_id, age), 
@@ -165,6 +166,9 @@ data_vax <- data_vax %>%
       index <= 2 ~ FALSE,
       # discard if brand missing
       is.na(brand) ~ FALSE,
+      # discard if date of last dose was after the start of spring booster
+      # i.e. only count the first dose during the spring booster period
+      dateoflastdose >= study_dates$boosterspring$start ~ FALSE,
       # discard if date before booster first start 
       date < study_dates$boosterspring$start ~ FALSE,
       # discard if date after booster first end 
@@ -180,7 +184,7 @@ data_vax <- data_vax %>%
     )
   )
 
-# identify doses that meet the aumtumn boost criteria
+# identify doses that meet the autumn boost criteria
 data_vax <- data_vax %>%
   mutate(
     boostautumn = case_when(
@@ -188,6 +192,9 @@ data_vax <- data_vax %>%
       index <= 2 ~ FALSE,
       # discard if brand missing
       is.na(brand) ~ FALSE,
+      # discard if date of last dose was after the start of autumn booster
+      # i.e. only count the first dose during the autumn booster period
+      dateoflastdose >= study_dates$boosterautumn[["ages65plus"]] ~ FALSE,
       # discard if date after recruitmentend
       date > study_dates$recruitmentend ~ FALSE,
       # discard if interval since last dose too short
@@ -226,17 +233,15 @@ check_courses_rows <- data_vax %>%
 
 if (nrow(check_courses_rows) > 0) {
   
-  cat("Some patients have multiple doses categorised as the following courses:\n")
+  cat("Number of patients with multiple doses categorised as the following courses:\n")
   
   check_courses_rows %>%
     pivot_longer(
       cols = -patient_id
     ) %>% 
-    filter(value > 1) %>%
-    distinct(name) %>%
+    group_by(name) %>%
+    count() %>%
     print()
-  
-  stop()
   
 } else {
   

@@ -142,10 +142,14 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
 } else {
   
   # save empty outputs to keep the project yaml happy but not waste storage
-  tibble() %>%
-    arrow::write_feather(sink = file.path(custom_dummy_path_treated, "empty.feather"))
+  arrow::write_feather(
+    x = tibble::tibble(),
+    sink = file.path(custom_dummy_path_treated, "empty.feather")
+  )
   
-  tibble() %>%
-    arrow::write_feather(sink = file.path(custom_dummy_path_controlpotential, "empty.feather"))
+  arrow::write_feather(
+    x = tibble::tibble(),
+    sink = file.path(custom_dummy_path_controlpotential, "empty.feather")
+  )
   
 }

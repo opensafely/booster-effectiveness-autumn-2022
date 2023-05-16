@@ -72,7 +72,7 @@ extract_increment <- 14
 study_dates$control_extract = seq(study_dates$studystart, study_dates$recruitmentend, extract_increment)
 
 # reduce the match rounds for testing
-study_dates$control_extract <- study_dates$control_extract[1:2]
+# study_dates$control_extract <- study_dates$control_extract[1:2]
 
 # number of match rounds to perform for each cohort
 

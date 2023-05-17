@@ -9,6 +9,7 @@ with open("./lib/design/study-dates.json") as f:
   study_dates = json.load(f)
 
 dose2end_date = study_dates["dose2"]["end"]
+recruitmentend_date = study_dates["recruitmentend"]
 
 from cohortextractor import (
   StudyDefinition,
@@ -20,6 +21,9 @@ from cohortextractor import (
   params
 )
 
+############################################################
+## functions
+from variables_functions import *
 ############################################################
 ## inclusion variables
 from variables_vax import generate_vax_variables 
@@ -66,7 +70,7 @@ study = StudyDefinition(
   ),
   
   age=patients.age_as_of( 
-    study_dates["boosterautumn"]["ages50to64"],
+    days(recruitmentend_date, -1),
     ),
   
   #################################################################

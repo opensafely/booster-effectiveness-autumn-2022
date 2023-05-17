@@ -25,7 +25,7 @@ def generate_pre_variables(index_date):
   ),
   discharged_unplanned_0_date=patients.admitted_to_hospital(
     returning="date_discharged",
-    on_or_after="admitted_unplanned_0_date + 1 day",
+    on_or_after="admitted_unplanned_0_date",
     # see https://github.com/opensafely-core/cohort-extractor/pull/497 for codes
     # see https://docs.opensafely.org/study-def-variables/#sus for more info
     with_admission_method=["21", "22", "23", "24", "25", "2A", "2B", "2C", "2D", "28"],
@@ -70,7 +70,7 @@ def generate_pre_variables(index_date):
     returning="date_discharged",
     with_admission_method=["21", "22", "23", "24", "25", "2A", "2B", "2C", "2D", "28"],
     with_these_diagnoses=codelists.covid_icd10,
-    on_or_after="admitted_covid_0_date + 1 day",
+    on_or_after="admitted_covid_0_date",
     date_format="YYYY-MM-DD",
     find_first_match_in_period=True,
   ),

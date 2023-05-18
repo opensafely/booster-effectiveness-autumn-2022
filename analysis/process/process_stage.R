@@ -144,6 +144,14 @@ if (stage == "controlactual") {
 # summarise extracted data 
 my_skim(data_extract, path = file.path(path_stem, "extract", glue("input_{stage}_skim.txt")))
 
+cat("check for dates that are '1900-01-01', as this may indicate missing:\n")
+data_extract %>%
+  select(where(is.Date)) %>%
+  pivot_longer(cols = everything()) %>%
+  filter(!is.na(value), value == "1900-01-01") %>%
+  group_by(name) %>%
+  count()
+
 # process data -----
 
 # define index_date depending on stage

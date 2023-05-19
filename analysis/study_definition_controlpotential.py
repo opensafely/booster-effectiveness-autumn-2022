@@ -16,24 +16,24 @@ from cohortextractor import (
 
 # define params
 match_round = int(params["match_round"])
-index_date = params["index_date"]
+matchroundindex_date = params["index_date"]
 
 ############################################################
 # inclusion variables
 from variables_inclusion import generate_inclusion_variables 
-inclusion_variables = generate_inclusion_variables(index_date="index_date")
+inclusion_variables = generate_inclusion_variables(index_date="matchroundindex_date")
 ############################################################
 ## jcvi variables
 from variables_jcvi import generate_jcvi_variables 
-jcvi_variables = generate_jcvi_variables(index_date="index_date")
+jcvi_variables = generate_jcvi_variables(index_date="matchroundindex_date")
 ############################################################
 ## demographic variables
 from variables_demo import generate_demo_variables 
-demo_variables = generate_demo_variables(index_date="index_date")
+demo_variables = generate_demo_variables(index_date="matchroundindex_date")
 ############################################################
 ## pre variables
 from variables_pre import generate_pre_variables 
-pre_variables = generate_pre_variables(index_date="index_date")
+pre_variables = generate_pre_variables(index_date="matchroundindex_date")
 ############################################################
 
 # Specify study defeinition
@@ -48,8 +48,6 @@ study = StudyDefinition(
     "float": {"distribution": "normal", "mean": 25, "stddev": 5},
   },
   
-  index_date = index_date,
-  
   # This line defines the study population
   population=patients.satisfying(
     "eligible_initial",   
@@ -60,12 +58,14 @@ study = StudyDefinition(
     ),
 
   ),
+
+  matchroundindex_date = patients.fixed_value(matchroundindex_date),
     
   ###############################################################################
   # inclusion variables
   ##############################################################################
   **inclusion_variables,   
-
+  
   ###############################################################################
   # jcvi variables
   ##############################################################################
@@ -75,7 +75,7 @@ study = StudyDefinition(
   # demographic variables
   ##############################################################################
   **demo_variables,   
-
+  
   ###############################################################################
   # pre variables
   ##############################################################################

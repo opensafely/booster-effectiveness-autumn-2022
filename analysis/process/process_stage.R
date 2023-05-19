@@ -84,6 +84,11 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
   
   data_dummy <- arrow::read_feather(custom_path) 
   
+  if (stage == "controlpotential") {
+    data_dummy <- data_dummy %>%
+      mutate(matchroundindex_date = match_round_date)
+  }
+  
   # extra processing if stage=controlactual
   if (stage == "controlactual") {
     

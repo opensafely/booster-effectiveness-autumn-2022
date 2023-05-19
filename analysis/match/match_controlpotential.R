@@ -6,7 +6,7 @@
 # outputs match summary
 #
 # The script must be accompanied by one argument:
-# `match_round` - the match round (1,2,3,...)
+# `matchround` - the match round (1,2,3,...)
 
 # # # # # # # # # # # # # # # # # # # # #
 
@@ -25,16 +25,16 @@ source(here("lib", "functions", "utility.R"))
 # import command-line arguments
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
-  match_round <- as.integer("1")
+  matchround <- as.integer("1")
 } else {
-  match_round <- as.integer(args[[1]])
+  matchround <- as.integer(args[[1]])
 }
 
 # get cohort-specific parameters study dates and parameters
-match_round_date <- study_dates$control_extract[match_round]
+matchround_date <- study_dates$control_extract[matchround]
 
 # create output directory
-fs::dir_create(ghere("output", "matchround{match_round}", "controlpotential", "match"))
+fs::dir_create(ghere("output", "matchround{matchround}", "controlpotential", "match"))
 
 # Import datasets ----
 # import treated cohort
@@ -43,15 +43,15 @@ data_treated <- read_rds(here("output", "treated", "eligible", "data_treated.rds
 
 # import control cohort 
 data_control <- read_rds(
-  ghere("output", "matchround{match_round}", "controlpotential", "eligible", "data_controlpotential.rds")
+  ghere("output", "matchround{matchround}", "controlpotential", "eligible", "data_controlpotential.rds")
   ) %>% 
   mutate(treated=0L)
 
 # remove already-matched people from previous match rounds
-if(match_round > 1) {
+if(matchround > 1) {
   
   data_matchstatusprevious <- read_rds(
-    ghere("output", "matchround{match_round-1L}", "controlactual", "match", "data_matchstatus_allrounds.rds")
+    ghere("output", "matchround{matchround-1L}", "controlactual", "match", "data_matchstatus_allrounds.rds")
     ) %>%
     select(patient_id, treated)
   
@@ -290,7 +290,7 @@ local({
 # output match status ----
 data_matchstatus %>%
   write_rds(
-    ghere("output", "matchround{match_round}", "controlpotential", "match", "data_potential_matchstatus.rds"), 
+    ghere("output", "matchround{matchround}", "controlpotential", "match", "data_potential_matchstatus.rds"), 
     compress="gz"
     )
 
@@ -318,7 +318,7 @@ data_matchstatus %>%
     trial_date=as.character(trial_date)
   ) %>%
   write_csv(
-    ghere("output", "matchround{match_round}", "controlpotential", "match", "potential_matchedcontrols.csv.gz")
+    ghere("output", "matchround{matchround}", "controlpotential", "match", "potential_matchedcontrols.csv.gz")
     )
 
 
@@ -354,4 +354,4 @@ print(
 #   arrange(trial_date, match_id, treated)
 # 
 # 
-# write_rds(data_matched, fs::path(output_dir, glue("data_potential_matched{match_round}.rds")), compress="gz")
+# write_rds(data_matched, fs::path(output_dir, glue("data_potential_matched{matchround}.rds")), compress="gz")

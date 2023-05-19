@@ -2,9 +2,9 @@
 
 # This script:
 # processes data and applies eligibility criteria  
-# arguments: stage, match_round
+# arguments: stage, matchround
 # - stage = treated, potentialcontrol or actualcontrol
-# - match_round only required when stage = potentialcontrol or actualcontrol
+# - matchround only required when stage = potentialcontrol or actualcontrol
 ######################################
 
 # Preliminaries ----
@@ -32,7 +32,7 @@ if (length(args) == 0) {
   stage <- "treated"
   # stage <- "controlpotential"
   # stage <- "controlactual"
-  match_round <- as.integer("1")
+  matchround <- as.integer("1")
 } else {
   stage <- args[[1]]
   if (stage %in% "treated") {
@@ -40,9 +40,9 @@ if (length(args) == 0) {
       stop("No additional args to be specified when `stage=\"treated\"")
   } else {
     if (length(args) == 1) {
-      stop("`match_round` must be specified when `stage=\"controlpotential\"` or \"controlactual\"")
+      stop("`matchround` must be specified when `stage=\"controlpotential\"` or \"controlactual\"")
     }
-    match_round <- as.integer(args[[2]]) # NULL if treated    
+    matchround <- as.integer(args[[2]]) # NULL if treated    
   } 
 } 
 
@@ -52,10 +52,10 @@ if (stage == "treated") {
   fs::dir_create(file.path(path_stem, "flowchart"))
   custom_path <- file.path(path_stem, "dummydata", "dummydata_treated.feather")
 } else if (stage %in% c("controlpotential", "controlactual")) {
-  path_stem <- ghere("output", "matchround{match_round}", stage)
+  path_stem <- ghere("output", "matchround{matchround}", stage)
   fs::dir_create(file.path(path_stem, "match"))
   custom_path <- here("output", "matchround1", "controlpotential", "dummydata", "dummydata_controlpotential.feather")
-  match_round_date <- study_dates$control_extract[match_round]
+  matchround_date <- study_dates$control_extract[matchround]
 }
 fs::dir_create(file.path(path_stem, "eligible"))
 fs::dir_create(file.path(path_stem, "process"))
@@ -74,7 +74,7 @@ if (stage == "controlactual") {
   ## trial info for potential matches in round X
   data_potential_matchstatus <- 
     read_rds(
-      ghere("output", "matchround{match_round}", "controlpotential", "match", "data_potential_matchstatus.rds")
+      ghere("output", "matchround{matchround}", "controlpotential", "match", "data_potential_matchstatus.rds")
       ) %>% 
     filter(matched==1L)
   
@@ -86,7 +86,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
   
   if (stage == "controlpotential") {
     data_dummy <- data_dummy %>%
-      mutate(matchroundindex_date = match_round_date)
+      mutate(matchroundindex_date = matchround_date)
   }
   
   # extra processing if stage=controlactual
@@ -162,7 +162,7 @@ data_extract %>%
 # define index_date depending on stage
 stage_index_date <- list(
   treated = "vax_boostautumn_date",
-  controlpotential = "match_round_date",
+  controlpotential = "matchround_date",
   controlactual = "trial_date"
 )
 
@@ -510,13 +510,13 @@ if (stage == "controlactual") {
     match_candidates %>%
     inner_join(rematch, by=c("match_id", "trial_date", "matched")) %>%
     mutate(
-      match_round = match_round
+      matchround = matchround
     ) %>%
     arrange(trial_date, match_id, treated)
   
   ###
   
-  matchstatus_vars <- c("patient_id", "match_id", "trial_date", "match_round", "treated", "controlistreated_date")
+  matchstatus_vars <- c("patient_id", "match_id", "trial_date", "matchround", "treated", "controlistreated_date")
   
   data_successful_matchstatus <- data_successful_match %>% 
     # keep all variables from the processed data as they are required for adjustments in the cox model
@@ -534,10 +534,10 @@ if (stage == "controlactual") {
   
   ## pick up all previous successful matches ----
   
-  if (match_round > 1) {
+  if (matchround > 1) {
     
     data_matchstatusprevious <- read_rds(
-      ghere("output", "matchround{match_round-1}", "controlactual", "match", "data_matchstatus_allrounds.rds")
+      ghere("output", "matchround{matchround-1}", "controlactual", "match", "data_matchstatus_allrounds.rds")
     )
     
     data_matchstatus_allrounds <- 

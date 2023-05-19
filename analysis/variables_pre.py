@@ -12,67 +12,31 @@ def generate_pre_variables(index_date):
   ## Pre-study event dates
   ################################################################################################
 
-  # unplanned hospital admission
-  admitted_unplanned_0_date=patients.admitted_to_hospital(
-    returning="date_admitted",
-    on_or_before=f"{index_date} - 1 day",
-    # see https://github.com/opensafely-core/cohort-extractor/pull/497 for codes
-    # see https://docs.opensafely.org/study-def-variables/#sus for more info
-    with_admission_method=["21", "22", "23", "24", "25", "2A", "2B", "2C", "2D", "28"],
-    with_patient_classification = ["1"], # ordinary admissions only
-    date_format="YYYY-MM-DD",
-    find_last_match_in_period=True,
-  ),
-  discharged_unplanned_0_date=patients.admitted_to_hospital(
-    returning="date_discharged",
-    on_or_after="admitted_unplanned_0_date",
-    # see https://github.com/opensafely-core/cohort-extractor/pull/497 for codes
-    # see https://docs.opensafely.org/study-def-variables/#sus for more info
-    with_admission_method=["21", "22", "23", "24", "25", "2A", "2B", "2C", "2D", "28"],
-    with_patient_classification = ["1"], # ordinary admissions only
-    date_format="YYYY-MM-DD",
-    find_first_match_in_period=True,
-  ), 
-
-  # # planned hospital admission
-  # admitted_planned_0_date=patients.admitted_to_hospital(
-  #   returning="date_admitted",
-  #   on_or_before=f"{index_date} - 1 day",
-  #   # see https://github.com/opensafely-core/cohort-extractor/pull/497 for codes
-  #   # see https://docs.opensafely.org/study-def-variables/#sus for more info
-  #   with_admission_method=["11", "12", "13", "81"],
-  #   with_patient_classification = ["1"], # ordinary admissions only 
-  #   date_format="YYYY-MM-DD",
-  #   find_last_match_in_period=True,
-  # ),
-  # discharged_planned_0_date=patients.admitted_to_hospital(
-  #   returning="date_discharged",
-  #   on_or_after="admitted_planned_0_date + 1 day",
-  #   # see https://github.com/opensafely-core/cohort-extractor/pull/497 for codes
-  #   # see https://docs.opensafely.org/study-def-variables/#sus for more info
-  #   with_admission_method=["11", "12", "13", "81"],
-  #   with_patient_classification = ["1"], # ordinary admissions only
-  #   date_format="YYYY-MM-DD",
-  #   find_first_match_in_period=True
-  # ), 
+  # overnight hospital admission at time of index_date
+  inhospital = patients.satisfying(
   
-  # Positive covid admission prior to study start date
-  admitted_covid_0_date=patients.admitted_to_hospital(
-    returning="date_admitted",
-    with_admission_method=["21", "22", "23", "24", "25", "2A", "2B", "2C", "2D", "28"],
-    with_these_diagnoses=codelists.covid_icd10,
-    on_or_before=f"{index_date} - 1 day",
-    date_format="YYYY-MM-DD",
-    find_last_match_in_period=True,
+    f"discharged_0_date >= {index_date}",
+    
+    discharged_0_date=patients.admitted_to_hospital(
+      returning="date_discharged",
+      on_or_before=f"{index_date} - 1 day", # this is the admission date
+      # see https://github.com/opensafely-core/cohort-extractor/pull/497 for codes
+      # see https://docs.opensafely.org/study-def-variables/#sus for more info
+      with_admission_method = ['11', '12', '13', '21', '2A', '22', '23', '24', '25', '2D', '28', '2B', '81'],
+      with_patient_classification = ["1"], # ordinary admissions only
+      date_format="YYYY-MM-DD",
+      find_last_match_in_period=True,
+    ), 
   ),
-
+  
+  # date of discharge from uplanned hospital admission with covid prior to study start date
   discharged_covid_0_date=patients.admitted_to_hospital(
     returning="date_discharged",
     with_admission_method=["21", "22", "23", "24", "25", "2A", "2B", "2C", "2D", "28"],
     with_these_diagnoses=codelists.covid_icd10,
-    on_or_after="admitted_covid_0_date",
+    on_or_before=f"{index_date} - 1 day",
     date_format="YYYY-MM-DD",
-    find_first_match_in_period=True,
+    find_last_match_in_period=True,
   ),
   
   )

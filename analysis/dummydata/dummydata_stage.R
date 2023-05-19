@@ -87,47 +87,13 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
     ) %>%
     # prevars
     mutate(
-      admitted_unplanned_0_date = if_else(
-        rbern(n = nrow(.), p = 0.1),
-        -as.integer(runif(n = nrow(.), 1, 100)),
-        NA_integer_
-      ),
-      discharged_unplanned_0_date = {
-        length_of_stay_unplanned = as.integer(rpois(n = nrow(.), 7))
-        if_else(
-          admitted_unplanned_0_date + length_of_stay_unplanned < 0,
-          admitted_unplanned_0_date + length_of_stay_unplanned,
-          NA_integer_
-        )
-      },
-      # admitted_planned_0_date = if_else(
-      #   rbern(n = nrow(.), p = 0.1) & is.na(admitted_unplanned_0_date),
-      #   -as.integer(runif(n = nrow(.), 1, 100)),
-      #   NA_integer_
-      # ),
-      # discharged_planned_0_date = {
-      #   length_of_stay_planned = as.integer(rpois(n = nrow(.), 7))
-      #   if_else(
-      #     admitted_planned_0_date + length_of_stay_planned < 0,
-      #     admitted_planned_0_date + length_of_stay_planned,
-      #     NA_integer_
-      #   )
-      # },
-      admitted_covid_0_date = if_else(
-        rbern(n = nrow(.), p = 0.1),
-        admitted_unplanned_0_date,
-        NA_integer_
-      ),
+      inhospital = rbern(n = nrow(.), p=0.01),
       discharged_covid_0_date = if_else(
-        !is.na(admitted_covid_0_date),
-        discharged_unplanned_0_date,
-        NA_integer_
+        rbern(n = nrow(.), p = 0.01),
+        index_date + as.integer(runif(n = nrow(.), -100, 100)),
+        as.Date(NA_character_)
       )
-    ) %>%
-    mutate(across(
-      matches("(admitted|discharged)_\\w+_date"),
-      ~ index_date + .x
-    ))
+    ) 
   
   # treated
   data_stage %>%

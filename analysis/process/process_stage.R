@@ -230,12 +230,13 @@ data_processed <- data_extract %>%
   ) %>%
   # process pre-baseline events
   mutate(
-    timesincecovidadmitted = as.integer(index_date - admitted_covid_0_date),
-    timesincecovidadmitted = fct_case_when(
-      timesincecovidadmitted <= 30 ~ "1-30 days",
-      timesincecovidadmitted <= 180 ~ "31-180 days",
-      timesincecovidadmitted > 180 ~ "181+ days",
-      is.na(timesincecovidadmitted) ~ "Never"
+    timesincecoviddischarged = as.integer(index_date - discharged_covid_0_date),
+    timesincecoviddischarged = fct_case_when(
+      timesincecoviddischarged <= 0 ~ "In hospital", # will be excluded
+      timesincecoviddischarged <= 30 ~ "1-30 days",
+      timesincecoviddischarged <= 180 ~ "31-180 days",
+      timesincecoviddischarged > 180 ~ "181+ days",
+      is.na(timesincecoviddischarged) ~ "No prior COVID-19 admission"
     )
   )
 
@@ -329,16 +330,7 @@ data_criteria <- data_processed %>%
     isnot_hscworker = !hscworker,
     isnot_endoflife = !endoflife,
     isnot_housebound = !housebound,
-    isnot_inhospital = case_when(
-      is.na(admitted_unplanned_0_date) ~ TRUE,
-      !is.na(discharged_unplanned_0_date) & (discharged_unplanned_0_date < index_date) ~ TRUE,
-      TRUE ~ FALSE
-    ),
-    isnot_inhospitalcovid = case_when(
-      is.na(admitted_covid_0_date) ~ TRUE,
-      !is.na(discharged_covid_0_date) & ((index_date - discharged_covid_0_date) >= 30) ~ TRUE,
-      TRUE ~ FALSE
-    ),
+    isnot_inhospital = !inhospital,
     
     # better to have the c*_descr next to the c* definition here, to ensure both updated following changes
     # quite inefficient though in terms of memory, so encode as factors
@@ -378,11 +370,11 @@ data_criteria <- data_processed %>%
     c11_descr = factor("  People who are housebound, where known"),
     c11 = c10 & isnot_housebound,
     
-    c12_descr = factor("  People who are in hospital on an unplanned admission"),
+    c12_descr = factor("  People who are in hospital"),
     c12 = c11 & isnot_inhospital,
     
-    c13_descr = factor("  People who had an unplanned hospital admission with covid-19 in the past 1-30 days"),
-    c13 = c12 & (timesincecovidadmitted != " 1-30 days"),
+    c13_descr = factor("  People who had an unplanned hospital admission with covid-19 and were discharged in the past 1-30 days"),
+    c13 = c12 & (timesincecoviddischarged != "1-30 days"),
     
     include = c13
     

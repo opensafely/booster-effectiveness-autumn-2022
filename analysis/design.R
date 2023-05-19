@@ -216,7 +216,7 @@ covariates_model <- c(
   "sev_mental",
   "immunosuppressed",
   "multimorb", 
-  "timesincecovidadmitted",
+  "timesincecoviddischarged",
   "flu_vaccine"
 )
 

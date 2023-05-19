@@ -379,7 +379,7 @@ data_criteria <- data_processed %>%
     c12 = c11 & isnot_inhospital,
     
     c13_descr = factor("  People who had an unplanned hospital admission with covid-19 and were discharged in the past 1-30 days"),
-    c13 = c12 & (timesincecoviddischarged != "1-30 days"),
+    c13 = c12 & !(timesincecoviddischarged %in% c("In hospital", "1-30 days")),
     
     include = c13
     

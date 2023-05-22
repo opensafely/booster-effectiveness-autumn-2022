@@ -683,6 +683,26 @@ actions_list <- splice(
     ) %>%
     unlist(recursive = FALSE),
   
+  comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
+          "Combine all model outputs",
+          "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
+  action(
+    name = "combine_model",
+    run = glue("r:latest analysis/report/combine_model.R"),
+    needs = splice(
+      as.list(
+        glue_data(
+          .x=model_args,
+          "{model}_{effect}_{subgroup}_{outcome}"
+        )
+      )
+    ),
+    moderately_sensitive = lst(
+      rds = glue("output/report/model/*.csv"),
+      png = glue("output/report/model/*.png"),
+    )
+  ),
+  
   #####
   
   # action(

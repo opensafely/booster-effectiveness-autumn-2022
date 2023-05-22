@@ -17,6 +17,21 @@ data_matched <- data_matched %>%
 if (model %in% c("km", "cox_unadj")) covariates_model <- NULL
 if (model == "cox_adj") {
   
+  # relevel for models
+  data_matched <- data_matched %>%
+    mutate(
+      imd_Q5 = fct_relevel(imd_Q5, levels(data_matched$imd_Q5)[3]),
+      # relevelling done here to avoid rerunning actions that use process_stage
+      timesincecoviddischarged = factor(
+        if_else(
+          timesincecoviddischarged == "No prior COVID-19 admission",
+          timesincecoviddischarged,
+          "Prior COVID-19 admission"
+          ),
+        levels = c("No prior COVID-19 admission", "Prior COVID-19 admission")
+        )
+    )
+  
   # add covariates data
   data_matched <- data_matched %>%
     add_vars(vars = "covs", group = group) %>%

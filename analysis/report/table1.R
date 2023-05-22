@@ -56,17 +56,19 @@ if (effect == "treated") {
   rm(data_matched)
 }
 
-# add derive extra variables and add covariates if necessary
+# derive extra variables / revel variables
 if (vars %in% c("match", "all")) {
   data_table1 <- data_table1 %>%
     # derive extra variables
     mutate(
       # lastvaxbeforeindex_date was a matching variable, but more meaningful 
       # to summarise as timesincelastvax
-      timesincelastvax = as.integer(trial_date - lastvaxbeforeindex_date)
+      timesincelastvax = as.integer(trial_date - lastvaxbeforeindex_date),
+      # relevelling done here to avoid rerunning actions that use process_stage
+      timesincecoviddischarged = fct_rev(timesincecoviddischarged)
     )
 }
-
+# add covariates if necessary
 if (vars %in% c("covs", "all")) {
   
   if (effect %in% c("treated", "comparative")) {

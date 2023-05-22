@@ -215,8 +215,6 @@ actions_model <- function(effect, subgroup, outcome) {
     needs_list[["cox_adj"]] <- c(needs_list[["km"]], "extract_covs_alltreated")
   }
   
-  
-  
   if (effect == "relative") {
     needs_list[["km"]] <- c(
       needs_list[["km"]], 
@@ -251,7 +249,7 @@ actions_model <- function(effect, subgroup, outcome) {
     
   )
   
-  if (subgroup == "all") {
+  # if (subgroup == "all") {
     
     actions <- splice(
       
@@ -280,7 +278,7 @@ actions_model <- function(effect, subgroup, outcome) {
       
     )
       
-  }
+  # }
   
   return(actions)
     

@@ -129,7 +129,8 @@ if (vars %in% c("match", "all")) {
     # vax_boostspring_date ~ "Spring booster date",
     # vax_boostautumn_date ~ "Autumn booster date",
     
-    timesincelastvax ~ "Days since last dose"
+    timesincelastvax ~ "Days since last dose",
+    timesincecoviddischarged ~ "Time since COVID-19 hospitalisation"
     
   )
     

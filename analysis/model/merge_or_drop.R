@@ -49,10 +49,10 @@ merge_or_drop <- function(
           level_1 <- "0"
           map_levels[[level_1]] <- level_1
           map_levels[["1+"]] <- old_levels[which(old_levels != level_1)]
-        } else if (covariate_name == "timesincecovidadmitted") {
-          level_1 <- "Never"
+        } else if (covariate_name == "timesincecoviddischarged") {
+          level_1 <- "No prior COVID-19 admission"
           map_levels[[level_1]] <- level_1
-          map_levels[["Ever"]] <- old_levels[which(old_levels != level_1)]
+          map_levels[["Prior COVID-19 admission"]] <- old_levels[which(old_levels != level_1)]
         } else {
           stop(glue("`map_levels` not defined for var=\"{covariate_name}\""))
         }

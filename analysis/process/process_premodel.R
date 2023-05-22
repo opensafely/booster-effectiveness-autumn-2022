@@ -25,7 +25,7 @@ if (model == "cox_adj") {
       timesincecoviddischarged = factor(
         if_else(
           timesincecoviddischarged == "No prior COVID-19 admission",
-          timesincecoviddischarged,
+          as.character(timesincecoviddischarged),
           "Prior COVID-19 admission"
           ),
         levels = c("No prior COVID-19 admission", "Prior COVID-19 admission")

@@ -1002,6 +1002,27 @@ actions:
         rds: output/comparative/model/km/agegroup_match/covidadmitted/*.csv
         png: output/comparative/model/km/agegroup_match/covidadmitted/*.png
 
+  cox_unadj_comparative_agegroup_match_covidadmitted:
+    run: r:latest analysis/model/cox.R comparative cox_unadj agegroup_match covidadmitted
+    needs:
+    - process_treated
+    - extract_outcomes_alltreated
+    - match_comparative
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative/model/cox_unadj/agegroup_match/covidadmitted/*.csv
+
+  cox_adj_comparative_agegroup_match_covidadmitted:
+    run: r:latest analysis/model/cox.R comparative cox_adj agegroup_match covidadmitted
+    needs:
+    - process_treated
+    - extract_outcomes_alltreated
+    - match_comparative
+    - extract_covs_alltreated
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative/model/cox_adj/agegroup_match/covidadmitted/*.csv
+
   ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
   ## subgroup=agegroup_match; outcome=coviddeath; 
   ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
@@ -1016,6 +1037,27 @@ actions:
       moderately_sensitive:
         rds: output/comparative/model/km/agegroup_match/coviddeath/*.csv
         png: output/comparative/model/km/agegroup_match/coviddeath/*.png
+
+  cox_unadj_comparative_agegroup_match_coviddeath:
+    run: r:latest analysis/model/cox.R comparative cox_unadj agegroup_match coviddeath
+    needs:
+    - process_treated
+    - extract_outcomes_alltreated
+    - match_comparative
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative/model/cox_unadj/agegroup_match/coviddeath/*.csv
+
+  cox_adj_comparative_agegroup_match_coviddeath:
+    run: r:latest analysis/model/cox.R comparative cox_adj agegroup_match coviddeath
+    needs:
+    - process_treated
+    - extract_outcomes_alltreated
+    - match_comparative
+    - extract_covs_alltreated
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative/model/cox_adj/agegroup_match/coviddeath/*.csv
 
   ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
   ## subgroup=agegroup_match; outcome=noncoviddeath; 
@@ -1032,6 +1074,27 @@ actions:
         rds: output/comparative/model/km/agegroup_match/noncoviddeath/*.csv
         png: output/comparative/model/km/agegroup_match/noncoviddeath/*.png
 
+  cox_unadj_comparative_agegroup_match_noncoviddeath:
+    run: r:latest analysis/model/cox.R comparative cox_unadj agegroup_match noncoviddeath
+    needs:
+    - process_treated
+    - extract_outcomes_alltreated
+    - match_comparative
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative/model/cox_unadj/agegroup_match/noncoviddeath/*.csv
+
+  cox_adj_comparative_agegroup_match_noncoviddeath:
+    run: r:latest analysis/model/cox.R comparative cox_adj agegroup_match noncoviddeath
+    needs:
+    - process_treated
+    - extract_outcomes_alltreated
+    - match_comparative
+    - extract_covs_alltreated
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative/model/cox_adj/agegroup_match/noncoviddeath/*.csv
+
   ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
   ## subgroup=agegroup_match; outcome=fracture; 
   ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
@@ -1046,6 +1109,27 @@ actions:
       moderately_sensitive:
         rds: output/comparative/model/km/agegroup_match/fracture/*.csv
         png: output/comparative/model/km/agegroup_match/fracture/*.png
+
+  cox_unadj_comparative_agegroup_match_fracture:
+    run: r:latest analysis/model/cox.R comparative cox_unadj agegroup_match fracture
+    needs:
+    - process_treated
+    - extract_outcomes_alltreated
+    - match_comparative
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative/model/cox_unadj/agegroup_match/fracture/*.csv
+
+  cox_adj_comparative_agegroup_match_fracture:
+    run: r:latest analysis/model/cox.R comparative cox_adj agegroup_match fracture
+    needs:
+    - process_treated
+    - extract_outcomes_alltreated
+    - match_comparative
+    - extract_covs_alltreated
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative/model/cox_adj/agegroup_match/fracture/*.csv
 
   ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
   ## Fit models to estimate relative effectiveness 
@@ -1317,6 +1401,44 @@ actions:
         rds: output/relative/model/km/agegroup_match/covidadmitted/*.csv
         png: output/relative/model/km/agegroup_match/covidadmitted/*.png
 
+  cox_unadj_relative_agegroup_match_covidadmitted:
+    run: r:latest analysis/model/cox.R relative cox_unadj agegroup_match covidadmitted
+    needs:
+    - process_treated
+    - extract_outcomes_alltreated
+    - process_controlactual_1
+    - process_controlactual_2
+    - process_controlactual_3
+    - process_controlactual_4
+    - process_controlactual_5
+    - process_controlactual_6
+    - process_controlactual_7
+    - process_controlactual_8
+    - extract_outcomes_matchcontrol
+    outputs:
+      moderately_sensitive:
+        csv: output/relative/model/cox_unadj/agegroup_match/covidadmitted/*.csv
+
+  cox_adj_relative_agegroup_match_covidadmitted:
+    run: r:latest analysis/model/cox.R relative cox_adj agegroup_match covidadmitted
+    needs:
+    - process_treated
+    - extract_outcomes_alltreated
+    - process_controlactual_1
+    - process_controlactual_2
+    - process_controlactual_3
+    - process_controlactual_4
+    - process_controlactual_5
+    - process_controlactual_6
+    - process_controlactual_7
+    - process_controlactual_8
+    - extract_outcomes_matchcontrol
+    - extract_covs_alltreated
+    - extract_covs_matchcontrol
+    outputs:
+      moderately_sensitive:
+        csv: output/relative/model/cox_adj/agegroup_match/covidadmitted/*.csv
+
   ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
   ## subgroup=agegroup_match; outcome=coviddeath; 
   ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
@@ -1339,6 +1461,44 @@ actions:
       moderately_sensitive:
         rds: output/relative/model/km/agegroup_match/coviddeath/*.csv
         png: output/relative/model/km/agegroup_match/coviddeath/*.png
+
+  cox_unadj_relative_agegroup_match_coviddeath:
+    run: r:latest analysis/model/cox.R relative cox_unadj agegroup_match coviddeath
+    needs:
+    - process_treated
+    - extract_outcomes_alltreated
+    - process_controlactual_1
+    - process_controlactual_2
+    - process_controlactual_3
+    - process_controlactual_4
+    - process_controlactual_5
+    - process_controlactual_6
+    - process_controlactual_7
+    - process_controlactual_8
+    - extract_outcomes_matchcontrol
+    outputs:
+      moderately_sensitive:
+        csv: output/relative/model/cox_unadj/agegroup_match/coviddeath/*.csv
+
+  cox_adj_relative_agegroup_match_coviddeath:
+    run: r:latest analysis/model/cox.R relative cox_adj agegroup_match coviddeath
+    needs:
+    - process_treated
+    - extract_outcomes_alltreated
+    - process_controlactual_1
+    - process_controlactual_2
+    - process_controlactual_3
+    - process_controlactual_4
+    - process_controlactual_5
+    - process_controlactual_6
+    - process_controlactual_7
+    - process_controlactual_8
+    - extract_outcomes_matchcontrol
+    - extract_covs_alltreated
+    - extract_covs_matchcontrol
+    outputs:
+      moderately_sensitive:
+        csv: output/relative/model/cox_adj/agegroup_match/coviddeath/*.csv
 
   ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
   ## subgroup=agegroup_match; outcome=noncoviddeath; 
@@ -1363,6 +1523,44 @@ actions:
         rds: output/relative/model/km/agegroup_match/noncoviddeath/*.csv
         png: output/relative/model/km/agegroup_match/noncoviddeath/*.png
 
+  cox_unadj_relative_agegroup_match_noncoviddeath:
+    run: r:latest analysis/model/cox.R relative cox_unadj agegroup_match noncoviddeath
+    needs:
+    - process_treated
+    - extract_outcomes_alltreated
+    - process_controlactual_1
+    - process_controlactual_2
+    - process_controlactual_3
+    - process_controlactual_4
+    - process_controlactual_5
+    - process_controlactual_6
+    - process_controlactual_7
+    - process_controlactual_8
+    - extract_outcomes_matchcontrol
+    outputs:
+      moderately_sensitive:
+        csv: output/relative/model/cox_unadj/agegroup_match/noncoviddeath/*.csv
+
+  cox_adj_relative_agegroup_match_noncoviddeath:
+    run: r:latest analysis/model/cox.R relative cox_adj agegroup_match noncoviddeath
+    needs:
+    - process_treated
+    - extract_outcomes_alltreated
+    - process_controlactual_1
+    - process_controlactual_2
+    - process_controlactual_3
+    - process_controlactual_4
+    - process_controlactual_5
+    - process_controlactual_6
+    - process_controlactual_7
+    - process_controlactual_8
+    - extract_outcomes_matchcontrol
+    - extract_covs_alltreated
+    - extract_covs_matchcontrol
+    outputs:
+      moderately_sensitive:
+        csv: output/relative/model/cox_adj/agegroup_match/noncoviddeath/*.csv
+
   ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
   ## subgroup=agegroup_match; outcome=fracture; 
   ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
@@ -1385,6 +1583,104 @@ actions:
       moderately_sensitive:
         rds: output/relative/model/km/agegroup_match/fracture/*.csv
         png: output/relative/model/km/agegroup_match/fracture/*.png
+
+  cox_unadj_relative_agegroup_match_fracture:
+    run: r:latest analysis/model/cox.R relative cox_unadj agegroup_match fracture
+    needs:
+    - process_treated
+    - extract_outcomes_alltreated
+    - process_controlactual_1
+    - process_controlactual_2
+    - process_controlactual_3
+    - process_controlactual_4
+    - process_controlactual_5
+    - process_controlactual_6
+    - process_controlactual_7
+    - process_controlactual_8
+    - extract_outcomes_matchcontrol
+    outputs:
+      moderately_sensitive:
+        csv: output/relative/model/cox_unadj/agegroup_match/fracture/*.csv
+
+  cox_adj_relative_agegroup_match_fracture:
+    run: r:latest analysis/model/cox.R relative cox_adj agegroup_match fracture
+    needs:
+    - process_treated
+    - extract_outcomes_alltreated
+    - process_controlactual_1
+    - process_controlactual_2
+    - process_controlactual_3
+    - process_controlactual_4
+    - process_controlactual_5
+    - process_controlactual_6
+    - process_controlactual_7
+    - process_controlactual_8
+    - extract_outcomes_matchcontrol
+    - extract_covs_alltreated
+    - extract_covs_matchcontrol
+    outputs:
+      moderately_sensitive:
+        csv: output/relative/model/cox_adj/agegroup_match/fracture/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## Combine all model outputs 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  combine_model:
+    run: r:latest analysis/report/combine_model.R
+    needs:
+    - km_comparative_all_covidadmitted
+    - km_comparative_all_coviddeath
+    - km_comparative_all_noncoviddeath
+    - km_comparative_all_fracture
+    - km_comparative_agegroup_match_covidadmitted
+    - km_comparative_agegroup_match_coviddeath
+    - km_comparative_agegroup_match_noncoviddeath
+    - km_comparative_agegroup_match_fracture
+    - cox_unadj_comparative_all_covidadmitted
+    - cox_unadj_comparative_all_coviddeath
+    - cox_unadj_comparative_all_noncoviddeath
+    - cox_unadj_comparative_all_fracture
+    - cox_unadj_comparative_agegroup_match_covidadmitted
+    - cox_unadj_comparative_agegroup_match_coviddeath
+    - cox_unadj_comparative_agegroup_match_noncoviddeath
+    - cox_unadj_comparative_agegroup_match_fracture
+    - cox_adj_comparative_all_covidadmitted
+    - cox_adj_comparative_all_coviddeath
+    - cox_adj_comparative_all_noncoviddeath
+    - cox_adj_comparative_all_fracture
+    - cox_adj_comparative_agegroup_match_covidadmitted
+    - cox_adj_comparative_agegroup_match_coviddeath
+    - cox_adj_comparative_agegroup_match_noncoviddeath
+    - cox_adj_comparative_agegroup_match_fracture
+    - km_relative_all_covidadmitted
+    - km_relative_all_coviddeath
+    - km_relative_all_noncoviddeath
+    - km_relative_all_fracture
+    - km_relative_agegroup_match_covidadmitted
+    - km_relative_agegroup_match_coviddeath
+    - km_relative_agegroup_match_noncoviddeath
+    - km_relative_agegroup_match_fracture
+    - cox_unadj_relative_all_covidadmitted
+    - cox_unadj_relative_all_coviddeath
+    - cox_unadj_relative_all_noncoviddeath
+    - cox_unadj_relative_all_fracture
+    - cox_unadj_relative_agegroup_match_covidadmitted
+    - cox_unadj_relative_agegroup_match_coviddeath
+    - cox_unadj_relative_agegroup_match_noncoviddeath
+    - cox_unadj_relative_agegroup_match_fracture
+    - cox_adj_relative_all_covidadmitted
+    - cox_adj_relative_all_coviddeath
+    - cox_adj_relative_all_noncoviddeath
+    - cox_adj_relative_all_fracture
+    - cox_adj_relative_agegroup_match_covidadmitted
+    - cox_adj_relative_agegroup_match_coviddeath
+    - cox_adj_relative_agegroup_match_noncoviddeath
+    - cox_adj_relative_agegroup_match_fracture
+    outputs:
+      moderately_sensitive:
+        rds: output/report/model/*.csv
+        png: output/report/model/*.png
 
   ## #### End #### 
 

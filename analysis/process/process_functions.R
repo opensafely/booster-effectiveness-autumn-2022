@@ -145,6 +145,7 @@ add_descr <- function(
     } 
     if (var == "outcome") {
       lookup <- recoder[["outcome"]]
+      lookup <- lookup[lookup %in% outcomes]
     }
     
    var_descr <- fct_recoderelevel(.data[[var]], lookup)

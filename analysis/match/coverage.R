@@ -23,8 +23,8 @@ source(here("lib", "functions", "utility.R"))
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
   # use for interactive testing
-  effect <- "relative"
-  # effect <- "comparative"
+  # effect <- "relative"
+  effect <- "comparative"
 } else {
   #FIXME replace with actual eventual action variables
   effect <- args[[1]]
@@ -33,10 +33,11 @@ if(length(args)==0){
 if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
   
   # Import released data
-  release_dir <- ""
-  output_dir <- ""
+  release_date <- "20230522"
+  release_dir <- here(glue("release{release_date}"))
+  output_dir <- here(glue("report{release_date}"), "figures", effect)
   fs::dir_create(output_dir)
-  data_coverage_rounded <- read_csv("")
+  data_coverage_rounded <- read_csv(file.path(release_dir, str_c("data_coverage_", effect, ".csv")))
   
   
 } else {

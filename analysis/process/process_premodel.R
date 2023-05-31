@@ -94,6 +94,7 @@ data_surv <- data_matched %>%
     # and so outcomes occurring on the same day as treatment are assumed "1 day" long
     tte_outcome = tte(trial_date - 1, outcome_date, censor_date, na.censor=FALSE), 
     ind_outcome = censor_indicator(outcome_date, censor_date),
+    .after = "outcome_date"
   )
 
 # check one row per new_id

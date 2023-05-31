@@ -9,3 +9,7 @@ venv/
 .DS_Store
 .Rhistory
 .Rproj.user/
+
+release*/
+report*/*.html
+report*/figures

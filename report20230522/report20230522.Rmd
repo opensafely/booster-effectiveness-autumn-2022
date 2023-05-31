@@ -1,0 +1,203 @@
+---
+title: "Effectiveness of autumn 2022 booster doses - initial results"
+author: "Elsie Horne"
+date: "22/05/2023"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, include=FALSE)
+library(tidyverse)
+library(flextable)
+library(glue)
+set_flextable_defaults(
+  font.size = 10,
+  theme_fun = "theme_vanilla"
+)
+
+release_date <- "20230522"
+releasedir <- here::here(glue("release{release_date}"))
+
+
+source(here::here("analysis", "design.R"))
+source(here::here("lib", "functions", "utility.R"))
+```
+
+[Link to GitHub repo](https://github.com/opensafely/booster-effectiveness-autumn-2022) 
+
+[Link to protocol](https://docs.google.com/document/d/1Kr3a8JrasO6ho4QIB8Pg1NNRuMbRnYz1/edit#heading=h.m8u98xsm344w)
+
+## Pre-matching flowchart
+
+```{r, message=FALSE, warning=FALSE}
+flowchart <- readr::read_csv(here::here(releasedir, "flowchart_rounded.csv"))
+```
+
+```{r, include=TRUE}
+flowchart %>%
+  filter(stage %in% c("initial", "treated")) %>%
+  mutate(across(stage, ~str_replace(.x, "treated", "boosted"))) %>%
+  mutate(across(starts_with("n"), ~scales::comma(.x, accuracy=1))) %>%
+  mutate(across(starts_with("pct"), ~format(round(100*.x, 1), digits=3))) %>%
+  transmute(
+    Stage = str_to_sentence(stage),
+    Criteria = criteria,
+    Included = as.character(glue::glue("{n} ({pct_all}%)")),
+    Excluded = case_when(
+      is.na(n_exclude) ~ "-",
+      n_exclude == 0 ~ "0",
+      TRUE ~ as.character(glue::glue("{n_exclude} ({pct_exclude}%)"))
+    )
+  ) %>%
+  flextable() %>%
+  merge_v(j = "Stage") %>%
+  fontsize(size = 11, part = "header") %>%
+  fontsize(size = 8, part = "body") %>%
+  # set_table_properties(width = 1, layout = "autofit") %>%
+  width(j=1, width=4, unit="cm") %>%
+  width(j=2, width=16, unit="cm") %>%
+  width(j=3:4, width=4, unit="cm") %>%
+  set_caption("TABLE 1. Enrolement of treated individuals")
+```
+
+## Matching
+
+```{r, include=TRUE, fig.cap = "FIGURE 1. Daily matching coverage for relative effectiveness", out.width="70%"}
+# create plots by running:
+# system(paste("Rscript", here::here("analysis", "match", "coverage.R"), "relative"))
+knitr::include_graphics(here::here(glue("report{release_date}"), "figures", "relative", "coverage_count.png"))
+```
+
+```{r, include=TRUE, fig.cap = "FIGURE 2. Daily matching coverage for comparative effectiveness", out.width="70%"}
+# create plots by running:
+# system(paste("Rscript", here::here("analysis", "match", "coverage.R"), "comparative"))
+knitr::include_graphics(here::here(glue("report{release_date}"), "figures", "comparative", "coverage_count.png"))
+```
+
+## Patient characteristics
+
+```{r, message=FALSE, warning=FALSE}
+table1 <- readr::read_csv(here::here(glue("release{release_date}"), "table1_rounded.csv"))
+```
+
+```{r, include=TRUE}
+footnote_string <- c(
+  "All individuals boosted during the recruitment period, regardless of matching status.",
+  "Individuals matched in the relative effectiveness analysis.",
+  "Individuals matched in the comparative effectiveness analysis."
+)
+table1 %>%
+  rename(
+    Variable = var_label, Category = variable_levels
+  ) %>%
+  flextable() %>%
+  merge_v(j=~Variable) %>%
+  fontsize(size = 11, part = "header") %>%
+  fontsize(size = 8, part = "body") %>%
+  width(j=1:7, width=5, unit="cm") %>%
+  set_caption("TABLE 2. Characteristics of matched treatment groups.") %>%
+  footnote(
+    i = 1, j = 3,
+    value = as_paragraph(footnote_string[1]),
+    ref_symbols = "a",
+    part = "header"
+    ) %>%
+  footnote(
+    i = 1, j = 4:5,
+    value = as_paragraph(footnote_string[2]),
+    ref_symbols = "b",
+    part = "header"
+    ) %>%
+  footnote(
+    i = 1, j = 6:7,
+    value = as_paragraph(footnote_string[3]),
+    ref_symbols = "c",
+    part = "header"
+    )
+  
+```
+
+## Relative effectiveness
+### All matched
+
+```{r}
+# to create figures run in separate session:
+# system(paste("Rscript", here::here(glue::glue("report{release_date}"), "figures.R"), release_date))
+```
+
+```{r}
+select_effect <- "relative"
+```
+
+```{r, include=TRUE, fig.cap="FIGURE 3. Kaplan-Meier cumulative incidence curves.", out.width="70%", message=FALSE, warning=FALSE}
+knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_all.png")))
+```
+
+```{r, include=TRUE, fig.cap="FIGURE 4. Kaplan-Meier cumulative incidence curves. X-axis truncated at 28 days.", out.width="70%", message=FALSE, warning=FALSE}
+knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_all_28.png")))
+```
+
+
+```{r, include=TRUE, fig.cap="FIGURE 5. Cox hazard ratios.", out.width="70%", message=FALSE, warning=FALSE}
+knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_all.png")))
+```
+
+### Age subgroups
+
+```{r, include=TRUE, fig.cap="FIGURE 6. Kaplan-Meier cumulative incidence curves.", out.width="70%", message=FALSE, warning=FALSE}
+knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_50-64.png")))
+```
+
+```{r, include=TRUE, fig.cap="FIGURE 7. Kaplan-Meier cumulative incidence curves.", out.width="70%", message=FALSE, warning=FALSE}
+knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_65-74.png")))
+```
+
+```{r, include=TRUE, fig.cap="FIGURE 8. Kaplan-Meier cumulative incidence curves.", out.width="70%", message=FALSE, warning=FALSE}
+knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_75+.png")))
+```
+
+```{r, include=TRUE, fig.cap="FIGURE 9. Cox hazard ratios.", out.width="70%", message=FALSE, warning=FALSE}
+knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("cox_{select_effect}_age.png")))
+```
+
+## Comparative effectiveness
+### All matched
+
+```{r}
+select_effect <- "comparative"
+```
+
+```{r, include=TRUE, fig.cap="FIGURE 10. Kaplan-Meier cumulative incidence curves.", out.width="70%", message=FALSE, warning=FALSE}
+knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_all.png")))
+```
+
+```{r, include=TRUE, fig.cap="FIGURE 11. Kaplan-Meier cumulative incidence curves. X-axis truncated at 28 days.", out.width="70%", message=FALSE, warning=FALSE}
+knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_all_28.png")))
+```
+
+
+```{r, include=TRUE, fig.cap="FIGURE 12. Cox hazard ratios.", out.width="70%", message=FALSE, warning=FALSE}
+knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_all.png")))
+```
+
+### Age subgroups
+
+```{r, include=TRUE, fig.cap="FIGURE 13. Kaplan-Meier cumulative incidence curves.", out.width="70%", message=FALSE, warning=FALSE}
+knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_50-64.png")))
+```
+
+```{r, include=TRUE, fig.cap="FIGURE 14. Kaplan-Meier cumulative incidence curves.", out.width="70%", message=FALSE, warning=FALSE}
+knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_65-74.png")))
+```
+
+```{r, include=TRUE, fig.cap="FIGURE 15. Kaplan-Meier cumulative incidence curves.", out.width="70%", message=FALSE, warning=FALSE}
+knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_75+.png")))
+```
+
+```{r, include=TRUE, fig.cap="FIGURE 16. Cox hazard ratios.", out.width="70%", message=FALSE, warning=FALSE}
+knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("cox_{select_effect}_age.png")))
+```

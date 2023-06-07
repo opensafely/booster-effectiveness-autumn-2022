@@ -215,7 +215,7 @@ actions_model <- function(effect, subgroup, outcome) {
     needs_list[["cox_adj"]] <- c(needs_list[["km"]], "extract_covs_alltreated")
   }
   
-  if (effect == "relative") {
+  if (effect == "incremental") {
     needs_list[["km"]] <- c(
       needs_list[["km"]], 
       map_chr(1:n_match_rounds, ~glue("process_controlactual_{.x}")),
@@ -291,7 +291,7 @@ action_table1 <- function(vars, effect){
   
   if (effect == "comparative") needs_list <- c(needs_list, "match_comparative")
   
-  if (effect == "relative") {
+  if (effect == "incremental") {
     
     needs_list <- c(
       needs_list, 
@@ -304,7 +304,7 @@ action_table1 <- function(vars, effect){
     
     needs_list <- c(needs_list, "extract_covs_alltreated")
     
-    if (effect == "relative") needs_list <- c(needs_list, "extract_covs_matchcontrol")  
+    if (effect == "incremental") needs_list <- c(needs_list, "extract_covs_matchcontrol")  
     
   }
   
@@ -326,7 +326,7 @@ action_coverage <- function(effect){
   
   if (effect == "comparative") needs_list <- c(needs_list, "match_comparative")
   
-  if (effect == "relative") {
+  if (effect == "incremental") {
     
     needs_list <- c(needs_list, glue("process_controlactual_{n_match_rounds}"))
     
@@ -343,7 +343,7 @@ action_coverage <- function(effect){
     )
   )
   
-  if (effect == "relative") {
+  if (effect == "incremental") {
     
     needs_list <- c(needs_list, "process_initial")
     
@@ -523,24 +523,24 @@ actions_list <- splice(
   
   comment("# # # # # # # # # # # # # # # # # # #", 
           "Extract, process and match control data", 
-          "for relative effectiveness analysis",
+          "for incremental effectiveness analysis",
           "# # # # # # # # # # # # # # # # # # #"),
   
   map(seq_len(n_match_rounds), ~action_1matchround(.x)) %>% flatten(),
   
-  # table1 for matched data for relative effectiveness, match variables
+  # table1 for matched data for incremental effectiveness, match variables
   action_table1(
     vars = "match",
-    effect = "relative"
+    effect = "incremental"
   ),
   
   # match coverage
-  action_coverage("relative"),
+  action_coverage("incremental"),
   
   comment("# # # # # # # # # # # # # # # # # # #", 
           "Extract and process covs and outcomes", 
           "for successfully matched data",
-          "(relative and comparative effectiveness)",
+          "(incremental and comparative effectiveness)",
           "# # # # # # # # # # # # # # # # # # #"),
   
   comment("",
@@ -575,10 +575,10 @@ actions_list <- splice(
     effect = "comparative"
   ),
   
-  # table1 for matched data for relative effectiveness, covariates
+  # table1 for matched data for incremental effectiveness, covariates
   action_table1(
     vars = "covs",
-    effect = "relative"
+    effect = "incremental"
   ),
   
   comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
@@ -592,7 +592,7 @@ actions_list <- splice(
       "process_initial",
       "process_treated",
       "flowchart_comparative",
-      "flowchart_relative"
+      "flowchart_incremental"
     ),
     moderately_sensitive = lst(
       flowchart = "output/report/flowchart/*.csv"
@@ -604,10 +604,10 @@ actions_list <- splice(
     run = "r:latest analysis/report/combine_table1.R",
     needs = namelesslst(
       "table1_match_comparative",
-      "table1_match_relative",
+      "table1_match_incremental",
       "table1_all_treated",
       "table1_covs_comparative",
-      "table1_covs_relative"
+      "table1_covs_incremental"
     ),
     moderately_sensitive = lst(
       flowchart = "output/report/table1/*.csv"
@@ -634,7 +634,7 @@ actions_list <- splice(
     unlist(recursive = FALSE),
   
   comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
-          "Fit models to estimate relative effectiveness",
+          "Fit models to estimate incremental effectiveness",
           "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
   
   expand_grid(
@@ -644,7 +644,7 @@ actions_list <- splice(
     pmap(
       function(subgroup, outcome) {
         actions_model(
-          effect = "relative",
+          effect = "incremental",
           subgroup = subgroup,
           outcome = outcome
         )

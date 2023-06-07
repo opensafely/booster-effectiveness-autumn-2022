@@ -123,7 +123,7 @@ treatment_lookup <- tribble(
 comparison_definition <- tribble(
   ~comparison, ~level0, ~level0_descr, ~level1, ~level1_descr,
   "comparative", "pfizerbivalent", "Bivalent BNT162b2", "modernabivalent", "Bivalent mRNA-1273",
-  "relative", "unboosted", "Unboosted", "boosted", "Boosted",
+  "incremental", "unboosted", "Unboosted", "boosted", "Boosted",
 )
 # TODO find the correct way to specify pfizer and moderna bivalent
 
@@ -150,7 +150,7 @@ recoder <-
 subgroups <- c("all", "agegroup_match")
 
 # for the treated variables which are coded as 0 or 1
-for (i in c("comparative", "relative")) {
+for (i in c("comparative", "incremental")) {
   treatment_levels <- comparison_definition %>% filter(comparison==i) %>% select(matches("level\\d_descr")) %>% unlist() 
   recoder[[i]] <- set_names(
     as.integer(str_extract(names(treatment_levels), "\\d")),
@@ -177,7 +177,7 @@ fup_params <- lst(
 # match variables ----
 
 # exact variables
-exact_variables_relative <- c(
+exact_variables_incremental <- c(
   "agegroup_match",
   "vax_primary_brand",
   "vax_boostfirst_brand",
@@ -188,7 +188,7 @@ exact_variables_relative <- c(
 )
 
 exact_variables_comparative <- c(
-  exact_variables_relative,
+  exact_variables_incremental,
   "vax_boostautumn_date", 
   NULL
 )
@@ -202,7 +202,7 @@ caliper_variables <- c(
   NULL
 )
 
-match_variables_relative <- c(exact_variables_relative, names(caliper_variables))
+match_variables_incremental <- c(exact_variables_incremental, names(caliper_variables))
 match_variables_comparative <- c(exact_variables_comparative, names(caliper_variables))
 
 # covariates ----
@@ -226,7 +226,7 @@ censor_vars <- list(
     "dereg_date"
   )
 )
-censor_vars[["relative"]] <- c(censor_vars[["comparative"]], "controlistreated_date")
+censor_vars[["incremental"]] <- c(censor_vars[["comparative"]], "controlistreated_date")
 #
 # # other variables -----
 # # keep all variables starting with these strings
@@ -234,7 +234,7 @@ censor_vars[["relative"]] <- c(censor_vars[["comparative"]], "controlistreated_d
 # 
 # analysis table
 model_args <- expand_grid(
-  effect=c("comparative", "relative"),
+  effect=c("comparative", "incremental"),
   model=c("km", "cox_unadj", "cox_adj"),
   subgroup=subgroups,
   outcome=outcomes,

@@ -23,6 +23,13 @@ studystart_date = study_dates["studystart"]
 # define params
 group = params["group"]
 
+if group == "alltreated":
+  file_path = "output/treated/eligible/data_treated.csv.gz"
+  return_var = "vax_boostautumn_date"
+if group == "matchcontrol":
+  file_path = "output/incremental/match/data_matchcontrol.csv.gz"
+  return_var = "trial_date"
+
 # Specify study defeinition
 study = StudyDefinition(
   
@@ -37,12 +44,12 @@ study = StudyDefinition(
   
     # This line defines the study population
   population = patients.which_exist_in_file(
-    f_path=f"output/postmatch/eligible/data_{group}.csv.gz"
+    f_path=file_path
     ),
 
   trial_date = patients.with_value_from_file(
-    f_path=f"output/postmatch/eligible/data_{group}.csv.gz", 
-    returning="trial_date", 
+    f_path=file_path, 
+    returning=return_var, 
     returning_type="date", 
     date_format="YYYY-MM-DD"
     ),

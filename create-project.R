@@ -162,9 +162,10 @@ action_1matchround <- function(match_round){
         glue("extract_controlactual_{match_round}"),
         if(match_round>1){glue("process_controlactual_{match_round-1}")} else {NULL}
       ) %>% as.list,
-      highly_sensitive = lst(
-        rds = glue("output/matchround{match_round}/controlactual/match/*.rds"),
-      ),
+      highly_sensitive = as.list(c(
+          rds = glue("output/matchround{match_round}/controlactual/match/*.rds"),
+          test = if(match_round==n_match_rounds) {"output/incremental/match/*.csv.gz"} else NULL
+        )),
       moderately_sensitive = lst(
         input_controlactual_skim = glue("output/matchround{match_round}/controlactual/extract/*.txt"),
         eligible_skim = glue("output/matchround{match_round}/controlactual/eligible/*.txt"),
@@ -181,31 +182,30 @@ action_1matchround <- function(match_round){
 }
 
 
-extract_vars <- function(vars, group) {
-  
-  stopifnot("`vars` must be \"covs\" or \"outcomes\"" = vars %in% c("covs", "outcomes"))
+extract_outcomes <- function(group) {
   
   action(
-    name = glue("extract_{vars}_{group}"),
+    name = glue("extract_outcomes_{group}"),
     run = glue(
       "cohortextractor:latest generate_cohort",
-      glue(" --study-definition study_definition_{vars}"),
-      glue(" --output-file output/postmatch/{vars}/input_{vars}_{group}.feather"),
+      glue(" --study-definition study_definition_outcomes"),
+      glue(" --output-file output/outcomes/input_outcomes_{group}.feather"),
       " --param group={group}"
     ),
-    needs = namelesslst(
+    needs = as.list(c(
       "design",
-      "process_ids"
-    ),
+      if (group=="alltreated") {"process_treated"} else {NULL},
+      if (group=="matchcontrol") {glue("process_controlactual_{n_match_rounds}")} else {NULL}
+    )),
     highly_sensitive = lst(
-      cohort = glue("output/postmatch/{vars}/input_{vars}_{group}.feather")
+      cohort = glue("output/outcomes/input_outcomes_{group}.feather")
     )
   )
   
 }
 
 
-actions_model <- function(effect, subgroup, outcome) {
+actions_model <- function(effect, subgroup, outcome, match_strategy) {
   
   needs_list <- list()
   needs_list[["km"]] <- c("process_treated", "extract_outcomes_alltreated")
@@ -239,7 +239,7 @@ actions_model <- function(effect, subgroup, outcome) {
     action(
       name = glue("km_{effect}_{subgroup}_{outcome}"),
       run = glue("r:latest analysis/model/km.R"),
-      arguments = c(effect, subgroup, outcome),
+      arguments = c(effect, subgroup, outcome, match_strategy),
       needs = needs_list[["km"]],
       moderately_sensitive= lst(
         rds = glue("output/{effect}/model/km/{subgroup}/{outcome}/*.csv"),
@@ -265,7 +265,7 @@ actions_model <- function(effect, subgroup, outcome) {
             action(
               name = glue("{model}_{effect}_{subgroup}_{outcome}"),
               run = "r:latest analysis/model/cox.R",
-              arguments = c(effect, model, subgroup, outcome),
+              arguments = c(effect, model, subgroup, outcome, match_strategy),
               needs = needs_list[[model]],
               moderately_sensitive= lst(
                 csv = glue("output/{effect}/model/{model}/{subgroup}/{outcome}/*.csv")
@@ -285,7 +285,7 @@ actions_model <- function(effect, subgroup, outcome) {
 }
 
 
-action_table1 <- function(vars, effect){
+action_table1 <- function(effect, match_strategy = NULL) {
   
   needs_list <- "process_treated"
   
@@ -300,27 +300,19 @@ action_table1 <- function(vars, effect){
     
   }
   
-  if (vars %in% c("covs", "all")) {
-    
-    needs_list <- c(needs_list, "extract_covs_alltreated")
-    
-    if (effect == "incremental") needs_list <- c(needs_list, "extract_covs_matchcontrol")  
-    
-  }
-  
   action(
-    name = glue("table1_{vars}_{effect}"),
+    name = glue("table1_{effect}"),
     run = "r:latest analysis/report/table1.R",
-    arguments = c(vars, effect),
+    arguments = c(effect, match_strategy),
     needs = as.list(needs_list),
     moderately_sensitive = lst(
-      csv = glue("output/{effect}/table1/table1_{vars}_{effect}_rounded.csv"),
-      html = glue("output/{effect}/table1/table1_{vars}_{effect}_rounded.html")
+      csv = glue("output/{effect}/table1/table1_{effect}_midpoint{threshold}.csv"),
+      html = glue("output/{effect}/table1/table1_{effect}_midpoint{threshold}.html")
     )
   )
 }
 
-action_coverage <- function(effect){
+action_coverage <- function(effect, match_strategy){
   
   needs_list <- "process_treated"
   
@@ -335,7 +327,7 @@ action_coverage <- function(effect){
   out <- action(
     name = glue("coverage_{effect}"),
     run = "r:latest analysis/match/coverage.R",
-    arguments = c(effect),
+    arguments = c(effect, match_strategy),
     needs = as.list(needs_list),
     moderately_sensitive= lst(
       csv= glue("output/{effect}/coverage/*.csv"),
@@ -354,7 +346,7 @@ action_coverage <- function(effect){
     action(
       name = glue("flowchart_{effect}"),
       run = "r:latest analysis/match/match_flowchart.R",
-      arguments = c(effect),
+      arguments = c(effect, match_strategy),
       needs = as.list(needs_list),
       moderately_sensitive= lst(
         csv= glue("output/{effect}/flowchart/*.csv"),
@@ -363,6 +355,136 @@ action_coverage <- function(effect){
   )
   
   return(out)
+  
+}
+
+
+actions_match_strategy <- function(effect, match_strategy, include_models=FALSE) {
+  
+  if (effect == "comparative") {
+    
+    actions_match <- splice(
+      
+      action(
+        name = "match_comparative",
+        run = "r:latest analysis/match/match_comparative.R",
+        arguments = match_strategy,
+        needs = namelesslst(
+          "process_initial",
+          "process_treated"
+        ),
+        highly_sensitive = lst(
+          rds = "output/comparative/match/*.rds"
+        )
+      ),
+      
+      # table1 for matched data for comparative effectiveness, match variables
+      action_table1(
+        effect = "comparative",
+        match_strategy = match_strategy
+      ),
+      
+      # match coverage
+      action_coverage(
+        effect = "comparative",
+        match_strategy = match_strategy
+      )
+      
+    )
+    
+    
+  }
+  if (effect == "incremental") {
+    
+    actions_match <- splice(
+      comment("# # # # # # # # # # # # # # # # # # #", 
+              "Extract, process and match control data", 
+              "for incremental effectiveness analysis",
+              "# # # # # # # # # # # # # # # # # # #"),
+      
+      map(seq_len(n_match_rounds), ~action_1matchround(.x)) %>% flatten(),
+      
+      # table1 for matched data for incremental effectiveness, match variables
+      action_table1(
+        effect = "incremental",
+        match_strategy = match_strategy
+      ),
+      
+      # match coverage
+      action_coverage(
+        effect = "incremental",
+        match_strategy = match_strategy
+        ),
+      
+      # extract outcome variables for matched controls
+      extract_outcomes(group = "matchcontrol")
+    )
+    
+  }
+  
+  actions <- splice(
+    
+    comment("# # # # # # # # # # # # # # # # # # #", 
+            glue("Match treated for {effect} effectiveness"), 
+            "# # # # # # # # # # # # # # # # # # #"),
+    
+    actions_match
+    
+  )
+  
+  
+  if (include_models) {
+    
+    actions <- splice(
+      
+      actions,
+      
+      comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
+              glue("Fit models to estimate {effect} effectiveness"),
+              "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
+      expand_grid(
+        subgroup=subgroups,
+        outcome=outcomes,
+      ) %>%
+        pmap(
+          function(subgroup, outcome) {
+            actions_model(
+              effect = effect,
+              subgroup = subgroup,
+              outcome = outcome,
+              match_strategy = match_strategy
+            )
+          }
+        ) %>%
+        unlist(recursive = FALSE),
+      
+      comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
+              "Combine all model outputs",
+              "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
+      action(
+        name = "combine_model",
+        run = glue("r:latest analysis/report/combine_model.R"),
+        arguments = c(effect, match_strategy),
+        needs = splice(
+          as.list(
+            glue_data(
+              .x=model_args,
+              "{model}_{effect}_{subgroup}_{outcome}"
+            )
+          )
+        ),
+        moderately_sensitive = lst(
+          # update paths for effect and matching strategy!!
+          rds = glue("output/report/model/*.csv"),
+          png = glue("output/report/model/*.png"),
+        )
+      )
+      
+    )
+    
+  }
+    
+ return(actions) 
   
 }
 
@@ -496,181 +618,32 @@ actions_list <- splice(
     )
   ),
   
-  comment("# # # # # # # # # # # # # # # # # # #", 
-          "Match treated for comparative effectiveness", 
-          "# # # # # # # # # # # # # # # # # # #"),
-  
-  action(
-    name = "match_comparative",
-    run = "r:latest analysis/match/match_comparative.R",
-    needs = namelesslst(
-      "process_initial",
-      "process_treated"
-    ),
-    highly_sensitive = lst(
-      rds = "output/comparative/match/*.rds"
-    )
-  ),
-  
-  # table1 for matched data for comparative effectiveness, match variables
-  action_table1(
-    vars = "match",
-    effect = "comparative"
-  ),
-  
-  # match coverage
-  action_coverage("comparative"),
-  
-  comment("# # # # # # # # # # # # # # # # # # #", 
-          "Extract, process and match control data", 
-          "for incremental effectiveness analysis",
-          "# # # # # # # # # # # # # # # # # # #"),
-  
-  map(seq_len(n_match_rounds), ~action_1matchround(.x)) %>% flatten(),
-  
-  # table1 for matched data for incremental effectiveness, match variables
-  action_table1(
-    vars = "match",
-    effect = "incremental"
-  ),
-  
-  # match coverage
-  action_coverage("incremental"),
-  
-  comment("# # # # # # # # # # # # # # # # # # #", 
-          "Extract and process covs and outcomes", 
-          "for successfully matched data",
-          "(incremental and comparative effectiveness)",
-          "# # # # # # # # # # # # # # # # # # #"),
-  
-  comment("",
-          "process_ids creates datasets of all matched treated and control ids",
-          "for whom to extract the covariates and outcomes"),
-  action(
-    name = "process_ids",
-    run = "r:latest analysis/process/process_ids.R",
-    needs = namelesslst(
-      "process_treated",
-      glue("process_controlactual_{n_match_rounds}")
-    ),
-    highly_sensitive = lst(
-      ids = "output/postmatch/eligible/*.csv.gz"
-    )
-  ),
-  
-  extract_vars(vars = "covs", group = "alltreated"),
-  extract_vars(vars = "covs", group = "matchcontrol"),
-  extract_vars(vars = "outcomes", group = "alltreated"),
-  extract_vars(vars = "outcomes", group = "matchcontrol"),
-  
   # table1 for all treated (including unmatched), all variables
   action_table1(
-    vars = "all",
     effect = "treated"
   ),
   
-  # table1 for matched data for comparative effectiveness, covariates
-  action_table1(
-    vars = "covs",
-    effect = "comparative"
-  ),
+  # extract outcome data for all treated people
+  # (not incorporated into study_definition_treated so that it can be updated when more outcome data available)
+  extract_outcomes(group = "alltreated"),
   
-  # table1 for matched data for incremental effectiveness, covariates
-  action_table1(
-    vars = "covs",
-    effect = "incremental"
-  ),
-  
-  comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
-          "Combine outputs for report",
-          "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
-  
-  action(
-    name = "combine_flowchart",
-    run = "r:latest analysis/report/combine_flowchart.R",
-    needs = namelesslst(
-      "process_initial",
-      "process_treated",
-      "flowchart_comparative",
-      "flowchart_incremental"
+  ####################################################
+  # all actions for comparative effectiveness analysis
+  ####################################################
+  actions_match_strategy(
+    effect = "comparative", 
+    match_strategy = "A",
+    include_models = FALSE
     ),
-    moderately_sensitive = lst(
-      flowchart = "output/report/flowchart/*.csv"
-    )
-  ),
   
-  action(
-    name = "combine_table1",
-    run = "r:latest analysis/report/combine_table1.R",
-    needs = namelesslst(
-      "table1_match_comparative",
-      "table1_match_incremental",
-      "table1_all_treated",
-      "table1_covs_comparative",
-      "table1_covs_incremental"
+  ####################################################
+  # all actions for incremental effectiveness analysis
+  ####################################################
+  actions_match_strategy(
+    effect = "incremental", 
+    match_strategy = "A",
+    include_models = FALSE
     ),
-    moderately_sensitive = lst(
-      flowchart = "output/report/table1/*.csv"
-    )
-  ),
-  
-  comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
-          "Fit models to estimate comparative effectiveness",
-          "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
-  
-  expand_grid(
-    subgroup=subgroups,
-    outcome=outcomes,
-  ) %>%
-    pmap(
-      function(subgroup, outcome) {
-        actions_model(
-          effect = "comparative",
-          subgroup = subgroup,
-          outcome = outcome
-        )
-      }
-    ) %>%
-    unlist(recursive = FALSE),
-  
-  comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
-          "Fit models to estimate incremental effectiveness",
-          "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
-  
-  expand_grid(
-    subgroup=subgroups,
-    outcome=outcomes,
-  ) %>%
-    pmap(
-      function(subgroup, outcome) {
-        actions_model(
-          effect = "incremental",
-          subgroup = subgroup,
-          outcome = outcome
-        )
-      }
-    ) %>%
-    unlist(recursive = FALSE),
-  
-  comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
-          "Combine all model outputs",
-          "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
-  action(
-    name = "combine_model",
-    run = glue("r:latest analysis/report/combine_model.R"),
-    needs = splice(
-      as.list(
-        glue_data(
-          .x=model_args,
-          "{model}_{effect}_{subgroup}_{outcome}"
-        )
-      )
-    ),
-    moderately_sensitive = lst(
-      rds = glue("output/report/model/*.csv"),
-      png = glue("output/report/model/*.png"),
-    )
-  ),
   
   comment("#### End ####")
 )

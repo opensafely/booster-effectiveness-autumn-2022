@@ -63,12 +63,45 @@ def generate_jcvi_variables(index_date):
         on_or_before=f"{index_date} - 1 day",
       ),
     ),
+    
+    bmi_value = patients.most_recent_bmi(
+        on_or_before=f"{index_date} - 1 day",
+        minimum_age_at_measurement=18,
+        include_measurement_date=True, # creates date_of_bmi variable
+        date_format="YYYY-MM-DD",
+      ),
+      
+    bmi=patients.categorised_as(
+
+      {
+        "Not obese": "DEFAULT",
+        "Obese I (30-34.9)": """ bmi_value >= 30 AND bmi_value < 35""",
+        "Obese II (35-39.9)": """ bmi_value >= 35 AND bmi_value < 40""",
+        "Obese III (40+)": """ bmi_value >= 40 AND bmi_value < 100""",
+        # set maximum to avoid any impossibly extreme values being classified as obese
+      },
+    
+      return_expectations={
+        "rate": "universal",
+        "category": {
+          "ratios": {
+            "Not obese": 0.7,
+            "Obese I (30-34.9)": 0.1,
+            "Obese II (35-39.9)": 0.1,
+            "Obese III (40+)": 0.1,
+          }
+        },
+      },
+      
+    ),
 
     sev_obesity = patients.satisfying(
       """
       sev_obesity_date > bmi_date OR
-      bmi_value1 >= 40
+      bmi_value >= 40
       """,
+      
+      bmi_date = patients.date_of("bmi_value"),
 
       bmi_stage_date=patients.with_these_clinical_events(
         codelists.bmi_stage,
@@ -86,23 +119,7 @@ def generate_jcvi_variables(index_date):
         between= ["bmi_stage_date", f"{index_date} - 1 day"],
         date_format="YYYY-MM-DD",
       ),
-
-      bmi_date=patients.with_these_clinical_events(
-        codelists.bmi,
-        returning="date",
-        ignore_missing_values=True,
-        find_last_match_in_period=True,
-        on_or_before=f"{index_date} - 1 day",
-        date_format="YYYY-MM-DD",
-      ),
-
-      bmi_value1=patients.with_these_clinical_events(
-        codelists.bmi,
-        returning="numeric_value",
-        ignore_missing_values=True,
-        find_last_match_in_period=True,
-        on_or_before=f"{index_date} - 1 day",
-      ),
+      
     ),
 
     diabetes = patients.satisfying(

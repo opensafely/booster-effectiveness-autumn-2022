@@ -342,7 +342,11 @@ data_flow %>%
 data_vax <- data_vax %>%
   filter(include) %>%
   # remove the columns used for eligiblility criteria
-  select(-c(c0, c1, include, undefinedbeforestart))
+  select(-c(c0, c1, include, undefinedbeforestart)) %>%
+  left_join(
+    data_extract %>% select(patient_id, flu_vaccine),
+    by = "patient_id"
+    )
 
 # save summary
 data_vax %>%

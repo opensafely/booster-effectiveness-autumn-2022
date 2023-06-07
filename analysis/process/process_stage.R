@@ -237,13 +237,14 @@ data_processed <- data_extract %>%
   mutate(
     timesincecoviddischarged = as.integer(index_date - discharged_covid_0_date),
     timesincecoviddischarged = fct_case_when(
-      timesincecoviddischarged <= 0 ~ "In hospital", # will be excluded
-      timesincecoviddischarged <= 30 ~ "1-30 days",
-      timesincecoviddischarged <= 180 ~ "31-180 days",
+      is.na(timesincecoviddischarged) ~ "No prior COVID-19 admission",
       timesincecoviddischarged > 180 ~ "181+ days",
-      is.na(timesincecoviddischarged) ~ "No prior COVID-19 admission"
+      timesincecoviddischarged <= 180 ~ "31-180 days",
+      timesincecoviddischarged <= 30 ~ "1-30 days", # will be excluded
+      timesincecoviddischarged <= 0 ~ "In hospital" # will be excluded
     )
-  )
+  ) %>%
+  select(-c(bmi_value))
 
 rm(data_extract)
 
@@ -300,7 +301,11 @@ data_vax_processed <- data_processed %>%
 # join to data_processed
 data_processed <- data_processed %>%
   select(-any_of("vax_boostautumn_date")) %>% # as it's in data_vax_processed
-  left_join(data_vax_processed, by = "patient_id")
+  left_join(data_vax_processed, by = "patient_id") %>%
+  left_join(
+    data_vax %>% select(patient_id, flu_vaccine),
+    by = "patient_id"
+    )
 
 rm(data_vax, data_vax_processed)
 
@@ -559,6 +564,18 @@ if (stage == "controlactual") {
       file.path(path_stem, "match", "data_matchstatus_allrounds.rds"), 
       compress="gz"
       )
+  
+  if (match_round == n_match_rounds) {
+    
+    #create directory
+    tmp_dir <- here("output", "incremental", "match")
+    fs::dir_create(tmp_dir)
+    # save patient_id and trial_date for reading into outcome study def
+    data_matchstatus_allrounds %>%
+      select(patient_id, trial_date) %>%
+      write_csv(file.path(tmp_dir, "data_matchcontrol.csv.gz"))
+    rm(tmp_dir)
+  }
   
   ## size of dataset
   print("data_matchstatus_allrounds treated/untreated numbers")

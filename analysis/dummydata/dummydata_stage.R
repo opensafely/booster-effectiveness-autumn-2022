@@ -85,6 +85,18 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
         .f = function(x) rbern(n = nrow(.), p=0.1)
       )
     ) %>%
+    # bmi vars
+    mutate(
+      # bmi_value_date_measured = index_date + as.integer(runif(n = nrow(.), -500, 0)),
+      bmi_value = rnorm(n = nrow(.), mean = 30, sd = 7),
+      bmi = case_when(
+        bmi_value < 30 ~ "Not obese",
+        bmi_value < 35 ~ "Obese I (30-34.9)",
+        bmi_value < 40 ~ "Obese II (35-39.9)",
+        TRUE ~ "Obese III (40+)"
+      ),
+      sev_obesity = bmi == "Obese III (40+)"
+    ) %>%
     # prevars
     mutate(
       inhospital = rbern(n = nrow(.), p=0.01),

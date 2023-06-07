@@ -133,34 +133,34 @@ table1 %>%
 select_effect <- "relative"
 ```
 
-```{r, include=TRUE, fig.cap="FIGURE 3. Kaplan-Meier cumulative incidence curves.", out.width="70%", message=FALSE, warning=FALSE}
+```{r, include=TRUE, fig.cap="FIGURE 3. Kaplan-Meier cumulative incidence curves for boosted and unboosted in all matched individuals.", out.width="70%", message=FALSE, warning=FALSE}
 knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_all.png")))
 ```
 
-```{r, include=TRUE, fig.cap="FIGURE 4. Kaplan-Meier cumulative incidence curves. X-axis truncated at 28 days.", out.width="70%", message=FALSE, warning=FALSE}
+```{r, include=TRUE, fig.cap="FIGURE 4. Kaplan-Meier cumulative incidence curves for boosted and unboosted in all matched individuals. X-axis truncated at 28 days.", out.width="70%", message=FALSE, warning=FALSE}
 knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_all_28.png")))
 ```
 
 
-```{r, include=TRUE, fig.cap="FIGURE 5. Cox hazard ratios.", out.width="70%", message=FALSE, warning=FALSE}
-knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_all.png")))
+```{r, include=TRUE, fig.cap="FIGURE 5. Cox hazard ratios for boosted vs unboosted in all macthed individuals.", out.width="70%", message=FALSE, warning=FALSE}
+knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("cox_{select_effect}_all.png")))
 ```
 
 ### Age subgroups
 
-```{r, include=TRUE, fig.cap="FIGURE 6. Kaplan-Meier cumulative incidence curves.", out.width="70%", message=FALSE, warning=FALSE}
+```{r, include=TRUE, fig.cap="FIGURE 6. Kaplan-Meier cumulative incidence curves for boosted and unboosted in the 50-64 years subgroup.", out.width="70%", message=FALSE, warning=FALSE}
 knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_50-64.png")))
 ```
 
-```{r, include=TRUE, fig.cap="FIGURE 7. Kaplan-Meier cumulative incidence curves.", out.width="70%", message=FALSE, warning=FALSE}
+```{r, include=TRUE, fig.cap="FIGURE 7. Kaplan-Meier cumulative incidence curves for boosted and unboosted in the 65-74 years subgroup.", out.width="70%", message=FALSE, warning=FALSE}
 knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_65-74.png")))
 ```
 
-```{r, include=TRUE, fig.cap="FIGURE 8. Kaplan-Meier cumulative incidence curves.", out.width="70%", message=FALSE, warning=FALSE}
+```{r, include=TRUE, fig.cap="FIGURE 8. Kaplan-Meier cumulative incidence curves for boosted and unboosted in the 75+ years subgroup.", out.width="70%", message=FALSE, warning=FALSE}
 knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_75+.png")))
 ```
 
-```{r, include=TRUE, fig.cap="FIGURE 9. Cox hazard ratios.", out.width="70%", message=FALSE, warning=FALSE}
+```{r, include=TRUE, fig.cap="FIGURE 9. Cox hazard ratios for boosted vs unboosted in age subgroups.", out.width="70%", message=FALSE, warning=FALSE}
 knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("cox_{select_effect}_age.png")))
 ```
 
@@ -171,33 +171,33 @@ knitr::include_graphics(here(glue("report{release_date}"), "figures", select_eff
 select_effect <- "comparative"
 ```
 
-```{r, include=TRUE, fig.cap="FIGURE 10. Kaplan-Meier cumulative incidence curves.", out.width="70%", message=FALSE, warning=FALSE}
+```{r, include=TRUE, fig.cap="FIGURE 10. Kaplan-Meier cumulative incidence curves for pfizer and moderna in all matched individuals.", out.width="70%", message=FALSE, warning=FALSE}
 knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_all.png")))
 ```
 
-```{r, include=TRUE, fig.cap="FIGURE 11. Kaplan-Meier cumulative incidence curves. X-axis truncated at 28 days.", out.width="70%", message=FALSE, warning=FALSE}
+```{r, include=TRUE, fig.cap="FIGURE 11. Kaplan-Meier cumulative incidence curves for pfizer and moderna in all matched individuals. X-axis truncated at 28 days.", out.width="70%", message=FALSE, warning=FALSE}
 knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_all_28.png")))
 ```
 
 
-```{r, include=TRUE, fig.cap="FIGURE 12. Cox hazard ratios.", out.width="70%", message=FALSE, warning=FALSE}
-knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_all.png")))
+```{r, include=TRUE, fig.cap="FIGURE 12. Cox hazard ratios for moderna vs pfizer in all matched individuals.", out.width="70%", message=FALSE, warning=FALSE}
+knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("cox_{select_effect}_all.png")))
 ```
 
 ### Age subgroups
 
-```{r, include=TRUE, fig.cap="FIGURE 13. Kaplan-Meier cumulative incidence curves.", out.width="70%", message=FALSE, warning=FALSE}
+```{r, include=TRUE, fig.cap="FIGURE 13. Kaplan-Meier cumulative incidence curves for pfizer and moderna in the 50-64 years subgroup.", out.width="70%", message=FALSE, warning=FALSE}
 knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_50-64.png")))
 ```
 
-```{r, include=TRUE, fig.cap="FIGURE 14. Kaplan-Meier cumulative incidence curves.", out.width="70%", message=FALSE, warning=FALSE}
+```{r, include=TRUE, fig.cap="FIGURE 14. Kaplan-Meier cumulative incidence curves for pfizer and moderna in the 65-74 years subgroup.", out.width="70%", message=FALSE, warning=FALSE}
 knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_65-74.png")))
 ```
 
-```{r, include=TRUE, fig.cap="FIGURE 15. Kaplan-Meier cumulative incidence curves.", out.width="70%", message=FALSE, warning=FALSE}
+```{r, include=TRUE, fig.cap="FIGURE 15. Kaplan-Meier cumulative incidence curves for pfizer and moderna in the 75+ years subgroup.", out.width="70%", message=FALSE, warning=FALSE}
 knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("km_{select_effect}_75+.png")))
 ```
 
-```{r, include=TRUE, fig.cap="FIGURE 16. Cox hazard ratios.", out.width="70%", message=FALSE, warning=FALSE}
+```{r, include=TRUE, fig.cap="FIGURE 16. Cox hazard ratios for moderna vs pfizer in age subgroups.", out.width="70%", message=FALSE, warning=FALSE}
 knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("cox_{select_effect}_age.png")))
 ```

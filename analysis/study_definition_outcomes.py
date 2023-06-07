@@ -66,42 +66,6 @@ study = StudyDefinition(
       date_format="YYYY-MM-DD",
     ),
     
-    # # emergency attendance for covid, as per discharge diagnosis
-    # covidemergency_date=patients.attended_emergency_care(
-    #   returning="date_arrived",
-    #   date_format="YYYY-MM-DD",
-    #   on_or_after="trial_date",
-    #   with_these_diagnoses = codelists.covid_emergency,
-    #   find_first_match_in_period=True,
-    # ),
-    
-    # # emergency attendance for covid, as per discharge diagnosis, resulting in discharge to hospital
-    # covidemergencyhosp_date=patients.attended_emergency_care(
-    #   returning="date_arrived",
-    #   date_format="YYYY-MM-DD",
-    #   on_or_after="trial_date",
-    #   find_first_match_in_period=True,
-    #   with_these_diagnoses = codelists.covid_emergency,
-    #   discharged_to = codelists.discharged_to_hospital,
-    # ),
-    
-    # # any emergency attendance
-    # emergency_date=patients.attended_emergency_care(
-    #   returning="date_arrived",
-    #   on_or_after="trial_date",
-    #   date_format="YYYY-MM-DD",
-    #   find_first_match_in_period=True,
-    # ),
-    
-    # # emergency attendance resulting in discharge to hospital
-    # emergencyhosp_date=patients.attended_emergency_care(
-    #   returning="date_arrived",
-    #   on_or_after="trial_date",
-    #   date_format="YYYY-MM-DD",
-    #   find_last_match_in_period=True,
-    #   discharged_to = codelists.discharged_to_hospital,
-    # ),
-    
     # Positive covid admission 
     covidadmitted_date=patients.admitted_to_hospital(
       returning="date_admitted",

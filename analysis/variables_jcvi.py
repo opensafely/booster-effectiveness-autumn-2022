@@ -67,7 +67,7 @@ def generate_jcvi_variables(index_date):
     bmi_value = patients.most_recent_bmi(
         on_or_before=f"{index_date} - 1 day",
         minimum_age_at_measurement=18,
-        include_measurement_date=True, # creates date_of_bmi variable
+        include_measurement_date=False,
         date_format="YYYY-MM-DD",
       ),
       

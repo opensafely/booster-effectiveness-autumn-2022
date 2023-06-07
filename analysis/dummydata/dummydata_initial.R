@@ -151,6 +151,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   
   # duplicate to increase matching success
   data_initial <- bind_rows(data_initial, data_initial) %>%
+    mutate(flu_vaccine = rbern(n = nrow(.), p = 0.5)) %>%
     mutate(across(patient_id, row_number))
   
   # save

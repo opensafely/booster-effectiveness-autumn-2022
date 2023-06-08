@@ -15,6 +15,7 @@ from cohortextractor import (
 )
 
 # define params
+match_strategy = params["match_strategy"]
 match_round = int(params["match_round"])
 matchroundindex_date = params["index_date"]
 
@@ -36,6 +37,11 @@ from variables_pre import generate_pre_variables
 pre_variables = generate_pre_variables(index_date="matchroundindex_date")
 ############################################################
 
+if match_round==1:
+    file_path = f"output/initial/eligible/data_eligible.csv.gz"
+else:
+    file_path = f"output/initial/eligible/data_eligible.csv.gz"
+
 # Specify study defeinition
 study = StudyDefinition(
   
@@ -54,7 +60,7 @@ study = StudyDefinition(
 
     # patients that satisfy the original eligibility criteria
     eligible_initial = patients.which_exist_in_file(
-    f_path=f"output/initial/eligible/data_eligible.csv.gz"
+    f_path = file_path
     ),
 
   ),

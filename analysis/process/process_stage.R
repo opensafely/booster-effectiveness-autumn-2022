@@ -50,6 +50,7 @@ if (length(args) == 0) {
 if (stage == "treated") {
   path_stem <- here("output", "treated")
   fs::dir_create(file.path(path_stem, "flowchart"))
+  fs::dir_create(here("output", "report"))
   custom_path <- file.path(path_stem, "dummydata", "dummydata_treated.feather")
 } else if (stage %in% c("controlpotential", "controlactual")) {
   path_stem <- ghere("output", "matchround{match_round}", stage)
@@ -449,6 +450,18 @@ if (stage == "treated") {
     write_csv(
       file.path(path_stem, "flowchart", "flowchart_unrounded.csv")
       )
+  
+  # combine initial and treated flowcharts 
+  # apply midpoint rounding
+  # save for release
+  read_csv(here("output", "initial", "flowchart", "flowchart_unrounded.csv")) %>%
+    mutate(stage = "initial") %>%
+    bind_rows(data_flowchart %>% mutate(stage = "treated")) %>%
+    group_by(stage) %>%
+    flow_stats_rounded(to = threshold) %>%
+    ungroup() %>%
+    select(stage, crit, criteria, n, everything()) %>%
+    write_csv(here("output", "report", glue("flowchart_combined_midpoint{threshold}.csv")))
   
 }
 

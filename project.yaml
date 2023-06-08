@@ -102,7 +102,7 @@ actions:
     - process_treated
     outputs:
       moderately_sensitive:
-        csv: output/treated/table1/table1_treated_midpoint6.csv
+        csv: output/treated/table1/*.csv
 
   extract_outcomes_alltreated:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_outcomes
@@ -114,59 +114,10 @@ actions:
       highly_sensitive:
         cohort: output/outcomes/input_outcomes_alltreated.feather
 
-  ## # # # # # # # # # # # # # # # # # # # 
-  ## Match treated for comparative effectiveness 
-  ## # # # # # # # # # # # # # # # # # # # 
-
-  match_comparative:
-    run: r:latest analysis/match/match_comparative.R A
-    needs:
-    - process_initial
-    - process_treated
-    outputs:
-      highly_sensitive:
-        rds: output/comparative/match/*.rds
-
-  table1_comparative:
-    run: r:latest analysis/report/table1.R comparative A
-    needs:
-    - process_treated
-    - match_comparative
-    outputs:
-      moderately_sensitive:
-        csv: output/comparative/table1/table1_comparative_midpoint6.csv
-
-  coverage_comparative:
-    run: r:latest analysis/match/coverage.R comparative A
-    needs:
-    - process_treated
-    - match_comparative
-    outputs:
-      moderately_sensitive:
-        csv: output/comparative/coverage/*.csv
-        png: output/comparative/coverage/*.png
-
-  flowchart_comparative:
-    run: r:latest analysis/match/match_flowchart.R comparative A
-    needs:
-    - process_treated
-    - match_comparative
-    outputs:
-      moderately_sensitive:
-        csv: output/comparative/flowchart/*.csv
-
-  ## # # # # # # # # # # # # # # # # # # # 
-  ## Match treated for incremental effectiveness 
-  ## # # # # # # # # # # # # # # # # # # # 
-  ## # # # # # # # # # # # # # # # # # # # 
-  ## Extract, process and match control data 
-  ## for incremental effectiveness analysis 
-  ## # # # # # # # # # # # # # # # # # # # 
-
   extract_controlpotential_1:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
       --output-file output/matchround1/controlpotential/extract/input_controlpotential.feather
-      --param match_round=1 --param index_date=2022-09-12
+      --param match_strategy=none --param match_round=1 --param index_date=2022-09-12
     needs:
     - design
     - process_initial
@@ -187,6 +138,14 @@ actions:
         data_extract_skim: output/matchround1/controlpotential/extract/*.txt
         data_processed_skim: output/matchround1/controlpotential/process/*.txt
         data_controlpotential_skim: output/matchround1/controlpotential/eligible/*.txt
+
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## Match treated for incremental effectiveness 
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## Extract, process and match control data 
+  ## for incremental effectiveness analysis 
+  ## # # # # # # # # # # # # # # # # # # # 
 
   match_controlpotential_1:
     run: r:latest analysis/match/match_controlpotential.R 1
@@ -227,31 +186,31 @@ actions:
         eligible_skim: output/matchround1/controlactual/eligible/*.txt
         process_skim: output/matchround1/controlactual/process/*.txt
 
-  extract_controlpotential_2:
+  extract_controlpotential_A_2:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
-      --output-file output/matchround2/controlpotential/extract/input_controlpotential.feather
-      --param match_round=2 --param index_date=2022-09-26
+      --output-file output/incremental_{match_strategy}/matchround2/controlpotential/extract/input_controlpotential.feather
+      --param match_strategy=A --param match_round=2 --param index_date=2022-09-26
     needs:
     - design
     - process_initial
-    - process_controlactual_1
+    - process_controlactual_A_1
     outputs:
       highly_sensitive:
-        cohort: output/matchround2/controlpotential/extract/input_controlpotential.feather
+        cohort: output/incremental_{match_strategy}/matchround2/controlpotential/extract/input_controlpotential.feather
 
-  process_controlpotential_2:
-    run: r:latest analysis/process/process_stage.R controlpotential 2
+  process_controlpotential_A_2:
+    run: r:latest analysis/process/process_stage.R controlpotential 2 A
     needs:
     - dummydata_stage
     - process_initial
-    - extract_controlpotential_2
+    - extract_controlpotential_A_2
     outputs:
       highly_sensitive:
-        eligible_rds: output/matchround2/controlpotential/eligible/*.rds
+        eligible_rds: output/incremental_{match_strategy}/matchround2/controlpotential/eligible/*.rds
       moderately_sensitive:
-        data_extract_skim: output/matchround2/controlpotential/extract/*.txt
-        data_processed_skim: output/matchround2/controlpotential/process/*.txt
-        data_controlpotential_skim: output/matchround2/controlpotential/eligible/*.txt
+        data_extract_skim: output/incremental_{match_strategy}/matchround2/controlpotential/extract/*.txt
+        data_processed_skim: output/incremental_{match_strategy}/matchround2/controlpotential/process/*.txt
+        data_controlpotential_skim: output/incremental_{match_strategy}/matchround2/controlpotential/eligible/*.txt
 
   match_controlpotential_2:
     run: r:latest analysis/match/match_controlpotential.R 2
@@ -295,7 +254,7 @@ actions:
         eligible_skim: output/matchround2/controlactual/eligible/*.txt
         process_skim: output/matchround2/controlactual/process/*.txt
 
-  table1_incremental:
+  table1_incremental_A:
     run: r:latest analysis/report/table1.R incremental A
     needs:
     - process_treated
@@ -303,27 +262,27 @@ actions:
     - process_controlactual_2
     outputs:
       moderately_sensitive:
-        csv: output/incremental/table1/table1_incremental_midpoint6.csv
+        csv: output/incremental_A/table1/*.csv
 
-  coverage_incremental:
+  coverage_incremental_A:
     run: r:latest analysis/match/coverage.R incremental A
     needs:
     - process_treated
-    - process_controlactual_2
+    - process_controlactual_2_incremental_A
     outputs:
       moderately_sensitive:
-        csv: output/incremental/coverage/*.csv
-        png: output/incremental/coverage/*.png
+        csv: output/incremental_A/coverage/*.csv
+        png: output/incremental_A/coverage/*.png
 
-  flowchart_incremental:
+  flowchart_incremental_A:
     run: r:latest analysis/match/match_flowchart.R incremental A
     needs:
     - process_treated
-    - process_controlactual_2
+    - process_controlactual_2_incremental_A
     - process_initial
     outputs:
       moderately_sensitive:
-        csv: output/incremental/flowchart/*.csv
+        csv: output/incremental_A/flowchart/*.csv
 
   extract_outcomes_matchcontrol:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_outcomes

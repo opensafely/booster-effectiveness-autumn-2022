@@ -71,49 +71,81 @@ namelesslst <- function(...){
   unname(lst(...))
 }
 
-## actions for a single match round ----
-action_1matchround <- function(match_round){
-
+# action for controlpotential steps
+# keep these outside action_1matchround(), as they only need to be run once for 
+# round 1 as are independent of match_strategy
+action_controlpotential <- function(match_round, match_strategy = NULL) {
+  
   control_extract_date <- study_dates[["control_extract"]][match_round]
   
-  match_actions <- splice(
+  match_strategy_match_round <- str_c(match_strategy, match_round, sep = "_")
+  
+  if (is.null(match_strategy)) {
+    output_file_stem <- ""
+    match_strategy_arg <- "none"
+  } else {
+    output_file_stem <- "incremental_{match_strategy}/"
+    match_strategy_arg <- match_strategy
+  }
+  
+  actions <- splice(
+    
     action(
-      name = glue("extract_controlpotential_{match_round}"),
+      name = glue("extract_controlpotential_{match_strategy_match_round}"),
       run = glue(
         "cohortextractor:latest generate_cohort",
         " --study-definition study_definition_controlpotential",
-        " --output-file output/matchround{match_round}/controlpotential/extract/input_controlpotential.feather",
+        " --output-file output/{output_file_stem}matchround{match_round}/controlpotential/extract/input_controlpotential.feather",
+        " --param match_strategy={match_strategy_arg}",
         " --param match_round={match_round}",
         " --param index_date={control_extract_date}"
       ),
       needs = c(
         "design",
         "process_initial",
-        if(match_round>1) {glue("process_controlactual_{match_round-1}")} else {NULL}
+        if(match_round>1) {glue("process_controlactual_{match_strategy}_{match_round-1}")} else {NULL}
       ) %>% as.list,
       highly_sensitive = lst(
-        cohort = glue("output/matchround{match_round}/controlpotential/extract/input_controlpotential.feather")
+        cohort = glue("output/{output_file_stem}matchround{match_round}/controlpotential/extract/input_controlpotential.feather")
       )
     ),
-
+    
     action(
-      name = glue("process_controlpotential_{match_round}"),
+      name = glue("process_controlpotential_{match_strategy_match_round}"),
       run = glue("r:latest analysis/process/process_stage.R"),
-      arguments = c("controlpotential", match_round),
+      arguments = c("controlpotential", match_round, match_strategy),
       needs = namelesslst(
         "dummydata_stage",
         "process_initial",
-        glue("extract_controlpotential_{match_round}"),
+        glue("extract_controlpotential_{match_strategy_match_round}"),
       ),
       highly_sensitive = lst(
-        eligible_rds = glue("output/matchround{match_round}/controlpotential/eligible/*.rds")
+        eligible_rds = glue("output/{output_file_stem}matchround{match_round}/controlpotential/eligible/*.rds")
       ),
       moderately_sensitive = lst(
-        data_extract_skim = glue("output/matchround{match_round}/controlpotential/extract/*.txt"),
-        data_processed_skim = glue("output/matchround{match_round}/controlpotential/process/*.txt"),
-        data_controlpotential_skim = glue("output/matchround{match_round}/controlpotential/eligible/*.txt")
+        data_extract_skim = glue("output/{output_file_stem}matchround{match_round}/controlpotential/extract/*.txt"),
+        data_processed_skim = glue("output/{output_file_stem}matchround{match_round}/controlpotential/process/*.txt"),
+        data_controlpotential_skim = glue("output/{output_file_stem}matchround{match_round}/controlpotential/eligible/*.txt")
       )
-    ),
+    )
+  )
+  
+}
+
+## actions for a single match round ----
+action_1matchround <- function(match_round, match_strategy) {
+  
+  control_extract_date <- study_dates[["control_extract"]][match_round]
+  
+  match_actions <- splice()
+  
+  if (match_round > 1) {
+    match_actions <- action_controlpotential(match_round, match_strategy)
+  }
+  
+  match_actions <- splice(
+    
+    match_actions,
 
     action(
       name = glue("match_controlpotential_{match_round}"),
@@ -287,9 +319,11 @@ actions_model <- function(effect, subgroup, outcome, match_strategy) {
 
 action_table1 <- function(effect, match_strategy = NULL) {
   
+  effect_match_strategy <- str_c(effect, match_strategy, sep = "_")
+  
   needs_list <- "process_treated"
   
-  if (effect == "comparative") needs_list <- c(needs_list, "match_comparative")
+  if (effect == "comparative") needs_list <- c(needs_list, glue("match_{effect_match_strategy}"))
   
   if (effect == "incremental") {
     
@@ -301,36 +335,38 @@ action_table1 <- function(effect, match_strategy = NULL) {
   }
   
   action(
-    name = glue("table1_{effect}"),
+    name = glue("table1_{effect_match_strategy}"),
     run = "r:latest analysis/report/table1.R",
     arguments = c(effect, match_strategy),
     needs = as.list(needs_list),
     moderately_sensitive = lst(
-      csv = glue("output/{effect}/table1/table1_{effect}_midpoint{threshold}.csv")
+      csv = glue("output/{effect_match_strategy}/table1/*.csv")
     )
   )
 }
 
-action_coverage <- function(effect, match_strategy){
+actions_postmatch <- function(effect, match_strategy){
+  
+  effect_match_strategy <- str_c(effect, match_strategy, sep = "_")
   
   needs_list <- "process_treated"
   
-  if (effect == "comparative") needs_list <- c(needs_list, "match_comparative")
+  if (effect == "comparative") needs_list <- c(needs_list, glue("match_{effect_match_strategy}"))
   
   if (effect == "incremental") {
     
-    needs_list <- c(needs_list, glue("process_controlactual_{n_match_rounds}"))
+    needs_list <- c(needs_list, glue("process_controlactual_{n_match_rounds}_{effect_match_strategy}"))
     
   }
   
   out <- action(
-    name = glue("coverage_{effect}"),
+    name = glue("coverage_{effect_match_strategy}"),
     run = "r:latest analysis/match/coverage.R",
     arguments = c(effect, match_strategy),
     needs = as.list(needs_list),
     moderately_sensitive= lst(
-      csv= glue("output/{effect}/coverage/*.csv"),
-      png= glue("output/{effect}/coverage/*.png"),
+      csv= glue("output/{effect_match_strategy}/coverage/*.csv"),
+      png= glue("output/{effect_match_strategy}/coverage/*.png"),
     )
   )
   
@@ -343,12 +379,12 @@ action_coverage <- function(effect, match_strategy){
   out <- splice(
     out,
     action(
-      name = glue("flowchart_{effect}"),
+      name = glue("flowchart_{effect_match_strategy}"),
       run = "r:latest analysis/match/match_flowchart.R",
       arguments = c(effect, match_strategy),
       needs = as.list(needs_list),
       moderately_sensitive= lst(
-        csv= glue("output/{effect}/flowchart/*.csv"),
+        csv= glue("output/{effect_match_strategy}/flowchart/*.csv"),
       )
     )
   )
@@ -360,12 +396,14 @@ action_coverage <- function(effect, match_strategy){
 
 actions_match_strategy <- function(effect, match_strategy, include_models=FALSE) {
   
+  effect_match_strategy <- str_c(effect, match_strategy, sep = "_")
+  
   if (effect == "comparative") {
     
     actions_match <- splice(
       
       action(
-        name = "match_comparative",
+        name = glue("match_{effect_match_strategy}"),
         run = "r:latest analysis/match/match_comparative.R",
         arguments = match_strategy,
         needs = namelesslst(
@@ -373,7 +411,7 @@ actions_match_strategy <- function(effect, match_strategy, include_models=FALSE)
           "process_treated"
         ),
         highly_sensitive = lst(
-          rds = "output/comparative/match/*.rds"
+          rds = glue("output/comparative_{match_strategy}/match/*.rds")
         )
       ),
       
@@ -384,7 +422,7 @@ actions_match_strategy <- function(effect, match_strategy, include_models=FALSE)
       ),
       
       # match coverage
-      action_coverage(
+      actions_postmatch(
         effect = "comparative",
         match_strategy = match_strategy
       )
@@ -401,7 +439,11 @@ actions_match_strategy <- function(effect, match_strategy, include_models=FALSE)
               "for incremental effectiveness analysis",
               "# # # # # # # # # # # # # # # # # # #"),
       
-      map(seq_len(n_match_rounds), ~action_1matchround(.x)) %>% flatten(),
+      map(
+        seq_len(n_match_rounds), 
+        ~action_1matchround(match_round = .x, match_strategy = match_strategy)
+        ) %>% 
+        flatten(),
       
       # table1 for matched data for incremental effectiveness, match variables
       action_table1(
@@ -410,7 +452,7 @@ actions_match_strategy <- function(effect, match_strategy, include_models=FALSE)
       ),
       
       # match coverage
-      action_coverage(
+      actions_postmatch(
         effect = "incremental",
         match_strategy = match_strategy
         ),
@@ -627,20 +669,27 @@ actions_list <- splice(
   # (not incorporated into study_definition_treated so that it can be updated when more outcome data available)
   extract_outcomes(group = "alltreated"),
   
+  comment("# # # # # # # # # # # # # # # # # # #", 
+          "Extract and process controlpotential1 data.", 
+          "This can be done once for all matching strategies.",
+          "# # # # # # # # # # # # # # # # # # #"),
+  action_controlpotential(match_round = 1),
+  
   ####################################################
   # all actions for comparative effectiveness analysis
   ####################################################
-  actions_match_strategy(
-    effect = "comparative", 
-    match_strategy = "A",
-    include_models = FALSE
-    ),
+  # actions_match_strategy(
+  #   effect = "comparative",
+  #   match_strategy = "A",
+  #   include_models = FALSE
+  #   ),
   
   ####################################################
   # all actions for incremental effectiveness analysis
   ####################################################
+  
   actions_match_strategy(
-    effect = "incremental", 
+    effect = "incremental",
     match_strategy = "A",
     include_models = FALSE
     ),

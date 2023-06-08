@@ -611,7 +611,8 @@ actions_list <- splice(
       eligiblecsv = "output/treated/eligible/*.csv.gz"
     ),
     moderately_sensitive = lst(
-      flowchart = "output/treated/flowchart/*.csv",
+      flowchart_treated = "output/treated/flowchart/*.csv",
+      flowchart_combined = "output/report/flowchart_combined*.csv",
       extract_treated_skim = "output/treated/extract/*.txt",
       data_processed_skim = "output/treated/process/*.txt",
       data_eligible_skim = "output/treated/eligible/*.txt"

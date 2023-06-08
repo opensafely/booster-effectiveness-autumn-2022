@@ -39,8 +39,10 @@ if(length(args)==0){
   }
 }
 
+effect_match_strategy <- str_c(effect, match_strategy, sep = "_")
+
 # create output directories 
-output_dir <- here("output", effect, "table1")
+output_dir <- here("output", effect_match_strategy, "table1")
 fs::dir_create(output_dir)
 
 # get data_table1
@@ -174,5 +176,5 @@ table1_data <- raw_stats_midpoint %>%
     values_from = value
   )
 
-write_csv(table1_data, file.path(output_dir, glue("table1_{effect}_midpoint{threshold}.csv")))
+write_csv(table1_data, file.path(output_dir, glue("table1_{effect_match_strategy}_midpoint{threshold}.csv")))
 

@@ -18,9 +18,17 @@ source(here("lib", "functions", "utility.R"))
 ## Import design elements
 source(here("analysis", "design.R"))
 
-# create output directories ----
+# import command-line arguments 
+args <- commandArgs(trailingOnly=TRUE)
+if(length(args)==0){
+  # use for interactive testing
+  match_strategy <- "A"
+} else {
+  match_strategy <- args[[1]]
+}
 
-output_dir <- here("output", "comparative", "match")
+# create output directories ----
+output_dir <- here("output", glue("comparative_{match_strategy}"), "match")
 fs::dir_create(output_dir)
 
 # Prepare data ----

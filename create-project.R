@@ -306,8 +306,7 @@ action_table1 <- function(effect, match_strategy = NULL) {
     arguments = c(effect, match_strategy),
     needs = as.list(needs_list),
     moderately_sensitive = lst(
-      csv = glue("output/{effect}/table1/table1_{effect}_midpoint{threshold}.csv"),
-      html = glue("output/{effect}/table1/table1_{effect}_midpoint{threshold}.html")
+      csv = glue("output/{effect}/table1/table1_{effect}_midpoint{threshold}.csv")
     )
   )
 }

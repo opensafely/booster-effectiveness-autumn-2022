@@ -103,7 +103,6 @@ actions:
     outputs:
       moderately_sensitive:
         csv: output/treated/table1/table1_treated_midpoint6.csv
-        html: output/treated/table1/table1_treated_midpoint6.html
 
   extract_outcomes_alltreated:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_outcomes
@@ -136,7 +135,6 @@ actions:
     outputs:
       moderately_sensitive:
         csv: output/comparative/table1/table1_comparative_midpoint6.csv
-        html: output/comparative/table1/table1_comparative_midpoint6.html
 
   coverage_comparative:
     run: r:latest analysis/match/coverage.R comparative A
@@ -306,7 +304,6 @@ actions:
     outputs:
       moderately_sensitive:
         csv: output/incremental/table1/table1_incremental_midpoint6.csv
-        html: output/incremental/table1/table1_incremental_midpoint6.html
 
   coverage_incremental:
     run: r:latest analysis/match/coverage.R incremental A

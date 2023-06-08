@@ -29,8 +29,14 @@ args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
   # use for interactive testing
   effect <- "treated"
+  match_strategy <- NULL
 } else {
   effect <- args[[1]]
+  if (length(args)>1) {
+    match_strategy <- args[[2]]
+  } else {
+    match_strategy <- NULL
+  }
 }
 
 # create output directories 
@@ -152,8 +158,6 @@ raw_stats_midpoint <- raw_stats %>%
     variable_levels = replace_na(as.character(variable_levels), "")
   ) 
 
-write_csv(raw_stats_midpoint, file.path(output_dir, glue("table1_{effect}_midpoint{threshold}.csv")))
-
 table1_data <- raw_stats_midpoint %>%
   rowwise() %>%
   transmute(
@@ -170,13 +174,5 @@ table1_data <- raw_stats_midpoint %>%
     values_from = value
   )
 
-# table to help reviewing
-table1_data %>%
-  knitr::kable(format = "html") %>%
-  kableExtra::kable_paper() %>%
-  kableExtra::kable_styling(
-    full_width = FALSE
-  ) %>%
-  kableExtra::save_kable(
-    file = fs::path(output_dir, glue("table1_{effect}_midpoint{threshold}.html"))
-    )
+write_csv(table1_data, file.path(output_dir, glue("table1_{effect}_midpoint{threshold}.csv")))
+

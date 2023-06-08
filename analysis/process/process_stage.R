@@ -189,7 +189,7 @@ data_processed <- data_extract %>%
     # clinically at-risk group
     cv = immunosuppressed | chronic_kidney_disease | chronic_resp_disease | 
       diabetes | chronic_liver_disease | chronic_neuro_disease | 
-      chronic_heart_disease | learndis | sev_mental,
+      chronic_heart_disease | learndis | sev_mental | sev_obesity,
     
     # these are the agegroups by which people were eligible to book vaccine doses
     # note that technically those aged both 65-74 and 75+ could receive from 12 Sept,

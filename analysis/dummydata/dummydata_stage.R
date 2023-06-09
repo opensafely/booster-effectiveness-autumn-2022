@@ -1,6 +1,6 @@
 # create output directories
 custom_dummy_path_treated <- here::here("output", "treated", "dummydata")
-custom_dummy_path_controlpotential <- here::here("output", "matchround1",  "controlpotential", "dummydata")
+custom_dummy_path_controlpotential <- here::here("output", "incremental_none", "matchround1",  "controlpotential", "dummydata")
 fs::dir_create(custom_dummy_path_treated)
 fs::dir_create(custom_dummy_path_controlpotential)
 

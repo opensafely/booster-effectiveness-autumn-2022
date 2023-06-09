@@ -29,21 +29,17 @@ args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) == 0) {
   # use for interactive testing
-  stage <- "treated"
-  # stage <- "controlpotential"
+  # stage <- "treated"
+  stage <- "controlpotential"
   # stage <- "controlactual"
+  match_strategy <- "none"
   match_round <- as.integer("1")
 } else {
   stage <- args[[1]]
-  if (stage %in% "treated") {
-    if (length(args) > 1) 
-      stop("No additional args to be specified when `stage=\"treated\"")
-  } else {
-    if (length(args) == 1) {
-      stop("`match_round` must be specified when `stage=\"controlpotential\"` or \"controlactual\"")
-    }
-    match_round <- as.integer(args[[2]]) # NULL if treated    
-  } 
+  if (stage %in% c("controlpotential", "controlactual")) {
+    match_strategy <- args[[2]]
+    match_round <- as.integer(args[[3]])
+  }
 } 
 
 # ## create output directories and define parameters ----
@@ -53,9 +49,9 @@ if (stage == "treated") {
   fs::dir_create(here("output", "report"))
   custom_path <- file.path(path_stem, "dummydata", "dummydata_treated.feather")
 } else if (stage %in% c("controlpotential", "controlactual")) {
-  path_stem <- ghere("output", "matchround{match_round}", stage)
+  path_stem <- ghere("output", "incremental_{match_strategy}", "matchround{match_round}", stage)
   fs::dir_create(file.path(path_stem, "match"))
-  custom_path <- here("output", "matchround1", "controlpotential", "dummydata", "dummydata_controlpotential.feather")
+  custom_path <- here("output", "incremental_none", "matchround1", "controlpotential", "dummydata", "dummydata_controlpotential.feather")
   match_round_date <- study_dates$control_extract[match_round]
 }
 fs::dir_create(file.path(path_stem, "eligible"))
@@ -75,7 +71,7 @@ if (stage == "controlactual") {
   ## trial info for potential matches in round X
   data_potential_matchstatus <- 
     read_rds(
-      ghere("output", "matchround{match_round}", "controlpotential", "match", "data_potential_matchstatus.rds")
+      ghere("output", "incremental_{match_strategy}", "matchround{match_round}", "controlpotential", "match", "data_potential_matchstatus.rds")
       ) %>% 
     filter(matched==1L)
   
@@ -461,7 +457,7 @@ if (stage == "treated") {
     flow_stats_rounded(to = threshold) %>%
     ungroup() %>%
     select(stage, crit, criteria, n, everything()) %>%
-    write_csv(here("output", "report", glue("flowchart_combined_midpoint{threshold}.csv")))
+    write_csv(ghere("output", "report", "flowchart_combined_midpoint{threshold}.csv"))
   
 }
 
@@ -555,7 +551,7 @@ if (stage == "controlactual") {
   if (match_round > 1) {
     
     data_matchstatusprevious <- read_rds(
-      ghere("output", "matchround{match_round-1}", "controlactual", "match", "data_matchstatus_allrounds.rds")
+      ghere("output", "incremental_{match_strategy}", "matchround{match_round-1}", "controlactual", "match", "data_matchstatus_allrounds.rds")
     )
     
     data_matchstatus_allrounds <- 
@@ -617,3 +613,4 @@ if (stage == "controlactual") {
   table(treated = data_successful_matchstatus$treated, useNA="ifany")
   
 }
+

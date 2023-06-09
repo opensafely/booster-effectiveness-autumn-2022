@@ -1,4 +1,3 @@
-
 # # # # # # # # # # # # # # # # # # # # #
 # This script:
 # imports processed data
@@ -25,16 +24,19 @@ source(here("lib", "functions", "utility.R"))
 # import command-line arguments
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
+  match_strategy <- "A"
   match_round <- as.integer("1")
 } else {
-  match_round <- as.integer(args[[1]])
+  match_strategy <- args[[1]]
+  match_round <- as.integer(args[[2]])
 }
 
 # get cohort-specific parameters study dates and parameters
 match_round_date <- study_dates$control_extract[match_round]
 
 # create output directory
-fs::dir_create(ghere("output", "matchround{match_round}", "controlpotential", "match"))
+outdir <- ghere("output", "incremental_{match_strategy}", "matchround{match_round}", "controlpotential", "match")
+fs::dir_create(outdir)
 
 # Import datasets ----
 # import treated cohort
@@ -42,16 +44,21 @@ data_treated <- read_rds(here("output", "treated", "eligible", "data_treated.rds
   mutate(treated=1L)
 
 # import control cohort 
+if (match_round == 1) {
+  controlpotential_dir <- "none"
+} else {
+  controlpotential_dir <- match_strategy
+}
 data_control <- read_rds(
-  ghere("output", "matchround{match_round}", "controlpotential", "eligible", "data_controlpotential.rds")
-  ) %>% 
+  ghere("output", "incremental_{controlpotential_dir}", "matchround{match_round}", "controlpotential", "eligible", "data_controlpotential.rds")
+) %>% 
   mutate(treated=0L)
 
 # remove already-matched people from previous match rounds
 if(match_round > 1) {
   
   data_matchstatusprevious <- read_rds(
-    ghere("output", "matchround{match_round-1L}", "controlactual", "match", "data_matchstatus_allrounds.rds")
+    ghere("output", "incremental_{match_strategy}", "matchround{match_round-1L}", "controlactual", "match", "data_matchstatus_allrounds.rds")
     ) %>%
     select(patient_id, treated)
   
@@ -92,7 +99,7 @@ local({
 
 
   # set maximum number of daily trials
-  # time index is relative to "start date"
+  # time index is incremental to "start date"
   # trial index start at one, not zero. i.e., study start date is "day 1" (but the _time_ at the start of study start date is zero)
   start_trial_time <- 0
   end_trial_time <- as.integer(study_dates$recruitmentend + 1 - study_dates$studystart)
@@ -164,7 +171,7 @@ local({
             patient_id, 
             treated,
             all_of(c(
-              exact_variables_relative, 
+              exact_variables_incremental, 
               names(caliper_variables)
               )),
         ),
@@ -185,7 +192,7 @@ local({
         method = "nearest", distance = "glm", 
         replace = FALSE,
         estimand = "ATT",
-        exact = exact_variables_relative,
+        exact = exact_variables_incremental,
         caliper = caliper_variables, std.caliper=FALSE,
         m.order = "random",
         #verbose = TRUE,
@@ -289,10 +296,7 @@ local({
  
 # output match status ----
 data_matchstatus %>%
-  write_rds(
-    ghere("output", "matchround{match_round}", "controlpotential", "match", "data_potential_matchstatus.rds"), 
-    compress="gz"
-    )
+  write_rds(file.path(outdir, "data_potential_matchstatus.rds"), compress="gz")
 
 # number of treated/controls per trial
 # use trial=trial_time+1 so that this printout matches the printout from the loop for(trial in trials){}
@@ -317,9 +321,7 @@ data_matchstatus %>%
   mutate(
     trial_date=as.character(trial_date)
   ) %>%
-  write_csv(
-    ghere("output", "matchround{match_round}", "controlpotential", "match", "potential_matchedcontrols.csv.gz")
-    )
+  write_csv(file.path(outdir, "potential_matchedcontrols.csv.gz"))
 
 
 print(
@@ -345,7 +347,7 @@ print(
 #       patient_id,
 #       treated,
 #       all_of(
-#         exact_variables_relative#,
+#         exact_variables_incremental#,
 #         #names(caliper_variables)
 #       ),
 #     ),

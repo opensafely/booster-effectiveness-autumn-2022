@@ -15,8 +15,8 @@ from cohortextractor import (
 )
 
 # define params
+match_strategy = params["match_strategy"]
 match_round = params["match_round"]
-
 
 ############################################################
 ## inclusion variables
@@ -53,13 +53,24 @@ study = StudyDefinition(
   population=patients.satisfying(
     "prematched",
     
-    prematched = patients.which_exist_in_file(f_path=f"output/matchround{match_round}/controlpotential/match/potential_matchedcontrols.csv.gz"), 
+    prematched = patients.which_exist_in_file(
+        f_path=f"output/incremental_{match_strategy}/matchround{match_round}/controlpotential/match/potential_matchedcontrols.csv.gz"
+        ), 
 
   ),
 
-  trial_date = patients.with_value_from_file(f_path=f"output/matchround{match_round}/controlpotential/match/potential_matchedcontrols.csv.gz", returning="trial_date", returning_type="date", date_format='YYYY-MM-DD'),
+  trial_date = patients.with_value_from_file(
+      f_path=f"output/incremental_{match_strategy}/matchround{match_round}/controlpotential/match/potential_matchedcontrols.csv.gz", 
+      returning="trial_date", 
+      returning_type="date", 
+      date_format='YYYY-MM-DD'
+      ),
   
-  match_id = patients.with_value_from_file(f_path=f"output/matchround{match_round}/controlpotential/match/potential_matchedcontrols.csv.gz", returning="match_id", returning_type="int"),
+  match_id = patients.with_value_from_file(
+      f_path=f"output/incremental_{match_strategy}/matchround{match_round}/controlpotential/match/potential_matchedcontrols.csv.gz", 
+      returning="match_id", 
+      returning_type="int"
+      ),
   
   ###############################################################################
   # inclusion variables

@@ -66,7 +66,7 @@ flowchart %>%
 
 ## Matching
 
-```{r, include=TRUE, fig.cap = "FIGURE 1. Daily matching coverage for relative effectiveness", out.width="70%"}
+```{r, include=TRUE, fig.cap = "FIGURE 1. Daily matching coverage for incremental effectiveness", out.width="70%"}
 # create plots by running:
 # system(paste("Rscript", here::here("analysis", "match", "coverage.R"), "relative"))
 knitr::include_graphics(here::here(glue("report{release_date}"), "figures", "relative", "coverage_count.png"))
@@ -87,7 +87,7 @@ table1 <- readr::read_csv(here::here(glue("release{release_date}"), "table1_roun
 ```{r, include=TRUE}
 footnote_string <- c(
   "All individuals boosted during the recruitment period, regardless of matching status.",
-  "Individuals matched in the relative effectiveness analysis.",
+  "Individuals matched in the incremental effectiveness analysis.",
   "Individuals matched in the comparative effectiveness analysis."
 )
 table1 %>%
@@ -121,7 +121,7 @@ table1 %>%
   
 ```
 
-## Relative effectiveness
+## Incremental effectiveness
 ### All matched
 
 ```{r}
@@ -142,7 +142,7 @@ knitr::include_graphics(here(glue("report{release_date}"), "figures", select_eff
 ```
 
 
-```{r, include=TRUE, fig.cap="FIGURE 5. Cox hazard ratios for boosted vs unboosted in all macthed individuals.", out.width="70%", message=FALSE, warning=FALSE}
+```{r, include=TRUE, fig.cap="FIGURE 5. Cox hazard ratios for boosted vs unboosted in all matched individuals.", out.width="70%", message=FALSE, warning=FALSE}
 knitr::include_graphics(here(glue("report{release_date}"), "figures", select_effect, glue("cox_{select_effect}_all.png")))
 ```
 

@@ -117,6 +117,7 @@ data_matchstatus <-
       filter(thread_variable==matchthread)
     
     # run match algorithm
+    # (this will be updated to allow for different matching strategies)
     obj_matchit <-
       safely_matchit(
         formula = treated ~ 1,

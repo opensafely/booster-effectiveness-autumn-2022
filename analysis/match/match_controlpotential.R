@@ -20,6 +20,7 @@ library(MatchIt)
 # import local functions and parameters
 source(here("analysis", "design.R"))
 source(here("lib", "functions", "utility.R"))
+source(here("lib", "functions", "match_control.R"))
 
 # import command-line arguments
 args <- commandArgs(trailingOnly=TRUE)
@@ -177,28 +178,16 @@ local({
         ),
         by = c("patient_id", "treated")
       )
-    
 
-    safely_matchit <- purrr::safely(matchit)
-    
-    set.seed(10)
     # run match algorithm
+    # (this will be updated to allow for different matching strategies)
+    set.seed(10)
     obj_matchit_i <-
       safely_matchit(
-        formula = treated ~ 1,
         data = match_candidates_i,
-        # these method and distance options don't really do anything because we
-        # only want exact + caliper match
-        method = "nearest", distance = "glm", 
-        replace = FALSE,
-        estimand = "ATT",
         exact = exact_variables_incremental,
-        caliper = caliper_variables, std.caliper=FALSE,
-        m.order = "random",
-        #verbose = TRUE,
-        ratio = 1L # 1:1 match
+        caliper = caliper_variables
       )[[1]]
-
     
     if(is.null(obj_matchit_i)) {
       message("Skipping trial ", trial, " - No exact matches found.")

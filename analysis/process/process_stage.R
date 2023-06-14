@@ -20,6 +20,7 @@ library(here)
 source(here("analysis", "design.R"))
 
 source(here("lib", "functions", "utility.R"))
+source(here("lib", "functions", "match_control.R"))
 
 source(here("analysis", "process", "process_functions.R"))
 
@@ -529,7 +530,68 @@ if (stage == "controlactual") {
     ) %>%
     arrange(trial_date, match_id, treated)
   
-  ###
+  # rematchit ----
+  
+  # try rerunning matchit in the unsuccessfuly matches to see if any new matches 
+  # can be found from the rematch failures
+  data_unsuccessful_match <- 
+    match_candidates %>%
+    anti_join(rematch, by=c("match_id", "trial_date", "matched"))
+  
+  # rerun match algorithm
+  # (this will be updated to allow for different matching strategies)
+  set.seed(10)
+  obj_matchit <-
+    safely_matchit(
+      data = data_unsuccessful_match,
+      exact = c("trial_time", exact_variables_incremental),
+      caliper = caliper_variables
+    )[[1]]
+  
+  # save output
+  data_rematchit <- tibble(
+    patient_id = data_unsuccessful_match$patient_id,
+    matched = !is.na(obj_matchit$subclass),
+    # match_id + 1000 to distinguish mathces made by rematchit
+    match_id = as.integer(as.character(obj_matchit$subclass)) + 1000L,
+    treated = obj_matchit$treat,
+    control = 1L - treated,
+    weight = obj_matchit$weights,
+    trial_time = data_unsuccessful_match$trial_time
+  ) 
+  
+  # print success
+  cat("matchit rerun success by trial_time:\n")
+  data_rematchit %>%
+    arrange(trial_time) %>%
+    group_by(trial_time, matched) %>%
+    count() %>%
+    ungroup() %>%
+    pivot_wider(names_from = matched, values_from = n, values_fill = 0) %>% 
+    print(n=Inf)
+  
+  # add to successful matches
+  data_successful_match <- 
+    data_successful_match %>%
+    bind_rows(
+      data_rematchit %>%
+        filter(matched) %>%
+        left_join(
+          match_candidates %>% 
+            select(-c(match_id, matched, treated, control, controlistreated_date)),
+          by = c("patient_id", "trial_time")
+          ) %>%
+        group_by(match_id) %>%
+        # controlistreated_date needs updating, as there are new matched pairs
+        mutate(
+          # this only works because of the group_by statement above
+          controlistreated_date = vax_boostautumn_date[treated==0], 
+          .after = control
+        ) %>%
+        ungroup()
+    )
+  
+  # process and summarise successful matches ----
   
   matchstatus_vars <- c("patient_id", "match_id", "trial_date", "match_round", "treated", "controlistreated_date")
   
@@ -543,11 +605,11 @@ if (stage == "controlactual") {
   
   ## how many matches are lost?
   print(glue(
-    "{sum(data_successful_matchstatus$treated)} matched-pairs kept out of {sum(data_potential_matchstatus$treated)} 
+    "{sum(data_successful_matchstatus$treated)} matched-pairs kept or re-matched out of {sum(data_potential_matchstatus$treated)} 
   ({round(100*(sum(data_successful_matchstatus$treated) / sum(data_potential_matchstatus$treated)),2)}%)"
   ))
   
-  ## pick up all previous successful matches ----
+  # pick up all previous successful matches ----
   
   if (match_round > 1) {
     
@@ -613,11 +675,11 @@ if (stage == "controlactual") {
   print("data_successful_match treated/untreated numbers")
   table(treated = data_successful_matchstatus$treated, useNA="ifany")
   
-  # save csv for all unmatched individuals to read into extract_controlpotential_{matchround+1}
+  ## save csv for all unmatched individuals to read into extract_controlpotential_{matchround+1}
+  # read data from all individuals satisfying initial eligibility criteria
   data_eligible <- read_csv(here("output", "initial", "eligible", "data_eligible.csv.gz"))
-  
+  # remove all individuals previously matched as controls
   data_eligible %>%
-    # remove all individuals previously matched as controls
     anti_join(
       data_matchstatus_allrounds %>% 
         filter(treated == 0) %>%

@@ -38,9 +38,11 @@ pre_variables = generate_pre_variables(index_date="matchroundindex_date")
 ############################################################
 
 if match_round==1:
+    # all individuals satisfying initial eligibility criteria
     file_path = f"output/initial/eligible/data_eligible.csv.gz"
 else:
-    file_path = f"output/initial/eligible/data_eligible.csv.gz"
+    # all individuals satisfying initial eligibility criteria and not previously matched as controls
+    file_path = f"output/incremental_{match_strategy}/matchround{match_round-1}/controlactual/match/data_unsuccessful_matchedcontrols.csv.gz"
 
 # Specify study defeinition
 study = StudyDefinition(

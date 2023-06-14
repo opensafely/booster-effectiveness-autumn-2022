@@ -30,9 +30,10 @@ args <- commandArgs(trailingOnly = TRUE)
 if (length(args) == 0) {
   # use for interactive testing
   # stage <- "treated"
-  stage <- "controlpotential"
-  # stage <- "controlactual"
-  match_strategy <- "none"
+  # stage <- "controlpotential"
+  stage <- "controlactual"
+  # match_strategy <- "none"
+  match_strategy <- "A"
   match_round <- as.integer("1")
 } else {
   stage <- args[[1]]
@@ -611,6 +612,19 @@ if (stage == "controlactual") {
   ## size of dataset
   print("data_successful_match treated/untreated numbers")
   table(treated = data_successful_matchstatus$treated, useNA="ifany")
+  
+  # save csv for all unmatched individuals to read into extract_controlpotential_{matchround+1}
+  data_eligible <- read_csv(here("output", "initial", "eligible", "data_eligible.csv.gz"))
+  
+  data_eligible %>%
+    # remove all individuals previously matched as controls
+    anti_join(
+      data_matchstatus_allrounds %>% 
+        filter(treated == 0) %>%
+        distinct(patient_id),
+      by = "patient_id"
+      ) %>%
+    write_csv(file.path(path_stem, "match", "data_unsuccessful_matchedcontrols.csv.gz"))
   
 }
 

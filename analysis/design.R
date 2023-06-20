@@ -227,6 +227,9 @@ censor_vars <- list(
   )
 )
 censor_vars[["incremental"]] <- c(censor_vars[["comparative"]], "controlistreated_date")
+
+strata_vars <- c("trial_date", "region")
+
 #
 # # other variables -----
 # # keep all variables starting with these strings

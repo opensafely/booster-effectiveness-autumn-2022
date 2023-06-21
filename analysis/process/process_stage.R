@@ -186,6 +186,18 @@ stage_index_date <- list(
 # process variables
 data_processed <- data_extract %>%
   mutate(index_date = !! sym(stage_index_date[[stage]]), .after=1) %>%
+  # process demographic variables
+  mutate(
+    # these are the agegroups by which people were eligible to book vaccine doses
+    # note that technically those aged both 65-74 and 75+ could receive from 12 Sept,
+    # but those aged 75+ could book from 7 Sept, whereas 65-74 could only book from 12 Sept
+    agegroup_match = cut(
+      age,
+      breaks=c(50, 65, 75, Inf),
+      labels=c("50-64", "65-74", "75+"),
+      right=FALSE
+    )
+  ) %>%
   # process jcvi variables
   mutate(
     
@@ -208,35 +220,7 @@ data_processed <- data_extract %>%
       diabetes | chronic_liver_disease | chronic_neuro_disease | 
       chronic_heart_disease | learndis | sev_mental | sev_obesity,
     
-    # these are the agegroups by which people were eligible to book vaccine doses
-    # note that technically those aged both 65-74 and 75+ could receive from 12 Sept,
-    # but those aged 75+ could book from 7 Sept, whereas 65-74 could only book from 12 Sept
-    agegroup_match = cut(
-      age,
-      breaks=c(50, 65, 75, Inf),
-      labels=c("50-64", "65-74", "75+"),
-      right=FALSE
-    ),
-    
   )  %>%
-  # process demographics
-  mutate(
-    region = fct_collapse(
-      region,
-      `East of England` = "East",
-      `London` = "London",
-      `Midlands` = c("West Midlands", "East Midlands"),
-      `North East and Yorkshire` = c("Yorkshire and The Humber", "North East"),
-      `North West` = "North West",
-      `South East` = "South East",
-      `South West` = "South West"
-    ),
-    imd = as.integer(imd),
-    imd_Q5 = factor(
-      imd_Q5,
-      levels = c("1 (most deprived)", "2", "3", "4", "5 (least deprived)")
-    )
-  ) %>%
   # process pre-baseline events
   mutate(
     timesincecoviddischarged = as.integer(index_date - discharged_covid_0_date),
@@ -250,13 +234,47 @@ data_processed <- data_extract %>%
   ) %>%
   select(-c(bmi_value))
 
+if ("region" %in% match_vars) {
+  
+  data_processed <- data_processed %>%
+    mutate(
+      region = fct_collapse(
+        region,
+        `East of England` = "East",
+        `London` = "London",
+        `Midlands` = c("West Midlands", "East Midlands"),
+        `North East and Yorkshire` = c("Yorkshire and The Humber", "North East"),
+        `North West` = "North West",
+        `South East` = "South East",
+        `South West` = "South West"
+      )
+    )
+  
+}
+
+if ("imd" %in% match_vars) {
+  
+  data_processed <- data_processed %>%
+    mutate(imd = as.integer(imd))
+  
+}
+
+if ("imd_Q5" %in% match_vars) {
+  
+  data_processed <- data_processed %>%
+    mutate(
+      imd_Q5 = factor(
+        imd_Q5,
+        levels = c("1 (most deprived)", "2", "3", "4", "5 (least deprived)")
+      )
+    )
+  
+}
+
 rm(data_extract)
 
 # read vaccination data
 data_vax <- read_rds(here("output", "initial", "eligible", "data_vax.rds")) 
-
-# TODO sort out this processing so that match variables are only processed when
-# they've been extracted
 
 # process vaccination data
 data_vax_processed <- data_processed %>%

@@ -344,7 +344,20 @@ data_vax <- data_vax %>%
   # remove the columns used for eligiblility criteria
   select(-c(c0, c1, include, undefinedbeforestart)) %>%
   left_join(
-    data_extract %>% select(patient_id, flu_vaccine),
+    data_extract %>% transmute(
+      patient_id, 
+      flu_vaccine,
+      sex = fct_case_when(
+        sex == "F" ~ "Female",
+        sex == "M" ~ "Male",
+        TRUE ~ NA_character_
+      ),
+      ethnicity = factor(
+        ethnicity,
+        levels = c("White", "Mixed", "Asian or Asian British", "Black or Black British", "Other")
+      ),
+      hscworker
+      ),
     by = "patient_id"
     )
 

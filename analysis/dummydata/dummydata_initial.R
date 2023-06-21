@@ -151,7 +151,18 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   
   # duplicate to increase matching success
   data_initial <- bind_rows(data_initial, data_initial) %>%
-    mutate(flu_vaccine = rbern(n = nrow(.), p = 0.5)) %>%
+    # define static variables
+    mutate(
+      sex = sample(x = c("M", "F"), size = nrow(.), replace = TRUE),
+      ethnicity = sample(
+        x = c("White", "Mixed", "Asian or Asian British", "Black or Black British", "Other", "Unknown"),
+        size = nrow(.),
+        replace = TRUE,
+        prob = c(0.5, 0.12, 0.12, 0.12, 0.12, 0.02)
+      ),
+      hscworker = rbern(n = nrow(.), p=0.05),
+      flu_vaccine = rbern(n = nrow(.), p = 0.5)
+      ) %>%
     mutate(across(patient_id, row_number))
   
   # save

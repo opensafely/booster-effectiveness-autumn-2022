@@ -60,8 +60,6 @@ study = StudyDefinition(
     
     **inclusion_variables,  
 
-    
-
     primarycourse_end = patients.satisfying(
       "covid_vax_disease_2_date < dose2end_date",
       dose2end_date = patients.fixed_value(dose2end_date),
@@ -79,8 +77,60 @@ study = StudyDefinition(
   **vax_variables,
   
   #################################################################
-  ## Static covariates
+  ## Static variables
+  # i.e. are not defined on a certain date
   #################################################################
+
+  sex=patients.sex(
+    return_expectations={
+      "rate": "universal",
+      "category": {"ratios": {"M": 0.49, "F": 0.51}},
+      "incidence": 1,
+    }
+  ),
+
+  # Ethnicity (6 categories)
+  ethnicity = patients.categorised_as(
+    {
+    "Unknown": "DEFAULT",
+    "White": "eth6='1'",
+    "Mixed": "eth6='2'",
+    "Asian or Asian British": "eth6='3'",
+    "Black or Black British": "eth6='4'",
+    "Other": "eth6='5'",
+    },
+    eth6 = patients.with_these_clinical_events(
+      ethnicity_codes_6,
+      returning = "category",
+      find_last_match_in_period = True,
+      include_date_of_match = False,
+      return_expectations = {
+        "incidence": 0.75,
+        "category": {
+          "ratios": { "1": 0.30, "2": 0.20, "3": 0.20, "4": 0.20, "5": 0.05, "6": 0.05, },
+          },
+        },
+      ),
+    return_expectations = {
+      "rate": "universal",
+      "category": {
+        "ratios": {
+          "White": 0.30,
+          "Mixed": 0.20,
+          "Asian or Asian British": 0.20,
+          "Black or Black British": 0.20,
+          "Other": 0.05,
+          "Unknown": 0.05,
+          },
+        },
+      },
+  ),
+
+  # health or social care worker  
+    hscworker = patients.with_healthcare_worker_flag_on_covid_vaccine_record(
+        returning="binary_flag"
+    ),
+
   # flu vaccine in flu season 2021-2022
     flu_vaccine=patients.satisfying(
         """

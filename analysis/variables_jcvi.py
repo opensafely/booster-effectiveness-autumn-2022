@@ -2,13 +2,13 @@ from cohortextractor import patients
 from codelists import *
 import codelists
 
+########################################################################
+## Clinical information for jcvi grouping as at index date (from PRIMIS)
+########################################################################
+
 def generate_jcvi_variables(index_date):
 
   jcvi_variables = dict(
-
-  ########################################################################
-  ## Clinical information for jcvi grouping as at index date (from PRIMIS)
-  ########################################################################
 
     asthma = patients.satisfying(
       """
@@ -240,76 +240,6 @@ def generate_jcvi_variables(index_date):
     on_or_before=f"{index_date} - 1 day",
   ),
 
-  ########################################################################
-  # additional information for JCVI grouping
-  ########################################################################
-
-  # health or social care worker  
-  hscworker = patients.with_healthcare_worker_flag_on_covid_vaccine_record(returning="binary_flag"),
-  
-  # care home flag
-  carehome = patients.satisfying(
-
-    "carehome_tpp OR carehome_code",
-
-    carehome_tpp=patients.care_home_status_as_of(
-      f"{index_date} - 1 day",
-      ),
-
-    carehome_code=patients.with_these_clinical_events(
-      codelists.carehome,
-      on_or_before=f"{index_date} - 1 day",
-      returning="binary_flag",
-      return_expectations={"incidence": 0.01},
-      ),
-
-    ),
-
-  # end of life care flag
-  endoflife = patients.satisfying(
-    """
-    midazolam OR
-    endoflife_coding
-    """,
-  
-    midazolam = patients.with_these_medications(
-      codelists.midazolam,
-      returning="binary_flag",
-      on_or_before=f"{index_date} - 1 day",
-    ),
-    
-    endoflife_coding = patients.with_these_clinical_events(
-      codelists.eol,
-      returning="binary_flag",
-      on_or_before=f"{index_date} - 1 day",
-      find_last_match_in_period = True,
-    ),
-        
-  ),
-    
-  # housebound flag
-  housebound = patients.satisfying(
-    """housebound_date
-    AND NOT no_longer_housebound
-    AND NOT moved_into_care_home
-    """,
-        
-    housebound_date=patients.with_these_clinical_events( 
-      codelists.housebound, 
-      on_or_before=f"{index_date} - 1 day",
-      find_last_match_in_period = True,
-      returning="date",
-      date_format="YYYY-MM-DD",
-    ),   
-    no_longer_housebound=patients.with_these_clinical_events( 
-      codelists.no_longer_housebound, 
-      on_or_after="housebound_date",
-    ),
-    moved_into_care_home=patients.with_these_clinical_events(
-      codelists.carehome,
-      on_or_after="housebound_date",
-    ),
-  ),
 
   )
   return jcvi_variables

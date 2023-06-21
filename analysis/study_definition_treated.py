@@ -19,17 +19,9 @@ from cohortextractor import (
 from variables_inclusion import generate_inclusion_variables 
 inclusion_variables = generate_inclusion_variables(index_date="vax_boostautumn_date")
 ############################################################
-## jcvi variables
-from variables_jcvi import generate_jcvi_variables 
-jcvi_variables = generate_jcvi_variables(index_date="vax_boostautumn_date")
-############################################################
-## demographic variables
-from variables_demo import generate_demo_variables 
-demo_variables = generate_demo_variables(index_date="vax_boostautumn_date")
-############################################################
-## pre variables
-from variables_pre import generate_pre_variables 
-pre_variables = generate_pre_variables(index_date="vax_boostautumn_date")
+## match variables
+from variables_match import generate_match_variables 
+match_variables = generate_match_variables(index_date="vax_boostautumn_date")
 ############################################################
 
 # Specify study definition
@@ -50,7 +42,7 @@ study = StudyDefinition(
 
     # patients that satisfy the original eligibility criteria and have autumnbooster2022_date during recruitment period
     eligible_initial = patients.which_exist_in_file(
-    f_path=f"output/initial/eligible/data_eligible_treated.csv.gz"
+      f_path=f"output/initial/eligible/data_eligible_treated.csv.gz"
     ),
 
   ),
@@ -68,18 +60,8 @@ study = StudyDefinition(
   **inclusion_variables,   
 
   ###############################################################################
-  # jcvi variables
+  # match variables
   ##############################################################################
-  **jcvi_variables, 
-  
-  ###############################################################################
-  # demographic variables
-  ##############################################################################
-  **demo_variables,    
-  
-  ###############################################################################
-  # pre variables
-  ##############################################################################
-  **pre_variables,      
+  **match_variables,  
   
 )

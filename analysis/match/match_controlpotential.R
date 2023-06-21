@@ -32,6 +32,12 @@ if(length(args)==0){
   match_round <- as.integer(args[[2]])
 }
 
+# save elements of match_strategy_* list to global environment
+list2env(
+  x = get(glue("match_strategy_{match_strategy}")),
+  envir = environment()
+  )
+
 # get cohort-specific parameters study dates and parameters
 match_round_date <- study_dates$control_extract[match_round]
 
@@ -172,8 +178,8 @@ local({
             patient_id, 
             treated,
             all_of(c(
-              exact_variables_incremental, 
-              names(caliper_variables)
+              exact_vars, 
+              names(caliper_vars)
               )),
         ),
         by = c("patient_id", "treated")
@@ -185,8 +191,8 @@ local({
     obj_matchit_i <-
       safely_matchit(
         data = match_candidates_i,
-        exact = exact_variables_incremental,
-        caliper = caliper_variables
+        exact = exact_vars,
+        caliper = caliper_vars
       )[[1]]
     
     if(is.null(obj_matchit_i)) {

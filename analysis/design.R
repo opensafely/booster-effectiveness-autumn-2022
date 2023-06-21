@@ -72,7 +72,7 @@ extract_increment <- 14
 study_dates$control_extract = seq(study_dates$studystart, study_dates$recruitmentend, extract_increment)
 
 # reduce the match rounds for testing
-# study_dates$control_extract <- study_dates$control_extract[1:2]
+study_dates$control_extract <- study_dates$control_extract[1:2]
 
 # number of match rounds to perform for each cohort
 
@@ -123,7 +123,7 @@ treatment_lookup <- tribble(
 comparison_definition <- tribble(
   ~comparison, ~level0, ~level0_descr, ~level1, ~level1_descr,
   "comparative", "pfizerbivalent", "Bivalent BNT162b2", "modernabivalent", "Bivalent mRNA-1273",
-  "relative", "unboosted", "Unboosted", "boosted", "Boosted",
+  "incremental", "unboosted", "Unboosted", "boosted", "Boosted",
 )
 # TODO find the correct way to specify pfizer and moderna bivalent
 
@@ -150,7 +150,7 @@ recoder <-
 subgroups <- c("all", "agegroup_match")
 
 # for the treated variables which are coded as 0 or 1
-for (i in c("comparative", "relative")) {
+for (i in c("comparative", "incremental")) {
   treatment_levels <- comparison_definition %>% filter(comparison==i) %>% select(matches("level\\d_descr")) %>% unlist() 
   recoder[[i]] <- set_names(
     as.integer(str_extract(names(treatment_levels), "\\d")),
@@ -174,51 +174,135 @@ fup_params <- lst(
   maxfup = max(postbaselinecuts),
 )
 
+# matching ----
+
+create_match_strategy <- function(
+    name,
+    exact_vars = NULL,
+    caliper_vars = NULL,
+    score_vars = NULL,
+    adj_vars = NULL,
+    strata_vars = NULL
+) {
+  out <- lst(
+    exact_vars = exact_vars,
+    caliper_vars = caliper_vars,
+    score_vars = score_vars,
+    match_vars = c(exact_vars, names(caliper_vars), score_vars),
+    adj_vars = adj_vars,
+    strata_vars = strata_vars
+  )
+  
+  out %>%
+    jsonlite::write_json(
+      path = here::here("lib", "design", glue::glue("match-strategy-{name}.json")), 
+      auto_unbox=TRUE, pretty =TRUE
+      )
+  
+  return(out)
+}
+
+match_strategy_none <- create_match_strategy(
+  name = "none",
+  # these won't be used for matching, but these are the variables that could be
+  # be used in all possible matching strategies
+  exact_vars = c("imd", "imd_Q5", "region")
+  )
+
+match_strategy_A <- create_match_strategy(
+  
+  name = "A",
+  
+  exact_vars = c(
+    "agegroup_match",
+    "vax_primary_brand",
+    "vax_boostfirst_brand",
+    "vax_boostspring_brand",
+    "cv",
+    "region",
+    NULL
+  ),
+  
+  caliper_vars = c(
+    age = 3,
+    # match on `lastvaxbeforeindex_day` rather than `timesincelastvax` as the 
+    # potential matches are less likely to fail in the actual stage
+    lastvaxbeforeindex_date = 14,
+    NULL
+  ),
+  
+  adj_vars = c(
+    "sex",
+    "ethnicity",
+    "imd_Q5",
+    "bmi",
+    "learndis",
+    "sev_mental",
+    "immunosuppressed",
+    "multimorb", 
+    "timesincecoviddischarged",
+    "flu_vaccine"
+  ),
+  
+  strata_vars = c("trial_date", "region")
+  
+)
+
+# match_strategy_C <- lst(
+#   score_vars = xxx,
+#   model_vars = xxx,
+#   strata_vars = xxx
+# )
+
+# list2env
+
 # match variables ----
 
-# exact variables
-exact_variables_relative <- c(
-  "agegroup_match",
-  "vax_primary_brand",
-  "vax_boostfirst_brand",
-  "vax_boostspring_brand",
-  "cv",
-  "region",
-  NULL
-)
-
-exact_variables_comparative <- c(
-  exact_variables_relative,
-  "vax_boostautumn_date", 
-  NULL
-)
-
-# caliper variables
-caliper_variables <- c(
-  age = 3,
-  # match on `lastvaxbeforeindex_day` rather than `timesincelastvax` as the 
-  # potential matches are less likely to fail in the actual stage
-  lastvaxbeforeindex_date = 14,
-  NULL
-)
-
-match_variables_relative <- c(exact_variables_relative, names(caliper_variables))
-match_variables_comparative <- c(exact_variables_comparative, names(caliper_variables))
-
-# covariates ----
-
-covariates_model <- c(
-  "sex",
-  "ethnicity",
-  "imd_Q5",
-  "bmi",
-  "learndis",
-  "sev_mental",
-  "immunosuppressed",
-  "multimorb", 
-  "timesincecoviddischarged",
-  "flu_vaccine"
-)
+# # exact variables
+# exact_variables_incremental <- c(
+#   "agegroup_match",
+#   "vax_primary_brand",
+#   "vax_boostfirst_brand",
+#   "vax_boostspring_brand",
+#   "cv",
+#   "region",
+#   NULL
+# )
+# 
+# exact_variables_comparative <- c(
+#   exact_variables_incremental,
+#   "vax_boostautumn_date", 
+#   NULL
+# )
+# 
+# # caliper variables
+# caliper_variables <- c(
+#   age = 3,
+#   # match on `lastvaxbeforeindex_day` rather than `timesincelastvax` as the 
+#   # potential matches are less likely to fail in the actual stage
+#   lastvaxbeforeindex_date = 14,
+#   NULL
+# )
+# 
+# match_variables_incremental <- c(exact_variables_incremental, names(caliper_variables))
+# match_variables_comparative <- c(exact_variables_comparative, names(caliper_variables))
+# 
+# # covariates ----
+# 
+# covariates_model <- c(
+#   "sex",
+#   "ethnicity",
+#   "imd_Q5",
+#   "bmi",
+#   "learndis",
+#   "sev_mental",
+#   "immunosuppressed",
+#   "multimorb", 
+#   "timesincecoviddischarged",
+#   "flu_vaccine"
+# )
+# 
+# strata_vars <- c("trial_date", "region")
 
 censor_vars <- list(
   comparative = c(
@@ -226,7 +310,8 @@ censor_vars <- list(
     "dereg_date"
   )
 )
-censor_vars[["relative"]] <- c(censor_vars[["comparative"]], "controlistreated_date")
+censor_vars[["incremental"]] <- c(censor_vars[["comparative"]], "controlistreated_date")
+
 #
 # # other variables -----
 # # keep all variables starting with these strings
@@ -234,7 +319,7 @@ censor_vars[["relative"]] <- c(censor_vars[["comparative"]], "controlistreated_d
 # 
 # analysis table
 model_args <- expand_grid(
-  effect=c("comparative", "relative"),
+  effect=c("comparative", "incremental"),
   model=c("km", "cox_unadj", "cox_adj"),
   subgroup=subgroups,
   outcome=outcomes,

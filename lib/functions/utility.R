@@ -45,7 +45,8 @@ my_skim <- function(
     # specify summary function for each class
     my_skimmers <- list(
       logical = skimr::sfl(
-      ),
+        mean = ~ mean(.x, na.rm=TRUE)
+        ),
       # numeric applied to numeric and integer
       numeric = skimr::sfl(
         mean = ~ mean(.x, na.rm=TRUE),

@@ -12,4 +12,5 @@ venv/
 
 release*/
 report*/*.html
+report*/*.pdf
 report*/figures

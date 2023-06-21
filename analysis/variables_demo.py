@@ -7,62 +7,7 @@ import codelists
 def generate_demo_variables(index_date):
 
   demo_variables = dict(
-
-  has_follow_up_previous_1year=patients.registered_with_one_practice_between(
-    start_date=f"{index_date} - 365 days",
-    end_date=f"{index_date} - 1 day",
-  ),
-
-  age=patients.age_as_of( 
-    f"{index_date} - 1 day",
-  ),
-    
-  sex=patients.sex(
-    return_expectations={
-      "rate": "universal",
-      "category": {"ratios": {"M": 0.49, "F": 0.51}},
-      "incidence": 1,
-    }
-  ),
-
-  # Ethnicity (6 categories)
-  ethnicity = patients.categorised_as(
-    {
-    "Unknown": "DEFAULT",
-    "White": "eth6='1'",
-    "Mixed": "eth6='2'",
-    "Asian or Asian British": "eth6='3'",
-    "Black or Black British": "eth6='4'",
-    "Other": "eth6='5'",
-    },
-    eth6 = patients.with_these_clinical_events(
-      ethnicity_codes_6,
-      returning = "category",
-      find_last_match_in_period = True,
-      include_date_of_match = False,
-      return_expectations = {
-        "incidence": 0.75,
-        "category": {
-          "ratios": { "1": 0.30, "2": 0.20, "3": 0.20, "4": 0.20, "5": 0.05, "6": 0.05, },
-          },
-        },
-      ),
-    return_expectations = {
-      "rate": "universal",
-      "category": {
-        "ratios": {
-          "White": 0.30,
-          "Mixed": 0.20,
-          "Asian or Asian British": 0.20,
-          "Black or Black British": 0.20,
-          "Other": 0.05,
-          "Unknown": 0.05,
-          },
-        },
-      },
-  ),
-
-  
+ 
   ################################################################################################
   ## Practice and patient ID variables
   ################################################################################################

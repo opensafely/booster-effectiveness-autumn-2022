@@ -20,6 +20,7 @@ library(here)
 source(here("analysis", "design.R"))
 
 source(here("lib", "functions", "utility.R"))
+source(here("lib", "functions", "match_control.R"))
 
 source(here("analysis", "process", "process_functions.R"))
 
@@ -29,37 +30,45 @@ args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) == 0) {
   # use for interactive testing
-  stage <- "treated"
+  # stage <- "treated"
   # stage <- "controlpotential"
-  # stage <- "controlactual"
+  stage <- "controlactual"
+  # match_strategy <- "none"
+  match_strategy <- "A"
   match_round <- as.integer("1")
 } else {
   stage <- args[[1]]
-  if (stage %in% "treated") {
-    if (length(args) > 1) 
-      stop("No additional args to be specified when `stage=\"treated\"")
-  } else {
-    if (length(args) == 1) {
-      stop("`match_round` must be specified when `stage=\"controlpotential\"` or \"controlactual\"")
-    }
-    match_round <- as.integer(args[[2]]) # NULL if treated    
-  } 
+  if (stage %in% c("controlpotential", "controlactual")) {
+    match_strategy <- args[[2]]
+    match_round <- as.integer(args[[3]])
+  }
 } 
 
 # ## create output directories and define parameters ----
 if (stage == "treated") {
+  
   path_stem <- here("output", "treated")
   fs::dir_create(file.path(path_stem, "flowchart"))
+  fs::dir_create(here("output", "report"))
   custom_path <- file.path(path_stem, "dummydata", "dummydata_treated.feather")
+  
 } else if (stage %in% c("controlpotential", "controlactual")) {
-  path_stem <- ghere("output", "matchround{match_round}", stage)
+  
+  # save elements of match_strategy_* list to global environment
+  list2env(
+    x = get(glue("match_strategy_{match_strategy}")),
+    envir = environment()
+  )
+  
+  path_stem <- ghere("output", "incremental_{match_strategy}", "matchround{match_round}", stage)
   fs::dir_create(file.path(path_stem, "match"))
-  custom_path <- here("output", "matchround1", "controlpotential", "dummydata", "dummydata_controlpotential.feather")
+  custom_path <- here("output", "incremental_none", "matchround1", "controlpotential", "dummydata", "dummydata_controlpotential.feather")
   match_round_date <- study_dates$control_extract[match_round]
+  
 }
+
 fs::dir_create(file.path(path_stem, "eligible"))
 fs::dir_create(file.path(path_stem, "process"))
-
 
 # import data ----
 
@@ -74,7 +83,7 @@ if (stage == "controlactual") {
   ## trial info for potential matches in round X
   data_potential_matchstatus <- 
     read_rds(
-      ghere("output", "matchround{match_round}", "controlpotential", "match", "data_potential_matchstatus.rds")
+      ghere("output", "incremental_{match_strategy}", "matchround{match_round}", "controlpotential", "match", "data_potential_matchstatus.rds")
       ) %>% 
     filter(matched==1L)
   
@@ -83,6 +92,14 @@ if (stage == "controlactual") {
 if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
   
   data_dummy <- arrow::read_feather(custom_path) 
+  
+  if ((stage == "controlpotential" & match_round > 1) | (stage == "controlactual")) {
+    
+    # remove variables from dummy data that are not extracted for the given match_strategy
+    data_dummy <- data_dummy %>%
+      select(-all_of(match_strategy_none$match_vars[!match_strategy_none$match_vars %in% match_vars]))
+      
+  }
   
   if (stage == "controlpotential") {
     data_dummy <- data_dummy %>%
@@ -204,18 +221,6 @@ data_processed <- data_extract %>%
   )  %>%
   # process demographics
   mutate(
-    
-    sex = fct_case_when(
-      sex == "F" ~ "Female",
-      sex == "M" ~ "Male",
-      TRUE ~ NA_character_
-    ),
-    
-    ethnicity = factor(
-      ethnicity,
-      levels = c("White", "Mixed", "Asian or Asian British", "Black or Black British", "Other")
-    ),
-    
     region = fct_collapse(
       region,
       `East of England` = "East",
@@ -226,29 +231,32 @@ data_processed <- data_extract %>%
       `South East` = "South East",
       `South West` = "South West"
     ),
-    
+    imd = as.integer(imd),
     imd_Q5 = factor(
       imd_Q5,
       levels = c("1 (most deprived)", "2", "3", "4", "5 (least deprived)")
     )
-    
   ) %>%
   # process pre-baseline events
   mutate(
     timesincecoviddischarged = as.integer(index_date - discharged_covid_0_date),
     timesincecoviddischarged = fct_case_when(
-      timesincecoviddischarged <= 0 ~ "In hospital", # will be excluded
-      timesincecoviddischarged <= 30 ~ "1-30 days",
-      timesincecoviddischarged <= 180 ~ "31-180 days",
+      is.na(timesincecoviddischarged) ~ "No prior COVID-19 admission",
       timesincecoviddischarged > 180 ~ "181+ days",
-      is.na(timesincecoviddischarged) ~ "No prior COVID-19 admission"
+      timesincecoviddischarged <= 180 ~ "31-180 days",
+      timesincecoviddischarged <= 30 ~ "1-30 days", # will be excluded
+      timesincecoviddischarged <= 0 ~ "In hospital" # will be excluded
     )
-  )
+  ) %>%
+  select(-c(bmi_value))
 
 rm(data_extract)
 
 # read vaccination data
 data_vax <- read_rds(here("output", "initial", "eligible", "data_vax.rds")) 
+
+# TODO sort out this processing so that match variables are only processed when
+# they've been extracted
 
 # process vaccination data
 data_vax_processed <- data_processed %>%
@@ -300,7 +308,11 @@ data_vax_processed <- data_processed %>%
 # join to data_processed
 data_processed <- data_processed %>%
   select(-any_of("vax_boostautumn_date")) %>% # as it's in data_vax_processed
-  left_join(data_vax_processed, by = "patient_id")
+  left_join(data_vax_processed, by = "patient_id") %>%
+  left_join(
+    data_vax %>% select(patient_id, sex, ethnicity, hscworker, flu_vaccine),
+    by = "patient_id"
+    )
 
 rm(data_vax, data_vax_processed)
 
@@ -445,6 +457,18 @@ if (stage == "treated") {
       file.path(path_stem, "flowchart", "flowchart_unrounded.csv")
       )
   
+  # combine initial and treated flowcharts 
+  # apply midpoint rounding
+  # save for release
+  read_csv(here("output", "initial", "flowchart", "flowchart_unrounded.csv")) %>%
+    mutate(stage = "initial") %>%
+    bind_rows(data_flowchart %>% mutate(stage = "treated")) %>%
+    group_by(stage) %>%
+    flow_stats_rounded(to = threshold) %>%
+    ungroup() %>%
+    select(stage, crit, criteria, n, everything()) %>%
+    write_csv(ghere("output", "report", "flowchart_combined_midpoint{threshold}.csv"))
+  
 }
 
 # check match (only when stage="actual") ----
@@ -475,9 +499,9 @@ if (stage == "controlactual") {
   rematch <-
     # first join on exact variables + match_id + trial_date
     inner_join(
-      x=data_treated %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables_relative))),
-      y=data_control %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables_relative))),
-      by = c("match_id", "trial_date", exact_variables_relative)
+      x=data_treated %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables_incremental))),
+      y=data_control %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables_incremental))),
+      by = c("match_id", "trial_date", exact_variables_incremental)
     ) 
   
   
@@ -514,7 +538,68 @@ if (stage == "controlactual") {
     ) %>%
     arrange(trial_date, match_id, treated)
   
-  ###
+  # rematchit ----
+  
+  # try rerunning matchit in the unsuccessfuly matches to see if any new matches 
+  # can be found from the rematch failures
+  data_unsuccessful_match <- 
+    match_candidates %>%
+    anti_join(rematch, by=c("match_id", "trial_date", "matched"))
+  
+  # rerun match algorithm
+  # (this will be updated to allow for different matching strategies)
+  set.seed(10)
+  obj_matchit <-
+    safely_matchit(
+      data = data_unsuccessful_match,
+      exact = c("trial_time", exact_variables_incremental),
+      caliper = caliper_variables
+    )[[1]]
+  
+  # save output
+  data_rematchit <- tibble(
+    patient_id = data_unsuccessful_match$patient_id,
+    matched = !is.na(obj_matchit$subclass),
+    # match_id + 1000 to distinguish mathces made by rematchit
+    match_id = as.integer(as.character(obj_matchit$subclass)) + 1000L,
+    treated = obj_matchit$treat,
+    control = 1L - treated,
+    weight = obj_matchit$weights,
+    trial_time = data_unsuccessful_match$trial_time
+  ) 
+  
+  # print success
+  cat("matchit rerun success by trial_time:\n")
+  data_rematchit %>%
+    arrange(trial_time) %>%
+    group_by(trial_time, matched) %>%
+    count() %>%
+    ungroup() %>%
+    pivot_wider(names_from = matched, values_from = n, values_fill = 0) %>% 
+    print(n=Inf)
+  
+  # add to successful matches
+  data_successful_match <- 
+    data_successful_match %>%
+    bind_rows(
+      data_rematchit %>%
+        filter(matched) %>%
+        left_join(
+          match_candidates %>% 
+            select(-c(match_id, matched, treated, control, controlistreated_date)),
+          by = c("patient_id", "trial_time")
+          ) %>%
+        group_by(match_id) %>%
+        # controlistreated_date needs updating, as there are new matched pairs
+        mutate(
+          # this only works because of the group_by statement above
+          controlistreated_date = vax_boostautumn_date[treated==0], 
+          .after = control
+        ) %>%
+        ungroup()
+    )
+  
+  # process and summarise successful matches ----
   
   matchstatus_vars <- c("patient_id", "match_id", "trial_date", "match_round", "treated", "controlistreated_date")
   
@@ -528,16 +613,16 @@ if (stage == "controlactual") {
   
   ## how many matches are lost?
   print(glue(
-    "{sum(data_successful_matchstatus$treated)} matched-pairs kept out of {sum(data_potential_matchstatus$treated)} 
+    "{sum(data_successful_matchstatus$treated)} matched-pairs kept or re-matched out of {sum(data_potential_matchstatus$treated)} 
   ({round(100*(sum(data_successful_matchstatus$treated) / sum(data_potential_matchstatus$treated)),2)}%)"
   ))
   
-  ## pick up all previous successful matches ----
+  # pick up all previous successful matches ----
   
   if (match_round > 1) {
     
     data_matchstatusprevious <- read_rds(
-      ghere("output", "matchround{match_round-1}", "controlactual", "match", "data_matchstatus_allrounds.rds")
+      ghere("output", "incremental_{match_strategy}", "matchround{match_round-1}", "controlactual", "match", "data_matchstatus_allrounds.rds")
     )
     
     data_matchstatus_allrounds <- 
@@ -559,6 +644,18 @@ if (stage == "controlactual") {
       file.path(path_stem, "match", "data_matchstatus_allrounds.rds"), 
       compress="gz"
       )
+  
+  if (match_round == n_match_rounds) {
+    
+    #create directory
+    tmp_dir <- here("output", "incremental", "match")
+    fs::dir_create(tmp_dir)
+    # save patient_id and trial_date for reading into outcome study def
+    data_matchstatus_allrounds %>%
+      select(patient_id, trial_date) %>%
+      write_csv(file.path(tmp_dir, "data_matchcontrol.csv.gz"))
+    rm(tmp_dir)
+  }
   
   ## size of dataset
   print("data_matchstatus_allrounds treated/untreated numbers")
@@ -586,4 +683,18 @@ if (stage == "controlactual") {
   print("data_successful_match treated/untreated numbers")
   table(treated = data_successful_matchstatus$treated, useNA="ifany")
   
+  ## save csv for all unmatched individuals to read into extract_controlpotential_{matchround+1}
+  # read data from all individuals satisfying initial eligibility criteria
+  data_eligible <- read_csv(here("output", "initial", "eligible", "data_eligible.csv.gz"))
+  # remove all individuals previously matched as controls
+  data_eligible %>%
+    anti_join(
+      data_matchstatus_allrounds %>% 
+        filter(treated == 0) %>%
+        distinct(patient_id),
+      by = "patient_id"
+      ) %>%
+    write_csv(file.path(path_stem, "match", "data_unsuccessful_matchedcontrols.csv.gz"))
+  
 }
+

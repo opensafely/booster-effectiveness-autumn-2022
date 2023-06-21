@@ -15,27 +15,25 @@ from cohortextractor import (
 )
 
 # define params
+match_strategy = params["match_strategy"]
 match_round = params["match_round"]
 
+# match_vars
+with open("lib/design/match-strategy-A.json") as f:
+   match_strategy_ojb = json.load(f)
 
 ############################################################
 ## inclusion variables
 from variables_inclusion import generate_inclusion_variables 
 inclusion_variables = generate_inclusion_variables(index_date="trial_date")
 ############################################################
-## jcvi variables
-from variables_jcvi import generate_jcvi_variables 
-jcvi_variables = generate_jcvi_variables(index_date="trial_date")
+# match variables
+from variables_match import generate_match_variables 
+match_variables = generate_match_variables(
+    index_date="trial_date", 
+    match_vars = match_strategy_ojb["match_vars"]
+    )
 ############################################################
-## demographic variables
-from variables_demo import generate_demo_variables 
-demo_variables = generate_demo_variables(index_date="trial_date")
-############################################################
-## pre variables
-from variables_pre import generate_pre_variables 
-pre_variables = generate_pre_variables(index_date="trial_date")
-
-
 
 # Specify study defeinition
 study = StudyDefinition(
@@ -53,13 +51,24 @@ study = StudyDefinition(
   population=patients.satisfying(
     "prematched",
     
-    prematched = patients.which_exist_in_file(f_path=f"output/matchround{match_round}/controlpotential/match/potential_matchedcontrols.csv.gz"), 
+    prematched = patients.which_exist_in_file(
+        f_path=f"output/incremental_{match_strategy}/matchround{match_round}/controlpotential/match/potential_matchedcontrols.csv.gz"
+        ), 
 
   ),
 
-  trial_date = patients.with_value_from_file(f_path=f"output/matchround{match_round}/controlpotential/match/potential_matchedcontrols.csv.gz", returning="trial_date", returning_type="date", date_format='YYYY-MM-DD'),
+  trial_date = patients.with_value_from_file(
+      f_path=f"output/incremental_{match_strategy}/matchround{match_round}/controlpotential/match/potential_matchedcontrols.csv.gz", 
+      returning="trial_date", 
+      returning_type="date", 
+      date_format='YYYY-MM-DD'
+      ),
   
-  match_id = patients.with_value_from_file(f_path=f"output/matchround{match_round}/controlpotential/match/potential_matchedcontrols.csv.gz", returning="match_id", returning_type="int"),
+  match_id = patients.with_value_from_file(
+      f_path=f"output/incremental_{match_strategy}/matchround{match_round}/controlpotential/match/potential_matchedcontrols.csv.gz", 
+      returning="match_id", 
+      returning_type="int"
+      ),
   
   ###############################################################################
   # inclusion variables
@@ -69,16 +78,6 @@ study = StudyDefinition(
   ###############################################################################
   # jcvi variables
   ##############################################################################
-  **jcvi_variables, 
-  
-  ###############################################################################
-  # demographic variables
-  ##############################################################################
-  **demo_variables,   
-
-  ###############################################################################
-  # pre variables
-  ##############################################################################
-  **pre_variables,    
+  **match_variables, 
 
 )

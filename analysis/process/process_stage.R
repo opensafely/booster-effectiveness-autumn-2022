@@ -46,19 +46,29 @@ if (length(args) == 0) {
 
 # ## create output directories and define parameters ----
 if (stage == "treated") {
+  
   path_stem <- here("output", "treated")
   fs::dir_create(file.path(path_stem, "flowchart"))
   fs::dir_create(here("output", "report"))
   custom_path <- file.path(path_stem, "dummydata", "dummydata_treated.feather")
+  
 } else if (stage %in% c("controlpotential", "controlactual")) {
+  
+  # save elements of match_strategy_* list to global environment
+  list2env(
+    x = get(glue("match_strategy_{match_strategy}")),
+    envir = environment()
+  )
+  
   path_stem <- ghere("output", "incremental_{match_strategy}", "matchround{match_round}", stage)
   fs::dir_create(file.path(path_stem, "match"))
   custom_path <- here("output", "incremental_none", "matchround1", "controlpotential", "dummydata", "dummydata_controlpotential.feather")
   match_round_date <- study_dates$control_extract[match_round]
+  
 }
+
 fs::dir_create(file.path(path_stem, "eligible"))
 fs::dir_create(file.path(path_stem, "process"))
-
 
 # import data ----
 
@@ -82,6 +92,14 @@ if (stage == "controlactual") {
 if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
   
   data_dummy <- arrow::read_feather(custom_path) 
+  
+  if ((stage == "controlpotential" & match_round > 1) | (stage == "controlactual")) {
+    
+    # remove variables from dummy data that are not extracted for the given match_strategy
+    data_dummy <- data_dummy %>%
+      select(-all_of(match_strategy_none$match_vars[!match_strategy_none$match_vars %in% match_vars]))
+      
+  }
   
   if (stage == "controlpotential") {
     data_dummy <- data_dummy %>%
@@ -203,18 +221,6 @@ data_processed <- data_extract %>%
   )  %>%
   # process demographics
   mutate(
-    
-    sex = fct_case_when(
-      sex == "F" ~ "Female",
-      sex == "M" ~ "Male",
-      TRUE ~ NA_character_
-    ),
-    
-    ethnicity = factor(
-      ethnicity,
-      levels = c("White", "Mixed", "Asian or Asian British", "Black or Black British", "Other")
-    ),
-    
     region = fct_collapse(
       region,
       `East of England` = "East",
@@ -225,12 +231,11 @@ data_processed <- data_extract %>%
       `South East` = "South East",
       `South West` = "South West"
     ),
-    
+    imd = as.integer(imd),
     imd_Q5 = factor(
       imd_Q5,
       levels = c("1 (most deprived)", "2", "3", "4", "5 (least deprived)")
     )
-    
   ) %>%
   # process pre-baseline events
   mutate(
@@ -249,6 +254,9 @@ rm(data_extract)
 
 # read vaccination data
 data_vax <- read_rds(here("output", "initial", "eligible", "data_vax.rds")) 
+
+# TODO sort out this processing so that match variables are only processed when
+# they've been extracted
 
 # process vaccination data
 data_vax_processed <- data_processed %>%
@@ -302,7 +310,7 @@ data_processed <- data_processed %>%
   select(-any_of("vax_boostautumn_date")) %>% # as it's in data_vax_processed
   left_join(data_vax_processed, by = "patient_id") %>%
   left_join(
-    data_vax %>% select(patient_id, flu_vaccine),
+    data_vax %>% select(patient_id, sex, ethnicity, hscworker, flu_vaccine),
     by = "patient_id"
     )
 

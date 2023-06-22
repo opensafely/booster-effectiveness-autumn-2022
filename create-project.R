@@ -634,7 +634,9 @@ actions_list <- splice(
   action(
     name = "process_treated",
     run = "r:latest analysis/process/process_stage.R",
-    arguments = "treated",
+    # set match_strategy="none" and match_round=0 to keep the code happy,
+    # but these don't really mean anything here
+    arguments = c("treated", "none", 0),
     needs = namelesslst(
       "process_initial",
       "extract_treated",

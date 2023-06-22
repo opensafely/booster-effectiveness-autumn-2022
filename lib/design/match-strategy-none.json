@@ -1,8 +1,8 @@
 {
-  "exact_vars": ["imd", "imd_Q5", "region"],
+  "exact_vars": "region",
   "caliper_vars": {},
   "score_vars": {},
-  "match_vars": ["imd", "imd_Q5", "region"],
+  "match_vars": "region",
   "adj_vars": {},
   "strata_vars": {}
 }

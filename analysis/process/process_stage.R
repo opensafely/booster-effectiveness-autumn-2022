@@ -38,11 +38,14 @@ if (length(args) == 0) {
   match_round <- as.integer("1")
 } else {
   stage <- args[[1]]
-  if (stage %in% c("controlpotential", "controlactual")) {
-    match_strategy <- args[[2]]
-    match_round <- as.integer(args[[3]])
-  }
+  match_strategy <- args[[2]]
+  match_round <- as.integer(args[[3]])
 } 
+
+list2env(
+  x = get(glue("match_strategy_{match_strategy}")),
+  envir = environment()
+)
 
 # ## create output directories and define parameters ----
 if (stage == "treated") {
@@ -53,12 +56,6 @@ if (stage == "treated") {
   custom_path <- file.path(path_stem, "dummydata", "dummydata_treated.feather")
   
 } else if (stage %in% c("controlpotential", "controlactual")) {
-  
-  # save elements of match_strategy_* list to global environment
-  list2env(
-    x = get(glue("match_strategy_{match_strategy}")),
-    envir = environment()
-  )
   
   path_stem <- ghere("output", "incremental_{match_strategy}", "matchround{match_round}", stage)
   fs::dir_create(file.path(path_stem, "match"))
@@ -93,11 +90,17 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
   
   data_dummy <- arrow::read_feather(custom_path) 
   
-  if ((stage == "controlpotential" & match_round > 1) | (stage == "controlactual")) {
+  # remove variables from dummy data that are not extracted for the given match_strategy
+  if (stage %in% c("controlpotential", "controlactual")) {
     
-    # remove variables from dummy data that are not extracted for the given match_strategy
-    data_dummy <- data_dummy %>%
-      select(-all_of(match_strategy_none$match_vars[!match_strategy_none$match_vars %in% match_vars]))
+    tmp_remove_vars <- !match_strategy_none$match_vars %in% match_vars
+    
+    if (any(tmp_remove_vars)) {
+      data_dummy <- data_dummy %>%
+        select(-all_of(match_strategy_none$match_vars[tmp_remove_vars]))
+    }
+    
+    rm(tmp_remove_vars)
       
   }
   
@@ -196,7 +199,8 @@ data_processed <- data_extract %>%
       breaks=c(50, 65, 75, Inf),
       labels=c("50-64", "65-74", "75+"),
       right=FALSE
-    )
+    ),
+    imd = as.integer(imd)
   ) %>%
   # process jcvi variables
   mutate(
@@ -252,21 +256,24 @@ if ("region" %in% match_vars) {
   
 }
 
-if ("imd" %in% match_vars) {
-  
-  data_processed <- data_processed %>%
-    mutate(imd = as.integer(imd))
-  
-}
-
 if ("imd_Q5" %in% match_vars) {
+  
+  imd_levs <- c("Unknown", "1 (most deprived)", "2", "3", "4", "5 (least deprived)")
   
   data_processed <- data_processed %>%
     mutate(
+      # define imd quintiles
+      imd_Q5 = cut(
+        x = imd,
+        breaks = seq(0,1,0.2)*32800,
+        labels = imd_levs[-1]
+      ),
+      # add labels (done here instead of in cut() so can define labels for NAs)
       imd_Q5 = factor(
-        imd_Q5,
-        levels = c("1 (most deprived)", "2", "3", "4", "5 (least deprived)")
+        replace_na(as.character(imd_Q5), imd_levs[1]),
+        levels = imd_levs
       )
+      
     )
   
 }
@@ -358,7 +365,7 @@ data_criteria <- data_processed %>%
     no_undefineddose = !is.na(vax_primary_brand), 
     lastdoseinterval = !is.na(lastvaxbeforeindex_date) & (as.integer(index_date - lastvaxbeforeindex_date) >= 91),
     has_sex = !is.na(sex),
-    has_imd = !is.na(imd_Q5),
+    has_imd = !is.na(imd),
     has_ethnicity = !is.na(ethnicity),
     has_region = !is.na(region),
     isnot_carehomeresident = !carehome,
@@ -517,28 +524,28 @@ if (stage == "controlactual") {
   rematch <-
     # first join on exact variables + match_id + trial_date
     inner_join(
-      x=data_treated %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables_incremental))),
-      y=data_control %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables_incremental))),
-      by = c("match_id", "trial_date", exact_variables_incremental)
+      x=data_treated %>% select(match_id, trial_date, all_of(c(names(caliper_vars), exact_vars))),
+      y=data_control %>% select(match_id, trial_date, all_of(c(names(caliper_vars), exact_vars))),
+      by = c("match_id", "trial_date", exact_vars)
     ) 
   
   
-  if (length(caliper_variables) > 0) {
+  if (length(caliper_vars) > 0) {
     
-    # check caliper_variables are still within caliper
+    # check caliper_vars are still within caliper
     rematch <- rematch %>%
       bind_cols(
         map_dfr(
-          set_names(names(caliper_variables), names(caliper_variables)),
-          ~ abs(rematch[[str_c(.x, ".x")]] - rematch[[str_c(.x, ".y")]]) <= caliper_variables[.x]
+          set_names(names(caliper_vars), names(caliper_vars)),
+          ~ abs(rematch[[str_c(.x, ".x")]] - rematch[[str_c(.x, ".y")]]) <= caliper_vars[.x]
         )
       ) %>%
       # dplyr::if_all not in opensafely version of dplyr so use filter_at instead
       # filter(if_all(
-      #   all_of(names(caliper_variables))
+      #   all_of(names(caliper_vars))
       # )) 
       filter_at(
-        all_of(names(caliper_variables)),
+        all_of(names(caliper_vars)),
         all_vars(.)
       )
     
@@ -570,8 +577,8 @@ if (stage == "controlactual") {
   obj_matchit <-
     safely_matchit(
       data = data_unsuccessful_match,
-      exact = c("trial_time", exact_variables_incremental),
-      caliper = caliper_variables
+      exact = c("trial_time", exact_vars),
+      caliper = caliper_vars
     )[[1]]
   
   # save output

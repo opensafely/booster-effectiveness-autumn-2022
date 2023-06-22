@@ -204,9 +204,9 @@ create_match_strategy <- function(
 
 match_strategy_none <- create_match_strategy(
   name = "none",
-  # these won't be used for matching, but these are the variables that could be
-  # be used in all possible matching strategies
-  exact_vars = c("imd", "imd_Q5", "region")
+  # these are all the optional variables defined in variables_match
+  # defined here so that they can be removed from dummy data when not needed
+  exact_vars = c("region")
   )
 
 match_strategy_A <- create_match_strategy(

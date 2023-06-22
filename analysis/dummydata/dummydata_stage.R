@@ -115,14 +115,6 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
         as.integer(round(imd, -2)),
         NA_integer_
       ),
-      # define imd quintiles
-      imd_Q5 = cut(
-        x = imd,
-        breaks = seq(0,1,0.2)*32800,
-        labels = c("1 (most deprived)", "2", "3", "4", "5 (least deprived)")
-      ),
-      # add labels (done here instead of in cut() so can define labels for NAs)
-      imd_Q5 = replace_na(as.character(imd_Q5), "Unknown"),
       imd = as.character(imd)
     ) 
   

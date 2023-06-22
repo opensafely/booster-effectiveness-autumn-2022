@@ -16,6 +16,17 @@ def generate_elig_variables(index_date):
             start_date=f"{index_date} - 365 days",
             end_date=f"{index_date} - 1 day",
         ),
+
+        # imd
+        imd=patients.address_as_of(
+            f"{index_date} - 1 day",
+            returning="index_of_multiple_deprivation",
+            round_to_nearest=100,
+            return_expectations={
+                "category": {"ratios": {c: 1/320 for c in range(100, 32100, 100)}},
+                "incidence": 0.99
+                }
+            ),
     
         # care home flag
         carehome = patients.satisfying(

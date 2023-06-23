@@ -80,7 +80,7 @@ actions:
         dummydata_controlpotential: output/incremental_none/matchround1/controlpotential/dummydata/*.feather
 
   process_treated:
-    run: r:latest analysis/process/process_stage.R treated
+    run: r:latest analysis/process/process_stage.R treated none 0
     needs:
     - process_initial
     - extract_treated
@@ -201,19 +201,19 @@ actions:
       highly_sensitive:
         cohort: output/incremental_A/matchround2/controlpotential/extract/input_controlpotential.feather
 
-  # process_controlpotential_A_2:
-  #   run: r:latest analysis/process/process_stage.R controlpotential A 2
-  #   needs:
-  #   - dummydata_stage
-  #   - process_initial
-  #   - extract_controlpotential_A_2
-  #   outputs:
-  #     highly_sensitive:
-  #       eligible_rds: output/incremental_A/matchround2/controlpotential/eligible/*.rds
-  #     moderately_sensitive:
-  #       data_extract_skim: output/incremental_A/matchround2/controlpotential/extract/*.txt
-  #       data_processed_skim: output/incremental_A/matchround2/controlpotential/process/*.txt
-  #       data_controlpotential_skim: output/incremental_A/matchround2/controlpotential/eligible/*.txt
+  process_controlpotential_A_2:
+    run: r:latest analysis/process/process_stage.R controlpotential A 2
+    needs:
+    - dummydata_stage
+    - process_initial
+    - extract_controlpotential_A_2
+    outputs:
+      highly_sensitive:
+        eligible_rds: output/incremental_A/matchround2/controlpotential/eligible/*.rds
+      moderately_sensitive:
+        data_extract_skim: output/incremental_A/matchround2/controlpotential/extract/*.txt
+        data_processed_skim: output/incremental_A/matchround2/controlpotential/process/*.txt
+        data_controlpotential_skim: output/incremental_A/matchround2/controlpotential/eligible/*.txt
 
   # match_controlpotential_A_2:
   #   run: r:latest analysis/match/match_controlpotential.R A 2

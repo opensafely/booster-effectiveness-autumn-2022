@@ -21,13 +21,13 @@ with open("./lib/design/study-dates.json") as f:
 studystart_date = study_dates["studystart"]
 
 # define params
-group = params["group"]
+match_strategy = params["match_strategy"]
 
-if group == "alltreated":
+if match_strategy == "alltreated":
   file_path = "output/treated/eligible/data_treated.csv.gz"
   return_var = "vax_boostautumn_date"
-if group == "matchcontrol":
-  file_path = "output/incremental/match/data_matchcontrol.csv.gz"
+else:
+  file_path = f"output/incremental_{match_strategy}/match/data_matchcontrol.csv.gz"
   return_var = "trial_date"
 
 # Specify study defeinition

@@ -22,13 +22,14 @@ source(here("lib", "functions", "utility.R"))
 # import command-line arguments
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
-  # use for interactive testing
-  # effect <- "relative"
-  effect <- "comparative"
+  effect <- "incremental"
+  match_strategy <- "A"
 } else {
-  #FIXME replace with actual eventual action variables
   effect <- args[[1]]
+  match_strategy <- args[[2]]
 }
+
+effect_match_strategy <- str_c(effect, match_strategy, sep = "_")
 
 if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
   
@@ -43,18 +44,18 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
 } else {
   
   # create output directories
-  output_dir <- here("output", effect, "coverage")
+  output_dir <- here("output", effect_match_strategy, "coverage")
   fs::dir_create(output_dir)
   
   if (effect == "comparative") {
     
-    data_matchstatus <- read_rds(here("output", "comparative", "match", "data_matchstatus.rds"))
+    data_matchstatus <- read_rds(here("output", effect_match_strategy, "match", "data_matchstatus.rds"))
     
   }
   
-  if (effect == "relative") {
+  if (effect == "incremental") {
     
-    data_matchstatus <- read_rds(ghere("output", "matchround{n_match_rounds}", "controlactual", "match", "data_matchstatus_allrounds.rds"))
+    data_matchstatus <- read_rds(ghere("output", effect_match_strategy, "matchround{n_match_rounds}", "controlactual", "match", "data_matchstatus_allrounds.rds"))
     
     data_matchstatus <- data_matchstatus %>%
       # only keep treated individuals who were successfully matched
@@ -149,10 +150,10 @@ colour_palette <- list(
     "#e7298a", # dark pink 
     "#7570b3" # dark purple 
   ),
-  relative = c(
+  incremental = c(
     # change this to something different from comparative
-    "#e7298a", # dark pink
-    "#7570b3" # dark purple
+    "#d95f02", # orange
+    "#1b9e77" # green
   )
 )
 names(colour_palette[[effect]]) <- names(recoder[[effect]])
@@ -226,7 +227,7 @@ plot_coverage_cumuln <-
   ) +
   geom_rect(xmin=xmin, xmax= xmax+1, ymin=-6, ymax=6, fill="grey", colour="transparent")+
   scale_x_date(
-    breaks = unique(lubridate::ceiling_date(data_coverage_rounded$vax3_date, "1 month")),
+    breaks = unique(lubridate::ceiling_date(data_coverage_rounded$trial_date, "1 month")),
     limits = c(xmin-1, NA),
     labels = scales::label_date("%b %Y"),
     expand = expansion(add=7),

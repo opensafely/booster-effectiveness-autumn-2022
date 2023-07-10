@@ -21,20 +21,25 @@ source(here("analysis", "process", "process_functions.R"))
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
   # use for interactive testing
-  effect <- "comparative"
+  effect <- "incremental"
+  match_strategy <- "A"
   
 } else {
   effect <- args[[1]]
+  match_strategy <- args[[2]]
 }
 
+effect_match_strategy <- str_c(effect, match_strategy, sep = "_")
+
 # create output directories
-outdir <- here("output", effect, "flowchart")
+outdir <- here("output", effect_match_strategy, "flowchart")
 fs::dir_create(outdir)
 
 # read data
 if (effect == "comparative") {
   
-  data_matchstatus <- readr::read_rds(here("output", "comparative", "match", "data_matchstatus.rds")) %>%
+  data_matchstatus <- 
+    readr::read_rds(here("output", effect_match_strategy, "match", "data_matchstatus.rds")) %>%
     select(patient_id, treated, matched, trial_date)
   
   flowchart_final <- data_matchstatus %>%
@@ -62,9 +67,10 @@ if (effect == "comparative") {
   
 }
 
-if (effect == "relative") {
+if (effect == "incremental") {
   
-  data_matchstatus_allrounds <- read_rds(ghere("output", "matchround{n_match_rounds}", "controlactual", "match", "data_matchstatus_allrounds.rds"))
+  data_matchstatus_allrounds <- 
+    read_rds(ghere("output", effect_match_strategy, "matchround{n_match_rounds}", "controlactual", "match", "data_matchstatus_allrounds.rds"))
   
   data_matchstatus <- data_matchstatus_allrounds %>%
     mutate(matched = !is.na(match_id)) %>% # always TRUE

@@ -189,7 +189,7 @@ action_1matchround <- function(match_strategy, match_round) {
       ) %>% as.list,
       highly_sensitive = as.list(c(
           rds = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/match/*.rds"),
-          final = if(match_round==n_match_rounds) {"output/incremental_{match_strategy}/match/*.csv.gz"} else NULL
+          final = if(match_round==n_match_rounds) {glue("output/incremental_{match_strategy}/match/*.csv.gz")} else NULL
         )),
       moderately_sensitive = lst(
         input_controlactual_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/extract/*.txt"),
@@ -207,23 +207,22 @@ action_1matchround <- function(match_strategy, match_round) {
 }
 
 
-extract_outcomes <- function(group) {
+extract_outcomes <- function(match_strategy) {
   
   action(
-    name = glue("extract_outcomes_{group}"),
+    name = glue("extract_outcomes_{match_strategy}"),
     run = glue(
       "cohortextractor:latest generate_cohort",
       glue(" --study-definition study_definition_outcomes"),
-      glue(" --output-file output/outcomes/input_outcomes_{group}.feather"),
-      " --param group={group}"
+      glue(" --output-file output/outcomes/input_outcomes_{match_strategy}.feather"),
+      " --param match_strategy={match_strategy}"
     ),
     needs = as.list(c(
       "design",
-      if (group=="alltreated") {"process_treated"} else {NULL},
-      if (group=="matchcontrol") {glue("process_controlactual_{n_match_rounds}")} else {NULL}
+      if (match_strategy=="alltreated") {"process_treated"} else {glue("process_controlactual_{match_strategy}_{n_match_rounds}")}
     )),
     highly_sensitive = lst(
-      cohort = glue("output/outcomes/input_outcomes_{group}.feather")
+      cohort = glue("output/outcomes/input_outcomes_{match_strategy}.feather")
     )
   )
   
@@ -319,12 +318,10 @@ action_table1 <- function(effect, match_strategy = NULL) {
   if (effect == "comparative") needs_list <- c(needs_list, glue("match_{effect_match_strategy}"))
   
   if (effect == "incremental") {
-    
     needs_list <- c(
       needs_list, 
-      map_chr(1:n_match_rounds, ~glue("process_controlactual_{.x}"))
+      map_chr(1:n_match_rounds, ~glue("process_controlactual_{match_strategy}_{.x}"))
       )
-    
   }
   
   action(
@@ -347,9 +344,7 @@ actions_postmatch <- function(effect, match_strategy){
   if (effect == "comparative") needs_list <- c(needs_list, glue("match_{effect_match_strategy}"))
   
   if (effect == "incremental") {
-    
-    needs_list <- c(needs_list, glue("process_controlactual_{n_match_rounds}_{effect_match_strategy}"))
-    
+    needs_list <- c(needs_list, glue("process_controlactual_{match_strategy}_{n_match_rounds}"))
   }
   
   out <- action(
@@ -451,7 +446,7 @@ actions_match_strategy <- function(effect, match_strategy, include_models=FALSE)
         ),
       
       # extract outcome variables for matched controls
-      extract_outcomes(group = "matchcontrol")
+      extract_outcomes(match_strategy)
     )
     
   }
@@ -662,7 +657,7 @@ actions_list <- splice(
   
   # extract outcome data for all treated people
   # (not incorporated into study_definition_treated so that it can be updated when more outcome data available)
-  extract_outcomes(group = "alltreated"),
+  extract_outcomes("alltreated"),
   
   comment("# # # # # # # # # # # # # # # # # # #", 
           "Extract and process controlpotential1 data.", 

@@ -1,4 +1,4 @@
-
+# prepare final matched datasets (do in script rather than saving to save storage)
 
 if (effect == "comparative") {
   
@@ -8,7 +8,7 @@ if (effect == "comparative") {
     data_treated <- read_rds(here("output", "treated", "eligible", "data_treated.rds"))
     
     # read match status
-    data_matchstatus <- read_rds(here("output", "comparative", "match", "data_matchstatus.rds")) %>%
+    data_matchstatus <- read_rds(ghere("output", "comparative_{match_strategy}", "match", "data_matchstatus.rds")) %>%
       filter(matched) %>%
       select(patient_id, treated, trial_date)
     
@@ -22,13 +22,13 @@ if (effect == "comparative") {
 }
 
 
-if (effect == "relative") {
+if (effect == "incremental") {
   
   data_matched <- local({
     
     # read data
     data_matchstatus_allrounds <- read_rds(
-      ghere("output", "matchround{n_match_rounds}", "controlactual", "match", "data_matchstatus_allrounds.rds")
+      ghere("output", "incremental_{match_strategy}", "matchround{n_match_rounds}", "controlactual", "match", "data_matchstatus_allrounds.rds")
     )
     
     # import final dataset of matched treated
@@ -44,7 +44,7 @@ if (effect == "relative") {
     data_control <- map_dfr(
       1:n_match_rounds,
       ~read_rds(
-        here("output", glue("matchround", .x), "controlactual", "match", "data_successful_matchedcontrols.rds")
+        ghere("output", "incremental_{match_strategy}", glue("matchround", .x), "controlactual", "match", "data_successful_matchedcontrols.rds")
       )
     )
     

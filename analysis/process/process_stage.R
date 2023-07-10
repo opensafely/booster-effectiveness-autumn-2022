@@ -35,7 +35,7 @@ if (length(args) == 0) {
   stage <- "controlactual"
   # match_strategy <- "none"
   match_strategy <- "A"
-  match_round <- as.integer("1")
+  match_round <- as.integer("2")
 } else {
   stage <- args[[1]]
   match_strategy <- args[[2]]
@@ -582,16 +582,29 @@ if (stage == "controlactual") {
     )[[1]]
   
   # save output
-  data_rematchit <- tibble(
-    patient_id = data_unsuccessful_match$patient_id,
-    matched = !is.na(obj_matchit$subclass),
-    # match_id + 1000 to distinguish mathces made by rematchit
-    match_id = as.integer(as.character(obj_matchit$subclass)) + 1000L,
-    treated = obj_matchit$treat,
-    control = 1L - treated,
-    weight = obj_matchit$weights,
-    trial_time = data_unsuccessful_match$trial_time
-  ) 
+  data_rematchit <- 
+    if(is.null(obj_matchit)){
+      tibble(
+        patient_id = data_unsuccessful_match$patient_id,
+        matched = FALSE,
+        match_id = data_unsuccessful_match$match_id,
+        treated = data_unsuccessful_match$treated,
+        control = data_unsuccessful_match$control,
+        weight = 0,
+        trial_time = data_unsuccessful_match$trial_time
+      )
+    } else {
+      tibble(
+        patient_id = data_unsuccessful_match$patient_id,
+        matched = !is.na(obj_matchit$subclass),
+        # match_id + 1000 to distinguish mathces made by rematchit
+        match_id = as.integer(as.character(obj_matchit$subclass)) + 1000L,
+        treated = obj_matchit$treat,
+        control = 1L - treated,
+        weight = obj_matchit$weights,
+        trial_time = data_unsuccessful_match$trial_time
+      ) 
+    }
   
   # print success
   cat("matchit rerun success by trial_time:\n")
@@ -673,7 +686,7 @@ if (stage == "controlactual") {
   if (match_round == n_match_rounds) {
     
     #create directory
-    tmp_dir <- here("output", "incremental", "match")
+    tmp_dir <- ghere("output", "incremental_{match_strategy}", "match")
     fs::dir_create(tmp_dir)
     # save patient_id and trial_date for reading into outcome study def
     data_matchstatus_allrounds %>%

@@ -3,9 +3,12 @@
 # creates "table 1"
 # this file takes the following argument:
 # - effect: 
-#   - effect="treated" will summarise data for all individuals boosted during the recruitment period
-#   - effect="comparative" will summarise data for the matched pfizer and moderna arms
-#   - effect="incremental" will summarise data for the matched treated and control arms
+#   - effect="treated", match_strategy=NULL:
+#       table1 for all individuals boosted during the recruitment period
+#   - effect="comparative", match_strategy="A": 
+#       table1 for the matched pfizer and moderna arms using match_strategy "A"
+#   - effect="incremental", match_strategy="A":  
+#       table1 for the matched treated and control arms using match_strategy "A"
 # # # # # # # # # # # # # # # # # # # # #
 
 # Preliminaries ----

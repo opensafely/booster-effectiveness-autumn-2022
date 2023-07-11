@@ -33,7 +33,7 @@ def generate_vars_variables(
   # only extract the following variables if specified:
 
   # region
-  if any(x in vars for x in {'everything', 'region'}):
+  if any(x in vars for x in {"everything", "region"}):
     variables.update(
       # NHS administrative region
       region=patients.registered_practice_as_of(
@@ -59,33 +59,33 @@ def generate_vars_variables(
       ),
     )
 
-    if any(x in vars for x in {'everything', 'flu_vaccine'}):
-      variables.update(
-        # flu vaccine in flu seasons 18-19, 19-20 or 20-21
-        flu_vaccine=patients.satisfying(
-          """
-          flu_vaccine_tpp_table>0 OR
-          flu_vaccine_med>0 OR
-          flu_vaccine_clinical>0
-          """,
-          flu_vaccine_tpp_table=patients.with_tpp_vaccination_record(
-              target_disease_matches="INFLUENZA",
-              between=["2018-07-01", "2021-06-30"], 
-              returning="binary_flag",
-          ),
-          flu_vaccine_med=patients.with_these_medications(
-              codelists.flu_med_codes,
-              between=["2018-07-01", "2021-06-30"], 
-              returning="binary_flag",
-          ),
-          flu_vaccine_clinical=patients.with_these_clinical_events(
-              codelists.flu_clinical_given_codes,
-              ignore_days_where_these_codes_occur=codelists.flu_clinical_not_given_codes,
-              between=["2018-07-01", "2021-06-30"], 
-              returning="binary_flag",
-          ),
-          return_expectations={"incidence": 0.5, },
+  # flu vaccine in flu seasons 18-19, 19-20 or 20-21
+  if any(x in vars for x in {"everything", "flu_vaccine"}):
+    variables.update(
+      flu_vaccine=patients.satisfying(
+        """
+        flu_vaccine_tpp_table>0 OR
+        flu_vaccine_med>0 OR
+        flu_vaccine_clinical>0
+        """,
+        flu_vaccine_tpp_table=patients.with_tpp_vaccination_record(
+            target_disease_matches="INFLUENZA",
+            between=["2018-07-01", "2021-06-30"], 
+            returning="binary_flag",
         ),
-      )
+        flu_vaccine_med=patients.with_these_medications(
+            codelists.flu_med_codes,
+            between=["2018-07-01", "2021-06-30"], 
+            returning="binary_flag",
+        ),
+        flu_vaccine_clinical=patients.with_these_clinical_events(
+            codelists.flu_clinical_given_codes,
+            ignore_days_where_these_codes_occur=codelists.flu_clinical_not_given_codes,
+            between=["2018-07-01", "2021-06-30"], 
+            returning="binary_flag",
+        ),
+        return_expectations={"incidence": 0.5, },
+      ),
+    )
 
     return variables

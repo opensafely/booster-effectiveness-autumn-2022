@@ -32,8 +32,8 @@ match_strategy = params["match_strategy"]
 from variables_vars import generate_vars_variables 
 adj_variables = generate_vars_variables(
     index_date="trial_date", 
-    elig = False,
-    vars = match_strategy_ojb["adj_vars"]
+    elig=False,
+    vars=match_strategy_ojb["adj_vars"]
     )
 ############################################################
 
@@ -67,6 +67,6 @@ study = StudyDefinition(
   ###############################################################################
   # adjustment variables
   ##############################################################################
-  **adj_variables
+  **adj_variables,
   
 )

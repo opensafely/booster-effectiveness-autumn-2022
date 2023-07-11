@@ -115,7 +115,8 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
         as.integer(round(imd, -2)),
         NA_integer_
       ),
-      imd = as.character(imd)
+      imd = as.character(imd),
+      flu_vaccine = rbern(n = nrow(.), p=0.3)
     ) 
   
   # treated

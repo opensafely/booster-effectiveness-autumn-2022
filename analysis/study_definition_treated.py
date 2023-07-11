@@ -20,8 +20,8 @@ from variables_inclusion import generate_inclusion_variables
 inclusion_variables = generate_inclusion_variables(index_date="vax_boostautumn_date")
 ############################################################
 ## match variables
-from variables_match import generate_match_variables 
-match_variables = generate_match_variables(index_date="vax_boostautumn_date")
+from variables_vars import generate_vars_variables 
+vars_variables = generate_vars_variables(index_date="vax_boostautumn_date")
 ############################################################
 
 # Specify study definition
@@ -60,8 +60,8 @@ study = StudyDefinition(
   **inclusion_variables,   
 
   ###############################################################################
-  # match variables
+  # variables for matching and model adjustment
   ##############################################################################
-  **match_variables,  
+  **vars_variables,  
   
 )

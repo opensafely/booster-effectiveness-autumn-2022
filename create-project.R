@@ -209,20 +209,26 @@ action_1matchround <- function(match_strategy, match_round) {
 
 extract_outcomes <- function(match_strategy) {
   
+  
+    if (match_strategy=="alltreated") {
+      needs <- "process_treated"
+      outpath <- glue("output/treated/outcomes/input_outcomes.feather")
+    } else {
+      needs <- glue("process_controlactual_{match_strategy}_{n_match_rounds}")
+      outpath <- glue("output/incremental_{match_strategy}/outcomes/input_outcomes.feather")
+    }
+  
   action(
     name = glue("extract_outcomes_{match_strategy}"),
     run = glue(
       "cohortextractor:latest generate_cohort",
       glue(" --study-definition study_definition_outcomes"),
-      glue(" --output-file output/outcomes/input_outcomes_{match_strategy}.feather"),
+      glue(" --output-file {outpath}"),
       " --param match_strategy={match_strategy}"
     ),
-    needs = as.list(c(
-      "design",
-      if (match_strategy=="alltreated") {"process_treated"} else {glue("process_controlactual_{match_strategy}_{n_match_rounds}")}
-    )),
+    needs = as.list(c("design", needs)),
     highly_sensitive = lst(
-      cohort = glue("output/outcomes/input_outcomes_{match_strategy}.feather")
+      cohort = outpath
     )
   )
   
@@ -444,6 +450,24 @@ actions_match_strategy <- function(effect, match_strategy, include_models=FALSE)
         effect = "incremental",
         match_strategy = match_strategy
         ),
+      
+      # extract adjustment variables for final matched controls
+      action(
+        name = glue("extract_controlfinal_{match_strategy}"),
+        run = glue(
+          "cohortextractor:latest generate_cohort",
+          glue(" --study-definition study_definition_controlfinal"),
+          glue(" --output-file output/incremental_{match_strategy}/match/input_controlfinal_{match_strategy}.feather"),
+          " --param match_strategy={match_strategy}"
+        ),
+        needs = as.list(c(
+          "design",
+          glue("process_controlactual_{match_strategy}_{n_match_rounds}")
+        )),
+        highly_sensitive = lst(
+          cohort = glue("output/incremental_{match_strategy}/match/input_controlfinal_{match_strategy}.feather")
+        )
+      ),
       
       # extract outcome variables for matched controls
       extract_outcomes(match_strategy)

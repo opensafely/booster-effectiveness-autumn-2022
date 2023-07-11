@@ -106,13 +106,13 @@ actions:
 
   extract_outcomes_alltreated:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_outcomes
-      --output-file output/outcomes/input_outcomes_alltreated.feather --param match_strategy=alltreated
+      --output-file output/treated/outcomes/input_outcomes.feather --param match_strategy=alltreated
     needs:
     - design
     - process_treated
     outputs:
       highly_sensitive:
-        cohort: output/outcomes/input_outcomes_alltreated.feather
+        cohort: output/treated/outcomes/input_outcomes.feather
 
   ## # # # # # # # # # # # # # # # # # # # 
   ## Extract and process controlpotential1 data. 
@@ -285,15 +285,26 @@ actions:
       moderately_sensitive:
         csv: output/incremental_A/flowchart/*.csv
 
-  extract_outcomes_A:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_outcomes
-      --output-file output/outcomes/input_outcomes_A.feather --param match_strategy=A
+  extract_controlfinal_A:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlfinal
+      --output-file output/incremental_A/match/input_controlfinal_A.feather --param
+      match_strategy=A
     needs:
     - design
     - process_controlactual_A_2
     outputs:
       highly_sensitive:
-        cohort: output/outcomes/input_outcomes_A.feather
+        cohort: output/incremental_A/match/input_controlfinal_A.feather
+
+  extract_outcomes_A:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_outcomes
+      --output-file output/incremental_A/outcomes/input_outcomes.feather --param match_strategy=A
+    needs:
+    - design
+    - process_controlactual_A_2
+    outputs:
+      highly_sensitive:
+        cohort: output/incremental_A/outcomes/input_outcomes.feather
 
   ## #### End #### 
 

@@ -35,7 +35,7 @@ if (length(args) == 0) {
   stage <- "controlactual"
   # match_strategy <- "none"
   match_strategy <- "A"
-  match_round <- as.integer("2")
+  match_round <- as.integer("1")
 } else {
   stage <- args[[1]]
   match_strategy <- args[[2]]
@@ -93,7 +93,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
   # remove variables from dummy data that are not extracted for the given match_strategy
   if (stage %in% c("controlpotential", "controlactual")) {
     
-    tmp_remove_vars <- !match_strategy_none$match_vars %in% match_vars
+    tmp_remove_vars <- !(match_strategy_none$match_vars %in% match_vars)
     
     if (any(tmp_remove_vars)) {
       data_dummy <- data_dummy %>%
@@ -117,7 +117,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
     
     # reuse previous extraction for dummy run, dummy_control_potential1.feather
     data_dummy <- data_dummy %>%
-      filter(patient_id %in% data_potential_matchstatus[(data_potential_matchstatus$treated==0L),]$patient_id) %>%
+      filter(patient_id %in% (data_potential_matchstatus %>% filter(treated==0L) %>% pull(patient_id))) %>%
       # trial_date and match_id are not included in the dummy data so join them on here
       # they're joined in the study def using `with_values_from_file`
       left_join(

@@ -26,7 +26,7 @@ if match_round==1:
 else:
     # all individuals satisfying initial eligibility criteria and not previously matched as controls
     file_path = f"output/incremental_{match_strategy}/matchround{match_round-1}/controlactual/match/data_unsuccessful_matchedcontrols.csv.gz"
-    # match_vars
+    # match_strategy_obj
     with open(f"lib/design/match-strategy-{match_strategy}.json") as f:
       match_strategy_ojb = json.load(f)
       match_vars = match_strategy_ojb["match_vars"]
@@ -39,10 +39,10 @@ from variables_inclusion import generate_inclusion_variables
 inclusion_variables = generate_inclusion_variables(index_date="matchroundindex_date")
 ############################################################
 # match variables
-from variables_match import generate_match_variables 
-match_variables = generate_match_variables(
+from variables_vars import generate_vars_variables 
+match_variables = generate_vars_variables(
     index_date="matchroundindex_date", 
-    match_vars = match_vars,
+    vars = match_vars,
     )
 ############################################################
 

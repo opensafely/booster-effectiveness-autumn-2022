@@ -202,12 +202,14 @@ create_match_strategy <- function(
   return(out)
 }
 
-match_strategy_none <- create_match_strategy(
-  name = "none",
-  # these are all the optional variables defined in variables_match
-  # defined here so that they can be removed from dummy data when not needed
-  exact_vars = c("region")
-  )
+match_strategy_none <- list()
+match_strategy_none$name <- "none"
+# these are all the optional variables defined in variables_vars
+# these are all extracted for the treated stage and 
+# the first round of the potential stage
+# for other matching strategies these will need to be removed from dummy data 
+# when not needed
+match_strategy_none$match_vars <- c("region", "flu_vaccine")
 
 match_strategy_A <- create_match_strategy(
   

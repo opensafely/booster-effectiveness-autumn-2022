@@ -3,10 +3,10 @@ from codelists import *
 import codelists
 
 
-def generate_match_variables(
+def generate_vars_variables(
     index_date,
     # extract variables for assessing eligibility by default,
-    # but don't do this when extracting covariates 
+    # but don't do this in controlfinal
     elig = True,
     # default to everything, so that when extracting 
     # treated and potential for matchround1
@@ -35,35 +35,34 @@ def generate_match_variables(
   # region
   if any(x in vars for x in {'everything', 'region'}):
     variables.update(
-        
-        # NHS administrative region
-        region=patients.registered_practice_as_of(
-            f"{index_date} - 1 day",
-            returning="nuts1_region_name",
-            return_expectations={
-              "rate": "universal",
-              "category": {
-                "ratios": {
-                  "North East": 0.1,
-                  "North West": 0.1,
-                  "Yorkshire and The Humber": 0.2,
-                  "East Midlands": 0.1,
-                  "West Midlands": 0.1,
-                  "East": 0.1,
-                  "London": 0.1,
-                  "South East": 0.1,
-                  "South West": 0.1
-                  #"" : 0.01
-                  },
+      # NHS administrative region
+      region=patients.registered_practice_as_of(
+          f"{index_date} - 1 day",
+          returning="nuts1_region_name",
+          return_expectations={
+            "rate": "universal",
+            "category": {
+              "ratios": {
+                "North East": 0.1,
+                "North West": 0.1,
+                "Yorkshire and The Humber": 0.2,
+                "East Midlands": 0.1,
+                "West Midlands": 0.1,
+                "East": 0.1,
+                "London": 0.1,
+                "South East": 0.1,
+                "South West": 0.1
+                #"" : 0.01
                 },
-            },
-        ),
-
+              },
+          },
+      ),
     )
 
     if any(x in vars for x in {'everything', 'flu_vaccine'}):
-      # flu vaccine in flu seasons 18-19, 19-20 or 20-21
-      flu_vaccine=patients.satisfying(
+      variables.update(
+        # flu vaccine in flu seasons 18-19, 19-20 or 20-21
+        flu_vaccine=patients.satisfying(
           """
           flu_vaccine_tpp_table>0 OR
           flu_vaccine_med>0 OR
@@ -86,7 +85,7 @@ def generate_match_variables(
               returning="binary_flag",
           ),
           return_expectations={"incidence": 0.5, },
-      ),
-
+        ),
+      )
 
     return variables

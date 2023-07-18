@@ -20,6 +20,18 @@ with open("./lib/design/study-dates.json") as f:
 
 studystart_date = study_dates["studystart"]
 
+risk_score_date = "2022-07-01"
+
+############################################################
+# inclusion variables
+from variables_inclusion import generate_inclusion_variables 
+inclusion_variables = generate_inclusion_variables(index_date=risk_score_date)
+############################################################
+## match variables
+from variables_vars import generate_vars_variables 
+vars_variables = generate_vars_variables(index_date=risk_score_date)
+############################################################
+
 # Specify study defeinition
 study = StudyDefinition(
   
@@ -34,18 +46,25 @@ study = StudyDefinition(
   
     # This line defines the study population
   population = patients.which_exist_in_file(
-    f_path=xxx
+    f_path="ouput/risk_score/data_eligible.csv.gz"
     ),
 
-  trial_date = patients.with_value_from_file(
-    f_path=xxx, 
-    returning=xxx, 
-    returning_type="date", 
-    date_format="YYYY-MM-DD"
-    ),
+  ###############################################################################
+  # inclusion variables
+  ##############################################################################
+  **inclusion_variables,   
 
-    # extract variables needed for the model
+  ###############################################################################
+  # variables for matching and model adjustment
+  ##############################################################################
+  **vars_variables,  
 
-    # outcome = death 
+  # outcome = death 
+  death_date=patients.died_from_any_cause(
+    returning="date_of_death",
+    date_format="YYYY-MM-DD",
+  ),
+
+  # dereg?? don't need if linear predictor
 
 )

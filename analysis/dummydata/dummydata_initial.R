@@ -160,8 +160,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
         replace = TRUE,
         prob = c(0.5, 0.12, 0.12, 0.12, 0.12, 0.02)
       ),
-      hscworker = rbern(n = nrow(.), p=0.05),
-      flu_vaccine = rbern(n = nrow(.), p = 0.5)
+      hscworker = rbern(n = nrow(.), p=0.05)
       ) %>%
     mutate(across(patient_id, row_number))
   

@@ -608,11 +608,67 @@ actions_list <- splice(
       "extract_initial", "dummydata_initial"
     ),
     highly_sensitive = lst(
-      data_eligible = "output/initial/eligible/*.csv.gz",
-      data_vax = "output/initial/eligible/*.rds",
+      data_eligible_csv = "output/initial/eligible/*.csv.gz",
+      data_eligible_rds = "output/initial/eligible/*.rds",
+      data_riskscore = "output/riskscore/*.csv.gz"
     ),
     moderately_sensitive = lst(
       flowchart = "output/initial/flowchart/*.csv",
+    )
+  ),
+  
+  comment("# # # # # # # # # # # # # # # # # # #", 
+          "Extract and process risk score data", 
+          "# # # # # # # # # # # # # # # # # # #"),
+  
+  action(
+    name = "extract_riskscore",
+    run = glue(
+      "cohortextractor:latest generate_cohort", 
+      " --study-definition study_definition_riskscore", 
+      " --output-file output/riskscore/extract/input_riskscore.feather",
+    ),
+    needs = namelesslst(
+      "design", "process_initial"
+    ),
+    highly_sensitive = lst(
+      extract = "output/riskscore/extract/input_riskscore.feather"
+    ),
+  ),
+  
+  action(
+    name = "dummydata_stage",
+    run = "r:latest analysis/dummydata/dummydata_stage.R",
+    needs = namelesslst(
+      "dummydata_initial",
+      "process_initial",
+      "extract_treated"
+    ),
+    highly_sensitive = lst(
+      dummydata_treated = "output/treated/dummydata/*.feather",
+      dummydata_controlpotential = "output/incremental_none/matchround1/controlpotential/dummydata/*.feather"
+    ),
+  ),
+  
+  action(
+    name = "process_riskscore",
+    run = "r:latest analysis/process/process_stage.R",
+    # set match_strategy="none" and match_round=0 to keep the code happy,
+    # but these don't really mean anything here
+    arguments = c("riskscore", "none", 0),
+    needs = namelesslst(
+      "process_initial",
+      "extract_riskscore",
+      "dummydata_stage"
+    ),
+    highly_sensitive = lst(
+      eligiblerds = "output/riskscore/eligible/*.rds",
+    ),
+    moderately_sensitive = lst(
+      flowchart = "output/riskscore/flowchart/*.csv",
+      extract_skim = "output/riskscore/extract/*.txt",
+      data_processed_skim = "output/riskscore/process/*.txt",
+      data_eligible_skim = "output/riskscore/eligible/*.txt"
     )
   ),
   
@@ -632,20 +688,6 @@ actions_list <- splice(
     ),
     highly_sensitive = lst(
       extract = "output/treated/extract/input_treated.feather"
-    ),
-  ),
-  
-  action(
-    name = "dummydata_stage",
-    run = "r:latest analysis/dummydata/dummydata_stage.R",
-    needs = namelesslst(
-      "dummydata_initial",
-      "process_initial",
-      "extract_treated"
-    ),
-    highly_sensitive = lst(
-      dummydata_treated = "output/treated/dummydata/*.feather",
-      dummydata_controlpotential = "output/incremental_none/matchround1/controlpotential/dummydata/*.feather"
     ),
   ),
   

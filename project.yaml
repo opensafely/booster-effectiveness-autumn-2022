@@ -50,10 +50,51 @@ actions:
     - dummydata_initial
     outputs:
       highly_sensitive:
-        data_eligible: output/initial/eligible/*.csv.gz
-        data_vax: output/initial/eligible/*.rds
+        data_eligible_csv: output/initial/eligible/*.csv.gz
+        data_eligible_rds: output/initial/eligible/*.rds
+        data_riskscore: output/riskscore/*.csv.gz
       moderately_sensitive:
         flowchart: output/initial/flowchart/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## Extract and process risk score data 
+  ## # # # # # # # # # # # # # # # # # # # 
+
+  extract_riskscore:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_riskscore
+      --output-file output/riskscore/extract/input_riskscore.feather
+    needs:
+    - design
+    - process_initial
+    outputs:
+      highly_sensitive:
+        extract: output/riskscore/extract/input_riskscore.feather
+
+  dummydata_stage:
+    run: r:latest analysis/dummydata/dummydata_stage.R
+    needs:
+    - dummydata_initial
+    - process_initial
+    - extract_treated
+    outputs:
+      highly_sensitive:
+        dummydata_treated: output/treated/dummydata/*.feather
+        dummydata_controlpotential: output/incremental_none/matchround1/controlpotential/dummydata/*.feather
+
+  process_riskscore:
+    run: r:latest analysis/process/process_stage.R riskscore none 0
+    needs:
+    - process_initial
+    - extract_riskscore
+    - dummydata_stage
+    outputs:
+      highly_sensitive:
+        eligiblerds: output/riskscore/eligible/*.rds
+      moderately_sensitive:
+        flowchart: output/riskscore/flowchart/*.csv
+        extract_skim: output/riskscore/extract/*.txt
+        data_processed_skim: output/riskscore/process/*.txt
+        data_eligible_skim: output/riskscore/eligible/*.txt
 
   ## # # # # # # # # # # # # # # # # # # # 
   ## Extract and process treated data 
@@ -67,17 +108,6 @@ actions:
     outputs:
       highly_sensitive:
         extract: output/treated/extract/input_treated.feather
-
-  dummydata_stage:
-    run: r:latest analysis/dummydata/dummydata_stage.R
-    needs:
-    - dummydata_initial
-    - process_initial
-    - extract_treated
-    outputs:
-      highly_sensitive:
-        dummydata_treated: output/treated/dummydata/*.feather
-        dummydata_controlpotential: output/incremental_none/matchround1/controlpotential/dummydata/*.feather
 
   process_treated:
     run: r:latest analysis/process/process_stage.R treated none 0

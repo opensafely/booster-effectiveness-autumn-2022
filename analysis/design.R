@@ -29,7 +29,7 @@ study_dates <- lst(
   
   boosterspring = lst(
     start = "2022-03-23",
-    end = "2022-07-30" # based on plot of weekly vaccinations in England
+    end = "2022-06-30" # based on plot of weekly vaccinations in England
   ),
   
   boosterfirst = lst(
@@ -57,7 +57,12 @@ study_dates <- lst(
   
   recruitmentend = "2022-12-24", # based on plot of weekly vaccinations in England
   hospitalisationend = "2023-01-31", # end of available hospitalization data
-  deathend = "2023-02-28" # end of available death data
+  deathend = "2023-02-28", # end of available death data
+  
+  riskscore = lst(
+    start = as.Date(boosterspring$end) + 1,
+    end = as.Date(boosterautumn$ages65plus) - 1
+  )
   
 )
 
@@ -175,6 +180,21 @@ fup_params <- lst(
 )
 
 # matching ----
+# non-vaccination variables extracted in study_definition_initial
+initial_vars <- c("sex", "ethnicity", "hscworker")
+
+# variables that we want to keep in the processed data
+keep_vars <- c(
+  # defined in analysis/variables_elig.py
+  "age", 
+  # defined in analysis/variables_jcvi.py
+  "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",
+  "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease",
+  "chronic_liver_disease", "immunosuppressed", "learndis",
+  # "asplenia", "bmi_value", "sev_obesity",
+  # derived from the above variables
+  "multimorb", "cv", "agegroup_match", "timesince_coviddischarged"
+)
 
 create_match_strategy <- function(
     name,
@@ -229,7 +249,7 @@ match_strategy_A <- create_match_strategy(
     age = 3,
     # match on `lastvaxbeforeindex_day` rather than `timesincelastvax` as the 
     # potential matches are less likely to fail in the actual stage
-    lastvaxbeforeindex_date = 14,
+    vax_lastbeforeindex_date = 14,
     NULL
   ),
   
@@ -242,7 +262,7 @@ match_strategy_A <- create_match_strategy(
     "sev_mental",
     "immunosuppressed",
     "multimorb", 
-    "timesincecoviddischarged",
+    "timesince_coviddischarged",
     "flu_vaccine"
   ),
   
@@ -282,7 +302,7 @@ match_strategy_A <- create_match_strategy(
 #   age = 3,
 #   # match on `lastvaxbeforeindex_day` rather than `timesincelastvax` as the 
 #   # potential matches are less likely to fail in the actual stage
-#   lastvaxbeforeindex_date = 14,
+#   vax_lastbeforeindex_date = 14,
 #   NULL
 # )
 # 
@@ -300,7 +320,7 @@ match_strategy_A <- create_match_strategy(
 #   "sev_mental",
 #   "immunosuppressed",
 #   "multimorb", 
-#   "timesincecoviddischarged",
+#   "timesince_coviddischarged",
 #   "flu_vaccine"
 # )
 # 

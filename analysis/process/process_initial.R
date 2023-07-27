@@ -18,9 +18,9 @@ library(here)
 library(glue)
 
 # import local functions and parameters
-source(here::here("analysis", "design.R"))
+source(here("analysis", "design.R"))
 source(here("lib", "functions", "utility.R"))
-source(here::here("analysis", "process", "process_functions.R"))
+source(here("analysis", "process", "process_functions.R"))
 
 # create output directories
 path_stem <- here("output", "initial")
@@ -43,7 +43,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   )
   
   # check custom and studydef dummydata match
-  source(here::here("analysis", "dummydata", "dummydata_check.R"))
+  source(here("analysis", "dummydata", "dummydata_check.R"))
   dummydata_check(
     dummydata_studydef = data_studydef,
     dummydata_custom = data_dummy
@@ -249,6 +249,7 @@ if (nrow(check_courses_rows) > 0) {
   
 }
 
+# derive the course variable
 data_vax <- data_vax %>%
   mutate(
     course = case_when(
@@ -261,37 +262,48 @@ data_vax <- data_vax %>%
   ) %>%
   select(patient_id, age, index, date, brand, course) 
 
-# identify patients with any undefined doses
-# flag if any undefined dose before study starts,
-# and keep date of first undefined dose after study start
+
+
+# create flags for undefined doses
 data_vax_undefined <- data_vax %>%
+  # identify patients with any undefined doses
   filter(course == "undefined") %>%
   mutate(
+    # flag if any undefined dose before risk score start date
+    undefinedbefore_riskscore = date < study_dates$riskscore$start,
+    # flag if any undefined dose before recruitment starts
     undefinedbeforestart = case_when(
       age < 65 & date < study_dates$boosterautumn$ages50to64 ~ TRUE,
       age >= 65 & date < study_dates$boosterautumn$ages65plus ~ TRUE,
       TRUE ~ FALSE
     )
   ) 
-
+# save patient ids for creating flags later
 data_vax_undefined_remove <- data_vax_undefined %>%
   filter(undefinedbeforestart) %>%
   distinct(patient_id)
+data_vax_undefined_riskscore_remove <- data_vax_undefined %>%
+  filter(undefinedbefore_riskscore) %>%
+  distinct(patient_id)
 
-# keep first undefined date after start date
-data_vax_undefined_date <-  data_vax_undefined %>%
+# keep first undefined date after start date, as will impact eligibility for trials
+# (we only keep the first so that there is only one row for each patient-course)
+data_vax_first_undefined_after <- data_vax_undefined %>%
   filter(!undefinedbeforestart) %>%
   # identify first date of an undefined dose after the study start date
   group_by(patient_id, course, age) %>%
   summarise(date = min(date), .groups = "keep") %>%
-  ungroup() 
+  ungroup()
     
-# as anyone with a dose of undefined course before the study start date will be excluded
-
 data_vax <- data_vax %>%
+  # get rid of all undefined courses
+  # (this is ok as data_vax_undefined contains the information we need to 
+  # people who have an undefined dose before the start of recruitment,
+  # and data_vax_first_undefined_after contains the first undefined dose on or 
+  # after recruitment
   filter(course != "undefined") %>%
   # add the first date of an undefined dose after the start date
-  bind_rows(data_vax_undefined_date) %>%
+  bind_rows(data_vax_first_undefined_after) %>%
   select(patient_id, age, date, brand, course) %>%
   pivot_wider(
     names_from = course,
@@ -300,26 +312,27 @@ data_vax <- data_vax %>%
   ) %>%
   mutate(
     # flag to remove those with an undefined dose before their age group's start date
-    undefinedbeforestart = patient_id %in% data_vax_undefined_remove$patient_id
+    undefinedbeforestart = patient_id %in% data_vax_undefined_remove$patient_id,
+    # flag to remove those with an undefined dose before risk score start date
+    undefinedbeforestart_riskscore = patient_id %in% data_vax_undefined_riskscore_remove$patient_id,
   )
+
+rm(data_vax_undefined_remove, data_vax_undefined_riskscore_remove, data_vax_first_undefined_after, data_vax_undefined)
   
-###########
+################################################################################
 
-# define eligibility criteria ----
-data_vax <- data_vax %>%
-  mutate(
-
+# define initial eligibility criteria for main study ----
+data_crit_main <- data_vax %>%
+  transmute(
     # define eligibility criteria
-
+    patient_id,
     c0 = TRUE,
     c1 = c0 & !undefinedbeforestart,
-
     include = c1
-
   ) 
 
 # save flowchart data ----
-data_flow <- data_vax %>%
+data_flow <- data_crit_main %>%
   summarise(across(matches("^c\\d"), .fns=sum)) %>%
   pivot_longer(
     cols=everything(),
@@ -339,14 +352,15 @@ data_flow %>%
 
 # apply eligibility criteria ----
 
-data_vax <- data_vax %>%
-  filter(include) %>%
+data_vax_eligible <- data_vax %>%
+  # only keep those who are eligible
+  inner_join(data_crit_main %>% filter(include), by = "patient_id") %>%
   # remove the columns used for eligiblility criteria
-  select(-c(c0, c1, include, undefinedbeforestart)) %>%
+  select(-c(undefinedbeforestart)) %>%
   left_join(
     data_extract %>% transmute(
       patient_id, 
-      flu_vaccine,
+      # process initial_vars
       sex = fct_case_when(
         sex == "F" ~ "Female",
         sex == "M" ~ "Male",
@@ -362,25 +376,48 @@ data_vax <- data_vax %>%
     )
 
 # save summary
-data_vax %>%
+data_vax_eligible %>%
   my_skim(
-    path = file.path(path_stem, "eligible", "data_eligible_skim.txt")
+    path = file.path(path_stem, "eligible", "data_vax_skim.txt")
   )
 
 # save dataset
-data_vax %>%
+data_vax_eligible %>%
   write_rds(
     file.path(path_stem, "eligible", "data_vax.rds"), 
     compress = "gz"
   )
 
 # save patient_ids and vax_boostautumn_date for reading into study_definition_treated.py
-data_vax %>%
+data_vax_eligible %>%
   filter(!is.na(vax_boostautumn_date)) %>%
   select(patient_id, vax_boostautumn_date) %>%
   write_csv(file.path(path_stem, "eligible", "data_eligible_treated.csv.gz"))
 
 # save for reading into study_definition_controlpotential.py
-data_vax %>%
+data_vax_eligible %>%
   select(patient_id) %>%
   write_csv(file.path(path_stem, "eligible", "data_eligible.csv.gz"))
+
+rm(data_vax_eligible)
+
+################################################################################
+
+# define initial eligibility criteria for mortality risk score cohort ----
+data_vax_riskscore <- data_vax %>%
+  mutate(
+    
+    # define eligibility criteria
+    
+    c0 = TRUE,
+    c1 = c0 & !undefinedbeforestart_riskscore,
+    
+    include = c1
+    
+  ) 
+
+# save patient ids for reading into a study definition
+fs::dir_create(here("output", "riskscore"))
+data_vax_riskscore %>%
+  distinct(patient_id) %>%
+  write_csv(here("output", "riskscore", "data_eligible.csv.gz"))

@@ -64,9 +64,9 @@ if (effect == "treated") {
 data_table1 <- data_table1 %>%
   # derive extra variables
   mutate(
-    # lastvaxbeforeindex_date was a matching variable, but more meaningful 
-    # to summarise as timesincelastvax
-    timesincelastvax = as.integer(trial_date - lastvaxbeforeindex_date)
+    # vax_lastbeforeindex_date was a matching variable, but more meaningful 
+    # to summarise as timesince_lastvax
+    timesince_lastvax = as.integer(trial_date - vax_lastbeforeindex_date)
   )
 
 if (effect == "treated") {
@@ -107,8 +107,8 @@ var_labels <- list(
   # vax_boostspring_date ~ "Spring booster date",
   # vax_boostautumn_date ~ "Autumn booster date",
   
-  timesincelastvax ~ "Days since last dose",
-  timesincecoviddischarged ~ "Time since COVID-19 hospitalisation",
+  timesince_lastvax ~ "Days since last dose",
+  timesince_coviddischarged ~ "Time since COVID-19 hospitalisation",
   
   flu_vaccine ~ "Flu vaccine",
   bmi ~ "Body mass index"

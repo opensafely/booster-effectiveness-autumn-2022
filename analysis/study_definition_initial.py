@@ -79,6 +79,7 @@ study = StudyDefinition(
   #################################################################
   ## Static variables
   # i.e. are not defined on a certain date
+  # names of these variables are stored as `initial_vars` in design.R
   #################################################################
 
   sex=patients.sex(
@@ -129,34 +130,6 @@ study = StudyDefinition(
   # health or social care worker  
     hscworker = patients.with_healthcare_worker_flag_on_covid_vaccine_record(
         returning="binary_flag"
-    ),
-
-  # flu vaccine in flu season 2021-2022
-    flu_vaccine=patients.satisfying(
-        """
-        flu_vaccine_tpp_table>0 OR
-        flu_vaccine_med>0 OR
-        flu_vaccine_clinical>0
-        """,
-        
-        flu_vaccine_tpp_table=patients.with_tpp_vaccination_record(
-            target_disease_matches="INFLUENZA",
-            between=["2021-07-01", "2022-06-30"], 
-            returning="binary_flag",
-        ),
-        
-        flu_vaccine_med=patients.with_these_medications(
-            codelists.flu_med_codes,
-            between=["2021-07-01", "2022-06-30"], 
-            returning="binary_flag",
-        ),
-        flu_vaccine_clinical=patients.with_these_clinical_events(
-            codelists.flu_clinical_given_codes,
-            ignore_days_where_these_codes_occur=codelists.flu_clinical_not_given_codes,
-            between=["2021-07-01", "2022-06-30"], 
-            returning="binary_flag",
-        ),
-        return_expectations={"incidence": 0.5, },
     ),
   
 )

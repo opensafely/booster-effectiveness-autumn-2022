@@ -5,7 +5,7 @@
   },
   "boosterspring": {
     "start": "2022-03-23",
-    "end": "2022-07-30"
+    "end": "2022-06-30"
   },
   "boosterfirst": {
     "pfizerstart": "2021-09-16",
@@ -24,5 +24,9 @@
   "recruitmentend": "2022-12-24",
   "hospitalisationend": "2023-01-31",
   "deathend": "2023-02-28",
+  "riskscore": {
+    "start": "2022-07-01",
+    "end": "2022-09-11"
+  },
   "control_extract": ["2022-09-12", "2022-09-26"]
 }

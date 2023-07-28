@@ -546,7 +546,7 @@ actions_match_strategy <- function(effect, match_strategy, include_models=FALSE)
 ## defaults ----
 defaults_list <- lst(
   version = "3.0",
-  expectations= lst(population_size=100000L)
+  expectations= lst(population_size=1000L)
 )
 
 ## actions ----

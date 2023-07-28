@@ -200,15 +200,15 @@ create_match_strategy <- function(
     name,
     exact_vars = NULL,
     caliper_vars = NULL,
-    score_vars = NULL,
+    riskscore_vars = NULL,
     adj_vars = NULL,
     strata_vars = NULL
 ) {
   out <- lst(
     exact_vars = exact_vars,
     caliper_vars = caliper_vars,
-    score_vars = score_vars,
-    match_vars = c(exact_vars, names(caliper_vars), score_vars),
+    riskscore_vars = riskscore_vars,
+    match_vars = c(exact_vars, names(caliper_vars), riskscore_vars),
     adj_vars = adj_vars,
     strata_vars = strata_vars
   )
@@ -229,7 +229,8 @@ match_strategy_none$name <- "none"
 # the first round of the potential stage
 # for other matching strategies these will need to be removed from dummy data 
 # when not needed
-match_strategy_none$match_vars <- c("region", "flu_vaccine")
+match_strategy_none$match_vars <- c("region", "flu_vaccine", "unplanneddischarged_0_date")
+match_strategy_none$riskscore_vars <- c("timesince_discharged")
 
 match_strategy_A <- create_match_strategy(
   

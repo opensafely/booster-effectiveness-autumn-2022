@@ -30,8 +30,8 @@ args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) == 0) {
   # use for interactive testing
-  stage <- "riskscore"
-  # stage <- "treated"
+  # stage <- "riskscore"
+  stage <- "treated"
   # stage <- "controlpotential"
   # stage <- "controlactual"
   match_strategy <- "none"
@@ -104,11 +104,6 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
       select(-vax_boostautumn_date) %>%
       mutate(
         riskscore_start_date = study_dates$riskscore$start,
-        unplanneddischarged_0_date = if_else(
-          purrr::rbernoulli(n = nrow(.), p = 0.1),
-          riskscore_start_date - ceiling(rnorm(n = nrow(.), sd = 50)),
-          as.Date(NA_character_)
-        ),
         death_date = if_else(
           purrr::rbernoulli(n = nrow(.), p = 0.1),
           riskscore_start_date + ceiling(rnorm(n = nrow(.), sd = 50)),
@@ -116,7 +111,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
         ),
         dereg_date = if_else(
           purrr::rbernoulli(n = nrow(.), p = 0.1),
-          riskscore_start_date + ceiling(rnorm(n = nrow(.), sd = 50)),
+          riskscore_start_date + abs(ceiling(rnorm(n = nrow(.), sd = 50))),
           as.Date(NA_character_)
         )
       )
@@ -238,6 +233,12 @@ data_processed <- data_extract %>%
   # process jcvi variables
   mutate(
     
+    # bmi
+    bmi = factor(
+      bmi,
+      levels = c("Not obese", "Obese I (30-34.9)", "Obese II (35-39.9)", "Obese III (40+)")
+    ),
+    
     # number of conditions in different organ systems
     multimorb = sev_obesity + chronic_heart_disease + chronic_kidney_disease +
       diabetes + chronic_liver_disease + chronic_resp_disease + 
@@ -260,6 +261,7 @@ data_processed <- data_extract %>%
   )  %>%
   # process pre-baseline events
   mutate(
+    # time since discharged from unplanned covid admission
     timesince_coviddischarged = as.integer(index_date - discharged_covid_0_date),
     timesince_coviddischarged = fct_case_when(
       is.na(timesince_coviddischarged) ~ "No prior COVID-19 admission",
@@ -267,6 +269,14 @@ data_processed <- data_extract %>%
       timesince_coviddischarged <= 180 ~ "31-180 days",
       timesince_coviddischarged <= 30 ~ "1-30 days", # will be excluded
       timesince_coviddischarged <= 0 ~ "In hospital" # will be excluded
+    ),
+    # time since discharger from any unplanned admission
+    timesince_discharged = as.integer(study_dates$riskscore$start - unplanneddischarged_0_date)/365.25,
+    timesince_discharged = fct_case_when(
+      is.na(timesince_discharged) | (timesince_discharged > 5) ~ "Never or >5 years",
+      timesince_discharged > 2 ~ "2-5 years",
+      timesince_discharged > 1 ~ "1-2 years",
+      TRUE ~ "Past year"
     )
   ) 
 
@@ -310,8 +320,8 @@ if ("imd_Q5" %in% match_vars) {
   
 }
 
-riskscore_vars <- NULL
-if (stage == "riskscore") {
+riskscore_fup_vars <- NULL
+if (stage %in% "riskscore") {
   data_processed <- data_processed %>%
     mutate(
       # outcome: indicator variable for death during follow-up
@@ -328,22 +338,10 @@ if (stage == "riskscore") {
         !is.na(death_date) & dereg_date < death_date ~ TRUE,
         # deregistration and no death
         is.na(death_date) & !is.na(dereg_date) ~ TRUE
-      ),
-      timesince_discharged = as.integer(study_dates$riskscore$start - unplanneddischarged_0_date)/365.25
-    ) %>%
-    mutate(
-      across(
-        timesince_discharged,
-        ~ fct_case_when(
-          is.na(.x) | (.x > 5) ~ "Never or >5 years",
-          .x  > 2 ~ "2-5 years",
-          .x > 1 ~ "1-2 years",
-          TRUE ~ "Past year"
-        )
       )
-    )
+    ) 
   # variables to keep in the final saved dataset
-  riskscore_vars <- c("timesince_discharged", "death", "dereg")
+  riskscore_fup_vars <- c("death", "dereg")
 }
 
 rm(data_extract)
@@ -498,13 +496,41 @@ data_eligible <- data_criteria %>%
       select(
         patient_id,
         starts_with("vax_"),
-        all_of(c(keep_vars, initial_vars, riskscore_vars))
+        all_of(c(keep_vars, initial_vars, riskscore_vars, riskscore_fup_vars))
         ), 
     by="patient_id"
     ) %>%
   droplevels()
 
 rm(data_processed)
+
+if (!is.null(riskscore_vars)) {
+  
+  agegroup_indices <- seq_along(levels(data_eligible$agegroup_match))
+  
+  model_list <- lapply(
+    agegroup_indices,
+    function(x) read_rds(here("output", "riskscore", "model", glue("model_agegroup_{x}.rds")))
+  )
+  
+  # calculate riskscore predictions
+  data_eligible_list <- data_eligible %>%
+    arrange(agegroup_match) %>%
+    group_split(agegroup_match) %>%
+    as.list()
+  
+  for (x in agegroup_indices) {
+    data_eligible_list[[x]]$riskscore <- predict(
+      model_list[[x]],
+      newdata = data_eligible_list[[x]]
+      )
+  }
+  
+  # TODO make sure all levels are present in data_riskscore and if not, adapt dummy data
+  # make sure empty levels are present in data_eligible here
+  data_eligible <- bind_rows(data_eligible_list)
+  
+}
 
 # save data_eligible ----
 my_skim(

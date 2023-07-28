@@ -55,23 +55,9 @@ study = StudyDefinition(
   **inclusion_variables,   
 
   ###############################################################################
-  # variables for matching and model adjustment
+  # variables for model adjustment
   ##############################################################################
   **vars_variables,  
-
-  # date of last discharged from unplanned hospital admission
-  # don't need to worry about people who were discharged after riskscore_start_date, 
-  # as they'll be excluded anyway
-  unplanneddischarged_0_date=patients.admitted_to_hospital(
-                returning = "date_discharged",
-                on_or_before = "riskscore_start_date - 1 day", # this is the admission date
-                # see https://github.com/opensafely-core/cohort-extractor/pull/497 for codes
-                # see https://docs.opensafely.org/study-def-variables/#sus for more info
-                with_admission_method = ["21", "22", "23", "24", "25", "2A", "2B", "2C", "2D", "28"],
-                with_patient_classification = ["1"], # ordinary overnight admissions only
-                date_format = "YYYY-MM-DD",
-                find_last_match_in_period = True,
-            ), 
 
   # outcome = death 
   death_date = patients.died_from_any_cause(

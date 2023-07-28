@@ -88,4 +88,23 @@ def generate_vars_variables(
       ),
     )
 
-    return variables
+  # date of last discharged from unplanned hospital admission
+  # don't need to worry about people who were discharged after riskscore_start_date, 
+  # as they'll be excluded anyway
+  if any(x in vars for x in {"everything", "unplanneddischarged_0_date"}):
+    variables.update(
+        unplanneddischarged_0_date=patients.admitted_to_hospital(
+                returning = "date_discharged",
+                on_or_before = f"{index_date} - 1 day", # this is the admission date
+                # see https://github.com/opensafely-core/cohort-extractor/pull/497 for codes
+                # see https://docs.opensafely.org/study-def-variables/#sus for more info
+                with_admission_method = ["21", "22", "23", "24", "25", "2A", "2B", "2C", "2D", "28"],
+                with_patient_classification = ["1"], # ordinary overnight admissions only
+                date_format = "YYYY-MM-DD",
+                find_last_match_in_period = True,
+                return_expectations={"date": {"earliest": "2000-01-01", "latest": "today"},},
+         ), 
+
+    )
+  
+  return variables

@@ -30,13 +30,15 @@ args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) == 0) {
   # use for interactive testing
-  # stage <- "riskscore"
+  # stage <- "riskscore_i"
+  # match_strategy <- "riskscore_i"
+  # match_round <- as.integer("0")
   stage <- "treated"
-  # stage <- "controlpotential"
-  # stage <- "controlactual"
   match_strategy <- "none"
   match_round <- as.integer("0")
-  # match_strategy <- "A"
+  # stage <- "controlpotential"
+  # stage <- "controlactual"
+  # match_strategy <- "a"
   # match_round <- as.integer("1")
 } else {
   stage <- args[[1]]
@@ -50,9 +52,9 @@ list2env(
 )
 
 # ## create output directories and define parameters ----
-if (stage == "riskscore") {
+if (stage == "riskscore_i") {
   
-  path_stem <- here("output", "riskscore")
+  path_stem <- here("output", "riskscore_i")
   fs::dir_create(file.path(path_stem, "flowchart"))
   custom_path <- here("output", "treated", "dummydata", "dummydata_treated.feather")
   
@@ -99,19 +101,19 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
   data_dummy <- arrow::read_feather(custom_path) 
   
   # fix dummy data
-  if (stage == "riskscore") {
+  if (stage == "riskscore_i") {
     data_dummy <- data_dummy %>%
       select(-vax_boostautumn_date) %>%
       mutate(
-        riskscore_start_date = study_dates$riskscore$start,
+        riskscore_i_start_date = study_dates$riskscore_i$start,
         death_date = if_else(
           purrr::rbernoulli(n = nrow(.), p = 0.1),
-          riskscore_start_date + ceiling(rnorm(n = nrow(.), sd = 50)),
+          riskscore_i_start_date + ceiling(rnorm(n = nrow(.), sd = 50)),
           as.Date(NA_character_)
         ),
         dereg_date = if_else(
           purrr::rbernoulli(n = nrow(.), p = 0.1),
-          riskscore_start_date + abs(ceiling(rnorm(n = nrow(.), sd = 50))),
+          riskscore_i_start_date + abs(ceiling(rnorm(n = nrow(.), sd = 50))),
           as.Date(NA_character_)
         )
       )
@@ -120,6 +122,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
   # remove variables from dummy data that are not extracted for the given match_strategy
   if (stage %in% c("controlpotential", "controlactual")) {
     
+    # TODO update these lines, just do these exclusiond manually
     tmp_remove_vars <- !(match_strategy_none$match_vars %in% match_vars)
     
     if (any(tmp_remove_vars)) {
@@ -160,7 +163,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
     
   }
   
-  # check cutom and studydef dummydata match
+  # check custom and studydef dummydata match
   source(here("analysis", "dummydata", "dummydata_check.R"))
   dummydata_check(
     dummydata_studydef= data_studydef,
@@ -208,7 +211,7 @@ data_extract %>%
 
 # define index_date depending on stage
 stage_index_date <- list(
-  riskscore = "riskscore_start_date",
+  riskscore_i = "riskscore_i_start_date",
   treated = "vax_boostautumn_date",
   controlpotential = "match_round_date",
   controlactual = "trial_date"
@@ -269,18 +272,10 @@ data_processed <- data_extract %>%
       timesince_coviddischarged <= 180 ~ "31-180 days",
       timesince_coviddischarged <= 30 ~ "1-30 days", # will be excluded
       timesince_coviddischarged <= 0 ~ "In hospital" # will be excluded
-    ),
-    # time since discharger from any unplanned admission
-    timesince_discharged = as.integer(study_dates$riskscore$start - unplanneddischarged_0_date)/365.25,
-    timesince_discharged = fct_case_when(
-      is.na(timesince_discharged) | (timesince_discharged > 5) ~ "Never or >5 years",
-      timesince_discharged > 2 ~ "2-5 years",
-      timesince_discharged > 1 ~ "1-2 years",
-      TRUE ~ "Past year"
     )
   ) 
 
-if ("region" %in% match_vars) {
+if ("region" %in% keep_vars) {
   
   data_processed <- data_processed %>%
     mutate(
@@ -298,7 +293,7 @@ if ("region" %in% match_vars) {
   
 }
 
-if ("imd_Q5" %in% match_vars) {
+if ("imd_Q5" %in% keep_vars) {
   
   imd_levs <- c("Unknown", "1 (most deprived)", "2", "3", "4", "5 (least deprived)")
   
@@ -320,18 +315,31 @@ if ("imd_Q5" %in% match_vars) {
   
 }
 
-riskscore_fup_vars <- NULL
-if (stage %in% "riskscore") {
+if ("timesince_discharged" %in% keep_vars) {
+  data_processed <- data_processed %>%
+    mutate(
+      # time since discharged from any unplanned admission
+      timesince_discharged = as.integer(study_dates$riskscore_i$start - unplanneddischarged_0_date)/365.25,
+      timesince_discharged = fct_case_when(
+        is.na(timesince_discharged) | (timesince_discharged > 5) ~ "Never or >5 years",
+        timesince_discharged > 2 ~ "2-5 years",
+        timesince_discharged > 1 ~ "1-2 years",
+        TRUE ~ "Past year"
+      )
+    )
+}
+
+if (stage %in% "riskscore_i") {
   data_processed <- data_processed %>%
     mutate(
       # outcome: indicator variable for death during follow-up
-      death = !(is.na(death_date) | death_date > study_dates$riskscore$end),
+      death = !(is.na(death_date) | death_date > study_dates$riskscore_i$end),
       # indicator for deregistration before death
       dereg = case_when(
         # no deregistration
         is.na(dereg_date) ~ FALSE,
         # deregistration after study end (shouldn't be allowed by study def)
-        dereg_date > study_dates$riskscore$end ~ FALSE,
+        dereg_date > study_dates$riskscore_i$end ~ FALSE,
         # deregistration after death
         !is.na(death_date) & dereg_date >= death_date ~ FALSE,
         # deregistration before death
@@ -340,8 +348,6 @@ if (stage %in% "riskscore") {
         is.na(death_date) & !is.na(dereg_date) ~ TRUE
       )
     ) 
-  # variables to keep in the final saved dataset
-  riskscore_fup_vars <- c("death", "dereg")
 }
 
 rm(data_extract)
@@ -393,8 +399,7 @@ data_vax_processed <- data_processed %>%
         matches("vax_(primary|boostfirst|boostspring|boostautumn)_(date|brand)")
         ),
     by = "patient_id"
-  ) %>%
-  mutate(across(matches("boost\\w+_brand"), ~replace_na(.x, "unboosted")))
+  ) 
 
 # join to data_processed
 data_processed <- data_processed %>%
@@ -490,27 +495,37 @@ data_criteria <- data_processed %>%
 
 data_eligible <- data_criteria %>%
   filter(include) %>%
-  select(patient_id) %>%
+  select(patient_id) %>% 
+  # create a dummy riskscore here so that the 
+  # select(all_of(unique(c(keep_vars, initial_vars)))) below doesn't fail
+  mutate(
+    # add any other risk scores here too
+    riskscore_i = NA_real_
+  ) %>%
   left_join(
     data_processed %>% 
       select(
         patient_id,
         starts_with("vax_"),
-        all_of(c(keep_vars, initial_vars, riskscore_vars, riskscore_fup_vars))
+        all_of(unique(c(keep_vars, initial_vars)))
         ), 
     by="patient_id"
-    ) %>%
-  droplevels()
+    ) #%>%
+  # droplevels()
 
 rm(data_processed)
 
-if (!is.null(riskscore_vars)) {
+if (
+  !is.null(riskscore_vars) |
+  (stage == "treated") |
+  (stage == "controlpotential" & match_round == 1)
+  ) {
   
   agegroup_indices <- seq_along(levels(data_eligible$agegroup_match))
   
   model_list <- lapply(
     agegroup_indices,
-    function(x) read_rds(here("output", "riskscore", "model", glue("model_agegroup_{x}.rds")))
+    function(x) read_rds(here("output", "riskscore_i", glue("agegroup_{x}"), glue("model_agegroup_{x}.rds")))
   )
   
   # calculate riskscore predictions
@@ -520,14 +535,13 @@ if (!is.null(riskscore_vars)) {
     as.list()
   
   for (x in agegroup_indices) {
-    data_eligible_list[[x]]$riskscore <- predict(
+    data_eligible_list[[x]]$riskscore_i <- predict(
       model_list[[x]],
-      newdata = data_eligible_list[[x]]
+      newdata = data_eligible_list[[x]],
+      type = "response"
       )
   }
   
-  # TODO make sure all levels are present in data_riskscore and if not, adapt dummy data
-  # make sure empty levels are present in data_eligible here
   data_eligible <- bind_rows(data_eligible_list)
   
 }
@@ -538,10 +552,10 @@ my_skim(
   path = file.path(path_stem, "eligible", "data_eligible_skim.txt")
 )
 
-if (stage %in% c("riskscore", "treated", "controlpotential")) {
+if (stage %in% c("riskscore_i", "treated", "controlpotential")) {
   
   write_rds(
-    data_eligible, # TODO only keen the necessary variables to reduce file size
+    data_eligible, 
     file.path(path_stem, "eligible", glue("data_{stage}.rds")),
     compress="gz"
   )
@@ -557,8 +571,8 @@ if (stage == "treated") {
   
 } 
 
-# create flowchart (only when stage="treated") ----
-if (stage %in% c("riskscore", "treated")) {
+# create flowchart (only when stage is "riskscore_i" or "treated") ----
+if (stage %in% c("riskscore_i", "treated")) {
   
   data_flowchart <- data_criteria %>%
     select(patient_id, matches("^c\\d+")) %>%

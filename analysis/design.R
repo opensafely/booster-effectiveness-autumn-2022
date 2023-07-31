@@ -59,7 +59,7 @@ study_dates <- lst(
   hospitalisationend = "2023-01-31", # end of available hospitalization data
   deathend = "2023-02-28", # end of available death data
   
-  riskscore = lst(
+  riskscore_i = lst(
     start = as.Date(boosterspring$end) + 1,
     end = as.Date(boosterautumn$ages65plus) - 1
   )
@@ -130,7 +130,6 @@ comparison_definition <- tribble(
   "comparative", "pfizerbivalent", "Bivalent BNT162b2", "modernabivalent", "Bivalent mRNA-1273",
   "incremental", "unboosted", "Unboosted", "boosted", "Boosted",
 )
-# TODO find the correct way to specify pfizer and moderna bivalent
 
 # lookups to convert coded variables to full, descriptive variables ----
 recoder <-
@@ -182,7 +181,16 @@ fup_params <- lst(
 # matching ----
 # non-vaccination variables extracted in study_definition_initial
 initial_vars <- c("sex", "ethnicity", "hscworker")
-
+# variables defined in analysis/variables_jcvi.py to keep in processed data
+jcvi_vars <- c(
+  "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",
+  "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease",
+  "chronic_liver_disease", "immunosuppressed", "learndis"
+  # "asplenia", "bmi_value", "sev_obesity",
+)
+elig_vars <- c(
+  
+)
 # variables that we want to keep in the processed data
 keep_vars <- c(
   # defined in analysis/variables_elig.py
@@ -200,7 +208,8 @@ create_match_strategy <- function(
     name,
     exact_vars = NULL,
     caliper_vars = NULL,
-    riskscore_vars = NULL,
+    riskscore_vars = NULL, # variable to be included as covariates in risk score model
+    riskscore_fup_vars = NULL, # includes outcome and censoring events
     adj_vars = NULL,
     strata_vars = NULL
 ) {
@@ -208,7 +217,16 @@ create_match_strategy <- function(
     exact_vars = exact_vars,
     caliper_vars = caliper_vars,
     riskscore_vars = riskscore_vars,
-    match_vars = c(exact_vars, names(caliper_vars), riskscore_vars),
+    riskscore_fup_vars,
+    keep_vars = unique(
+      c(
+        "age", # always keep
+        exact_vars, names(caliper_vars), 
+        riskscore_vars, riskscore_fup_vars
+        )
+      ),
+    # these variables only need to be extracted in controlfinal, although
+    # they may have been extracted earlier
     adj_vars = adj_vars,
     strata_vars = strata_vars
   )
@@ -222,20 +240,21 @@ create_match_strategy <- function(
   return(out)
 }
 
-match_strategy_none <- list()
-match_strategy_none$name <- "none"
-# these are all the optional variables defined in variables_vars
-# these are all extracted for the treated stage and 
-# the first round of the potential stage
-# for other matching strategies these will need to be removed from dummy data 
-# when not needed
-match_strategy_none$match_vars <- c("region", "flu_vaccine", "unplanneddischarged_0_date")
-match_strategy_none$riskscore_vars <- c("timesince_discharged")
+match_strategy_riskscore_i <- create_match_strategy(
+  name = "riskscore_i",
+  caliper_vars = c("riskscore_i" = 0.1), # TODO need to refine this, maybe based on percentile?
+  riskscore_vars = c(
+    "age", 
+    "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",
+    "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease",
+    "chronic_liver_disease", "immunosuppressed", "learndis",
+    "ethnicity", "imd_Q5", "region", "flu_vaccine", "timesince_discharged"
+    ),
+  riskscore_fup_vars = c("death", "dereg") # should these have suffix _date?
+)
 
-match_strategy_A <- create_match_strategy(
-  
-  name = "A",
-  
+match_strategy_a <- create_match_strategy(
+  name = "a",
   exact_vars = c(
     "agegroup_match",
     "vax_primary_brand",
@@ -245,7 +264,6 @@ match_strategy_A <- create_match_strategy(
     "region",
     NULL
   ),
-  
   caliper_vars = c(
     age = 3,
     # match on `lastvaxbeforeindex_day` rather than `timesincelastvax` as the 
@@ -253,7 +271,6 @@ match_strategy_A <- create_match_strategy(
     vax_lastbeforeindex_date = 14,
     NULL
   ),
-  
   adj_vars = c(
     "sex",
     "ethnicity",
@@ -266,10 +283,17 @@ match_strategy_A <- create_match_strategy(
     "timesince_coviddischarged",
     "flu_vaccine"
   ),
-  
   strata_vars = c("trial_date", "region")
-  
 )
+
+match_strategy_none <- create_match_strategy(
+  name = "none",
+  exact_vars = c(match_strategy_a$exact_vars),
+  caliper_vars = c(match_strategy_a$caliper_vars),
+  riskscore_vars = c(match_strategy_riskscore_i$riskscore_vars)
+)
+# TODO should contain variables across all possible match strategies and risk scores
+# write a check after defining the match strategies
 
 # match_strategy_C <- lst(
 #   score_vars = xxx,

@@ -31,8 +31,8 @@ source(here("lib", "functions", "utility.R"))
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
   # use for interactive testing
-  effect <- "treated"
-  match_strategy <- NULL
+  effect <- "comparative"
+  match_strategy <- "a"
 } else {
   effect <- args[[1]]
   if (length(args)>1) {

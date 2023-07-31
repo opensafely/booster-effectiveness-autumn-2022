@@ -357,6 +357,41 @@ data_vax_eligible <- data_vax %>%
   inner_join(data_crit_main %>% filter(include), by = "patient_id") %>%
   # remove the columns used for eligiblility criteria
   select(-c(undefinedbeforestart)) %>%
+  # recode vax_*_brand variables as factors
+  mutate(across(matches("vax_\\w+_brand"), ~replace_na(.x, replace = "none"))) %>%
+  mutate(
+    across(
+      vax_primary_brand, 
+      ~factor(
+        .x,
+        levels = treatment_lookup %>% filter(course=="primary") %>% pull(treatment)
+        )
+      )
+    ) %>%
+  mutate(
+    across(
+      vax_boostfirst_brand, 
+      ~factor(
+        .x,
+        levels = c(
+          "none",
+          treatment_lookup %>% filter(course=="boostfirst") %>% pull(treatment)
+        )
+      )
+    )
+  ) %>%
+  mutate(
+    across(
+      vax_boostspring_brand, 
+      ~factor(
+        .x,
+        levels = c(
+          "none",
+          treatment_lookup %>% filter(course=="boostspring") %>% pull(treatment)
+        )
+      )
+    )
+  ) %>%
   left_join(
     data_extract %>% transmute(
       patient_id, 

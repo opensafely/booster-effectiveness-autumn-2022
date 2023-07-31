@@ -618,21 +618,21 @@ actions_list <- splice(
   ),
   
   comment("# # # # # # # # # # # # # # # # # # #", 
-          "Extract and process risk score data", 
+          "Extract and process riskscore_i data", 
           "# # # # # # # # # # # # # # # # # # #"),
   
   action(
-    name = "extract_riskscore",
+    name = "extract_riskscore_i",
     run = glue(
       "cohortextractor:latest generate_cohort", 
-      " --study-definition study_definition_riskscore", 
-      " --output-file output/riskscore/extract/input_riskscore.feather",
+      " --study-definition study_definition_riskscore_i", 
+      " --output-file output/riskscore_i/extract/input_riskscore_i.feather",
     ),
     needs = namelesslst(
       "design", "process_initial"
     ),
     highly_sensitive = lst(
-      extract = "output/riskscore/extract/input_riskscore.feather"
+      extract = "output/riskscore_i/extract/input_riskscore_i.feather"
     ),
   ),
   
@@ -651,26 +651,45 @@ actions_list <- splice(
   ),
   
   action(
-    name = "process_riskscore",
+    name = "process_riskscore_i",
     run = "r:latest analysis/process/process_stage.R",
     # set match_strategy="none" and match_round=0 to keep the code happy,
     # but these don't really mean anything here
-    arguments = c("riskscore", "none", 0),
+    arguments = c("riskscore_i", "none", 0),
     needs = namelesslst(
       "process_initial",
-      "extract_riskscore",
+      "extract_riskscore_i",
       "dummydata_stage"
     ),
     highly_sensitive = lst(
-      eligiblerds = "output/riskscore/eligible/*.rds",
+      eligiblerds = "output/riskscore_i/eligible/*.rds",
     ),
     moderately_sensitive = lst(
-      flowchart = "output/riskscore/flowchart/*.csv",
-      extract_skim = "output/riskscore/extract/*.txt",
-      data_processed_skim = "output/riskscore/process/*.txt",
-      data_eligible_skim = "output/riskscore/eligible/*.txt"
+      flowchart = "output/riskscore_i/flowchart/*.csv",
+      extract_skim = "output/riskscore_i/extract/*.txt",
+      data_processed_skim = "output/riskscore_i/process/*.txt",
+      data_eligible_skim = "output/riskscore_i/eligible/*.txt"
     )
   ),
+  
+  map(
+    1:3,
+    ~action(
+      name = glue("fit_model_riskscore_i_", .x),
+      run = "r:latest analysis/riskscore/model_fit.R",
+      arguments = .x,
+      needs = namelesslst("process_riskscore_i"),
+      highly_sensitive = lst(
+        model_agegroup = glue("output/riskscore_i/agegroup_", .x, "/model_agegroup_*.rds")
+      ),
+      moderately_sensitive = lst(
+        dist_predictions = glue("output/riskscore_i/agegroup_", .x, "/dist_predictions_*.png"),
+        calibration = glue("output/riskscore_i/agegroup_", .x, "/calibration_*.png"),
+        binned_residuals = glue("output/riskscore_i/agegroup_", .x, "/binned_residuals_*.png")
+      )
+    )
+  ) %>% 
+    flatten(),
   
   comment("# # # # # # # # # # # # # # # # # # #", 
           "Extract and process treated data", 
@@ -701,7 +720,8 @@ actions_list <- splice(
     needs = namelesslst(
       "process_initial",
       "extract_treated",
-      "dummydata_stage"
+      "dummydata_stage",
+      "fit_model_riskscore_i_1", "fit_model_riskscore_i_2", "fit_model_riskscore_i_3"
     ),
     highly_sensitive = lst(
       eligiblerds = "output/treated/eligible/*.rds",
@@ -734,11 +754,17 @@ actions_list <- splice(
   ####################################################
   # all actions for comparative effectiveness analysis
   ####################################################
-  # actions_match_strategy(
-  #   effect = "comparative",
-  #   match_strategy = "A",
-  #   include_models = FALSE
-  #   ),
+  actions_match_strategy(
+    effect = "comparative",
+    match_strategy = "a",
+    include_models = FALSE
+    ),
+  
+  actions_match_strategy(
+    effect = "comparative",
+    match_strategy = "riskscore_i",
+    include_models = FALSE
+  ),
   
   ####################################################
   # all actions for incremental effectiveness analysis
@@ -746,7 +772,7 @@ actions_list <- splice(
   
   actions_match_strategy(
     effect = "incremental",
-    match_strategy = "A",
+    match_strategy = "a",
     include_models = FALSE
     ),
   

@@ -37,6 +37,42 @@ categorical_predictors <- c(
   "diabetes", "immunosuppressed", "learndis", "sev_mental", "timesince_discharged"
 )
 
+# pre model checks -------------------------------------------------------------
+# for each of the categorical predictors, make sure that all levels have at 
+# least one event, and merge if not (make note of merges)
+remove_vars <- character()
+for (x in categorical_predictors) {
+  
+  if (is.logical(data_mod[[x]])) {
+    levs_all <- unique(data_mod[[x]])
+  } else if (is.factor(data_mod[[x]])) {
+    levs_all <- levels(data_mod[[x]])
+  } else {
+    stop("Categorical variables should be logical of factors")
+  }
+  
+  levs_with_events <- data_mod %>%
+    group_by(!!sym(x)) %>%
+    summarise(events = sum(death), .groups = "drop") %>%
+    filter(events > 0) %>%
+    pull(!!sym(x))
+  
+  check_levs <- all(as.character(levs_all) %in% as.character(levs_with_events))
+  
+  # if all true for to the next variable
+  if (check_levs) next
+  
+  if (length(levs_with_events) == 1) {
+    remove_vars <- c(remove_vars, x)
+  } else {
+    # merge
+    # the only ones that can be merged are bmi and timesince_discharged
+    
+    
+  }
+  
+}
+
 # fit model --------------------------------------------------------------------
 mod <- glm(
   formula = death ~ poly(age, degree = 2) + asthma + bmi + 

@@ -15,11 +15,11 @@ if(length(args)==0){
   agegroup_index <- as.integer(args[[1]])
 }
 
-outdir <- here("output", "riskscore", "model")
-fs::dir_create(outdir)
-
 source(here("analysis", "design.R"))
 source(here("lib", "functions", "utility.R"))
+
+outdir <- ghere("output", "riskscore_i", "agegroup_{agegroup_index}")
+fs::dir_create(outdir)
 
 data_riskscore <- read_rds(here("output", "riskscore", "eligible", "data_riskscore.rds"))
 
@@ -50,35 +50,76 @@ for (x in categorical_predictors) {
   } else {
     stop("Categorical variables should be logical of factors")
   }
+  levs_all <- as.character(levs_all)
   
   levs_with_events <- data_mod %>%
     group_by(!!sym(x)) %>%
     summarise(events = sum(death), .groups = "drop") %>%
     filter(events > 0) %>%
-    pull(!!sym(x))
+    pull(!!sym(x)) %>%
+    as.character()
   
-  check_levs <- all(as.character(levs_all) %in% as.character(levs_with_events))
+  check_levs <- all(levs_all %in% levs_with_events)
   
-  # if all true for to the next variable
+  # if all true for to the next value of x
   if (check_levs) next
   
   if (length(levs_with_events) == 1) {
+    # if only one level with events, flag to remove variable
     remove_vars <- c(remove_vars, x)
-  } else {
-    # merge
-    # the only ones that can be merged are bmi and timesince_discharged
+    next
+  } 
+  
+  print(glue("Variable: {x}"))
+  print(glue("   Original levels: ", str_c(levs_all, collapse = "; ")))
+  while(length(levs_with_events) < length(levs_all)) {
     
+    # merge up, unless top level, in which case merge down
+    i <- which(!(levs_all %in% levs_with_events))
+    shift <- if_else(i < length(levs_all), 1, -1)
+    new_levs <- levs_all
+    new_levs[i+shift] <- str_c(new_levs[sort(c(i, i+shift))], collapse = " & ")
+    # do merging
+    data_mod <- data_mod %>%
+      mutate(
+        across(
+          x, 
+          ~factor(
+            if_else(
+              .x %in% levs_all[c(i, i+shift)], 
+              new_levs[i+shift], 
+              as.character(.x)
+            ),
+            levels = new_levs[-i]
+          )
+        )
+      )  
+    levs_all <- new_levs[-i]
+    levs_with_events <- data_mod %>%
+      group_by(!!sym(x)) %>%
+      summarise(events = sum(death), .groups = "drop") %>%
+      filter(events > 0) %>%
+      pull(!!sym(x)) %>%
+      as.character()
     
   }
+  print(glue("   New levels: ", str_c(levs_all, collapse = "; ")))
   
 }
 
+print(glue("Removed variables: ", str_c(remove_vars, collapse = ", ")))
+if (length(remove_vars) > 0) {
+  categorical_predictors <- categorical_predictors[-which(categorical_predictors %in% remove_vars)]
+}
+
 # fit model --------------------------------------------------------------------
+mod_formula <- as.formula(
+  str_c(
+    "death ~ poly(age, degree = 2) + ", str_c(categorical_predictors, collapse = " + ")
+  )
+)
 mod <- glm(
-  formula = death ~ poly(age, degree = 2) + asthma + bmi + 
-    chronic_heart_disease + chronic_kidney_disease + chronic_liver_disease +
-    chronic_neuro_disease + chronic_resp_disease + diabetes + immunosuppressed +
-    learndis + sev_mental + timesince_discharged,
+  formula = mod_formula,
   data = data_mod,
   family = binomial("logit")
 )

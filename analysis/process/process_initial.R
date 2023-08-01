@@ -392,6 +392,18 @@ data_vax_eligible <- data_vax %>%
       )
     )
   ) %>%
+  mutate(
+    across(
+      vax_boostautumn_brand, 
+      ~factor(
+        .x,
+        levels = c(
+          "none",
+          treatment_lookup %>% filter(course=="boostautumn") %>% pull(treatment)
+        )
+      )
+    )
+  ) %>%
   left_join(
     data_extract %>% transmute(
       patient_id, 

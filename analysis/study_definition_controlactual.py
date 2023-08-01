@@ -31,7 +31,7 @@ inclusion_variables = generate_inclusion_variables(index_date="trial_date")
 from variables_vars import generate_vars_variables 
 match_variables = generate_vars_variables(
     index_date="trial_date", 
-    vars = match_strategy_ojb["match_vars"]
+    vars = match_strategy_ojb["keep_vars"]
     )
 ############################################################
 

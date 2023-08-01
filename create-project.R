@@ -76,6 +76,7 @@ needs_model_riskscore <- function(match_strategy) {
   if (match_strategy %in% c("none", "riskscore_i")) {
     names_actions <- c(
       names_actions,
+      # across the 3 levels of agegroup_match
       sapply(1:3, function(x) glue("fit_model_riskscore_i_{x}"))
     )
   }
@@ -413,11 +414,11 @@ actions_match_strategy <- function(effect, match_strategy, include_models=FALSE)
         name = glue("match_{effect_match_strategy}"),
         run = "r:latest analysis/match/match_comparative.R",
         arguments = match_strategy,
-        needs = namelesslst(
+        needs = c(
           "process_initial",
           "process_treated",
           needs_model_riskscore(match_strategy)
-        ),
+        ) %>% as.list(),
         highly_sensitive = lst(
           rds = glue("output/comparative_{match_strategy}/match/*.rds")
         )
@@ -688,7 +689,7 @@ actions_list <- splice(
   ),
   
   map(
-    1:3,
+    1:3, # across the 3 levels of agegroup_match
     ~action(
       name = glue("fit_model_riskscore_i_", .x),
       run = "r:latest analysis/riskscore/model_fit.R",
@@ -736,7 +737,7 @@ actions_list <- splice(
       "process_initial",
       "extract_treated",
       "dummydata_stage",
-      needs_model_riskscore(match_strategy)
+      needs_model_riskscore("none")
     ) %>% as.list(),
     highly_sensitive = lst(
       eligiblerds = "output/treated/eligible/*.rds",

@@ -205,6 +205,9 @@ actions:
     - dummydata_stage
     - process_initial
     - extract_controlpotential_none_1
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
     outputs:
       highly_sensitive:
         eligible_rds: output/incremental_none/matchround1/controlpotential/eligible/*.rds
@@ -215,6 +218,7 @@ actions:
 
   ## # # # # # # # # # # # # # # # # # # # 
   ## Match treated for comparative effectiveness 
+  ## match_strategy = a 
   ## # # # # # # # # # # # # # # # # # # # 
 
   match_comparative_a:
@@ -255,7 +259,53 @@ actions:
         csv: output/comparative_a/flowchart/*.csv
 
   ## # # # # # # # # # # # # # # # # # # # 
+  ## Match treated for comparative effectiveness 
+  ## match_strategy = riskscore_i 
+  ## # # # # # # # # # # # # # # # # # # # 
+
+  match_comparative_riskscore_i:
+    run: r:latest analysis/match/match_comparative.R riskscore_i
+    needs:
+    - process_initial
+    - process_treated
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
+    outputs:
+      highly_sensitive:
+        rds: output/comparative_riskscore_i/match/*.rds
+
+  table1_comparative_riskscore_i:
+    run: r:latest analysis/report/table1.R comparative riskscore_i
+    needs:
+    - process_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/table1/*.csv
+
+  coverage_comparative_riskscore_i:
+    run: r:latest analysis/match/coverage.R comparative riskscore_i
+    needs:
+    - process_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/coverage/*.csv
+        png: output/comparative_riskscore_i/coverage/*.png
+
+  flowchart_comparative_riskscore_i:
+    run: r:latest analysis/match/match_flowchart.R comparative riskscore_i
+    needs:
+    - process_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/flowchart/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # 
   ## Match treated for incremental effectiveness 
+  ## match_strategy = a 
   ## # # # # # # # # # # # # # # # # # # # 
   ## # # # # # # # # # # # # # # # # # # # 
   ## Extract, process and match control data 
@@ -415,6 +465,185 @@ actions:
     outputs:
       highly_sensitive:
         cohort: output/incremental_a/outcomes/input_outcomes.feather
+
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## Match treated for incremental effectiveness 
+  ## match_strategy = riskscore_i 
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## Extract, process and match control data 
+  ## for incremental effectiveness analysis 
+  ## # # # # # # # # # # # # # # # # # # # 
+
+  match_controlpotential_riskscore_i_1:
+    run: r:latest analysis/match/match_controlpotential.R riskscore_i 1
+    needs:
+    - process_treated
+    - process_controlpotential_none_1
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
+    outputs:
+      highly_sensitive:
+        rds: output/incremental_riskscore_i/matchround1/controlpotential/match/*.rds
+        csv: output/incremental_riskscore_i/matchround1/controlpotential/match/*.csv.gz
+
+  extract_controlactual_riskscore_i_1:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
+      --output-file output/incremental_riskscore_i/matchround1/controlactual/extract/input_controlactual.feather
+      --param match_strategy=riskscore_i --param match_round=1
+    needs:
+    - design
+    - match_controlpotential_riskscore_i_1
+    outputs:
+      highly_sensitive:
+        cohort: output/incremental_riskscore_i/matchround1/controlactual/extract/input_controlactual.feather
+
+  process_controlactual_riskscore_i_1:
+    run: r:latest analysis/process/process_stage.R controlactual riskscore_i 1
+    needs:
+    - process_initial
+    - dummydata_stage
+    - process_treated
+    - match_controlpotential_riskscore_i_1
+    - extract_controlactual_riskscore_i_1
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
+    outputs:
+      highly_sensitive:
+        rds: output/incremental_riskscore_i/matchround1/controlactual/match/*.rds
+      moderately_sensitive:
+        input_controlactual_skim: output/incremental_riskscore_i/matchround1/controlactual/extract/*.txt
+        eligible_skim: output/incremental_riskscore_i/matchround1/controlactual/eligible/*.txt
+        process_skim: output/incremental_riskscore_i/matchround1/controlactual/process/*.txt
+
+  extract_controlpotential_riskscore_i_2:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
+      --output-file output/incremental_riskscore_i/matchround2/controlpotential/extract/input_controlpotential.feather
+      --param match_strategy=riskscore_i --param match_round=2 --param index_date=2022-09-26
+    needs:
+    - design
+    - process_initial
+    - process_controlactual_riskscore_i_1
+    outputs:
+      highly_sensitive:
+        cohort: output/incremental_riskscore_i/matchround2/controlpotential/extract/input_controlpotential.feather
+
+  process_controlpotential_riskscore_i_2:
+    run: r:latest analysis/process/process_stage.R controlpotential riskscore_i 2
+    needs:
+    - dummydata_stage
+    - process_initial
+    - extract_controlpotential_riskscore_i_2
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
+    outputs:
+      highly_sensitive:
+        eligible_rds: output/incremental_riskscore_i/matchround2/controlpotential/eligible/*.rds
+      moderately_sensitive:
+        data_extract_skim: output/incremental_riskscore_i/matchround2/controlpotential/extract/*.txt
+        data_processed_skim: output/incremental_riskscore_i/matchround2/controlpotential/process/*.txt
+        data_controlpotential_skim: output/incremental_riskscore_i/matchround2/controlpotential/eligible/*.txt
+
+  match_controlpotential_riskscore_i_2:
+    run: r:latest analysis/match/match_controlpotential.R riskscore_i 2
+    needs:
+    - process_treated
+    - process_controlpotential_riskscore_i_2
+    - process_controlactual_riskscore_i_1
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
+    outputs:
+      highly_sensitive:
+        rds: output/incremental_riskscore_i/matchround2/controlpotential/match/*.rds
+        csv: output/incremental_riskscore_i/matchround2/controlpotential/match/*.csv.gz
+
+  extract_controlactual_riskscore_i_2:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
+      --output-file output/incremental_riskscore_i/matchround2/controlactual/extract/input_controlactual.feather
+      --param match_strategy=riskscore_i --param match_round=2
+    needs:
+    - design
+    - match_controlpotential_riskscore_i_2
+    outputs:
+      highly_sensitive:
+        cohort: output/incremental_riskscore_i/matchround2/controlactual/extract/input_controlactual.feather
+
+  process_controlactual_riskscore_i_2:
+    run: r:latest analysis/process/process_stage.R controlactual riskscore_i 2
+    needs:
+    - process_initial
+    - dummydata_stage
+    - process_treated
+    - match_controlpotential_riskscore_i_2
+    - process_controlactual_riskscore_i_1
+    - extract_controlactual_riskscore_i_2
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
+    outputs:
+      highly_sensitive:
+        rds: output/incremental_riskscore_i/matchround2/controlactual/match/*.rds
+        final: output/incremental_riskscore_i/match/*.csv.gz
+      moderately_sensitive:
+        input_controlactual_skim: output/incremental_riskscore_i/matchround2/controlactual/extract/*.txt
+        eligible_skim: output/incremental_riskscore_i/matchround2/controlactual/eligible/*.txt
+        process_skim: output/incremental_riskscore_i/matchround2/controlactual/process/*.txt
+
+  table1_incremental_riskscore_i:
+    run: r:latest analysis/report/table1.R incremental riskscore_i
+    needs:
+    - process_treated
+    - process_controlactual_riskscore_i_1
+    - process_controlactual_riskscore_i_2
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/table1/*.csv
+
+  coverage_incremental_riskscore_i:
+    run: r:latest analysis/match/coverage.R incremental riskscore_i
+    needs:
+    - process_treated
+    - process_controlactual_riskscore_i_2
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/coverage/*.csv
+        png: output/incremental_riskscore_i/coverage/*.png
+
+  flowchart_incremental_riskscore_i:
+    run: r:latest analysis/match/match_flowchart.R incremental riskscore_i
+    needs:
+    - process_treated
+    - process_controlactual_riskscore_i_2
+    - process_initial
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/flowchart/*.csv
+
+  extract_controlfinal_riskscore_i:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlfinal
+      --output-file output/incremental_riskscore_i/match/input_controlfinal_riskscore_i.feather
+      --param match_strategy=riskscore_i
+    needs:
+    - design
+    - process_controlactual_riskscore_i_2
+    outputs:
+      highly_sensitive:
+        cohort: output/incremental_riskscore_i/match/input_controlfinal_riskscore_i.feather
+
+  extract_outcomes_riskscore_i:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_outcomes
+      --output-file output/incremental_riskscore_i/outcomes/input_outcomes.feather
+      --param match_strategy=riskscore_i
+    needs:
+    - design
+    - process_controlactual_riskscore_i_2
+    outputs:
+      highly_sensitive:
+        cohort: output/incremental_riskscore_i/outcomes/input_outcomes.feather
 
   ## #### End #### 
 

@@ -71,6 +71,17 @@ namelesslst <- function(...){
   unname(lst(...))
 }
 
+needs_model_riskscore <- function(match_strategy) {
+  names_actions <- NULL
+  if (match_strategy %in% c("none", "riskscore_i")) {
+    names_actions <- c(
+      names_actions,
+      sapply(1:3, function(x) glue("fit_model_riskscore_i_{x}"))
+    )
+  }
+  return(names_actions)
+}
+
 # action for controlpotential steps
 # keep these outside action_1matchround(), as they only need to be run once for 
 # round 1 as are independent of match_strategy
@@ -106,11 +117,12 @@ action_controlpotential <- function(match_strategy, match_round) {
       name = glue("process_controlpotential_{match_strategy}_{match_round}"),
       run = glue("r:latest analysis/process/process_stage.R"),
       arguments = c("controlpotential", match_strategy, match_round),
-      needs = namelesslst(
+      needs = c(
         "dummydata_stage",
         "process_initial",
         glue("extract_controlpotential_{match_strategy}_{match_round}"),
-      ),
+        needs_model_riskscore(match_strategy)
+      ) %>% as.list(),
       highly_sensitive = lst(
         eligible_rds = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/eligible/*.rds")
       ),
@@ -145,10 +157,11 @@ action_1matchround <- function(match_strategy, match_round) {
         "process_treated",
         if (match_round==1) {
           glue("process_controlpotential_none_{match_round}")
-          } else {
-            glue("process_controlpotential_{match_strategy}_{match_round}")
-            },
-        if(match_round>1) {glue("process_controlactual_{match_strategy}_{match_round-1}")} else {NULL}
+        } else {
+          c(glue("process_controlpotential_{match_strategy}_{match_round}"),
+            glue("process_controlactual_{match_strategy}_{match_round-1}"))
+        },
+        needs_model_riskscore(match_strategy)
       ) %>% as.list,
       highly_sensitive = lst(
         rds = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/match/*.rds"),
@@ -174,7 +187,6 @@ action_1matchround <- function(match_strategy, match_round) {
       )
     ),
 
-
     action(
       name = glue("process_controlactual_{match_strategy}_{match_round}"),
       run = glue("r:latest analysis/process/process_stage.R"),
@@ -185,7 +197,8 @@ action_1matchround <- function(match_strategy, match_round) {
         "process_treated",
         glue("match_controlpotential_{match_strategy}_{match_round}"),
         if (match_round > 1) glue("process_controlactual_{match_strategy}_{match_round-1}"),
-        glue("extract_controlactual_{match_strategy}_{match_round}")
+        glue("extract_controlactual_{match_strategy}_{match_round}"),
+        needs_model_riskscore(match_strategy)
       ) %>% as.list,
       highly_sensitive = as.list(c(
           rds = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/match/*.rds"),
@@ -341,7 +354,7 @@ action_table1 <- function(effect, match_strategy = NULL) {
   )
 }
 
-actions_postmatch <- function(effect, match_strategy){
+actions_postmatch <- function(effect, match_strategy) {
   
   effect_match_strategy <- str_c(effect, match_strategy, sep = "_")
   
@@ -402,7 +415,8 @@ actions_match_strategy <- function(effect, match_strategy, include_models=FALSE)
         arguments = match_strategy,
         needs = namelesslst(
           "process_initial",
-          "process_treated"
+          "process_treated",
+          needs_model_riskscore(match_strategy)
         ),
         highly_sensitive = lst(
           rds = glue("output/comparative_{match_strategy}/match/*.rds")
@@ -479,6 +493,7 @@ actions_match_strategy <- function(effect, match_strategy, include_models=FALSE)
     
     comment("# # # # # # # # # # # # # # # # # # #", 
             glue("Match treated for {effect} effectiveness"), 
+            glue("match_strategy = {match_strategy}"),
             "# # # # # # # # # # # # # # # # # # #"),
     
     actions_match
@@ -717,12 +732,12 @@ actions_list <- splice(
     # set match_strategy="none" and match_round=0 to keep the code happy,
     # but these don't really mean anything here
     arguments = c("treated", "none", 0),
-    needs = namelesslst(
+    needs = c(
       "process_initial",
       "extract_treated",
       "dummydata_stage",
-      "fit_model_riskscore_i_1", "fit_model_riskscore_i_2", "fit_model_riskscore_i_3"
-    ),
+      needs_model_riskscore(match_strategy)
+    ) %>% as.list(),
     highly_sensitive = lst(
       eligiblerds = "output/treated/eligible/*.rds",
       eligiblecsv = "output/treated/eligible/*.csv.gz"
@@ -775,6 +790,12 @@ actions_list <- splice(
     match_strategy = "a",
     include_models = FALSE
     ),
+  
+  actions_match_strategy(
+    effect = "incremental",
+    match_strategy = "riskscore_i",
+    include_models = FALSE
+  ),
   
   comment("#### End ####")
 )

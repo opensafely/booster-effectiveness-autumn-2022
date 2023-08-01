@@ -33,13 +33,15 @@ if (length(args) == 0) {
   # stage <- "riskscore_i"
   # match_strategy <- "riskscore_i"
   # match_round <- as.integer("0")
-  stage <- "treated"
-  match_strategy <- "none"
-  match_round <- as.integer("0")
+  # stage <- "treated"
+  # match_strategy <- "none"
+  # match_round <- as.integer("0")
   # stage <- "controlpotential"
-  # stage <- "controlactual"
-  # match_strategy <- "a"
+  # match_strategy <- "none"
   # match_round <- as.integer("1")
+  stage <- "controlactual"
+  match_strategy <- "a"
+  match_round <- as.integer("1")
 } else {
   stage <- args[[1]]
   match_strategy <- args[[2]]
@@ -119,21 +121,6 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
       )
   }
   
-  # remove variables from dummy data that are not extracted for the given match_strategy
-  if (stage %in% c("controlpotential", "controlactual")) {
-    
-    # TODO update these lines, just do these exclusiond manually
-    tmp_remove_vars <- !(match_strategy_none$match_vars %in% match_vars)
-    
-    if (any(tmp_remove_vars)) {
-      data_dummy <- data_dummy %>%
-        select(-all_of(match_strategy_none$match_vars[tmp_remove_vars]))
-    }
-    
-    rm(tmp_remove_vars)
-      
-  }
-  
   if (stage == "controlpotential") {
     data_dummy <- data_dummy %>%
       mutate(matchroundindex_date = match_round_date)
@@ -165,7 +152,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
   
   # check custom and studydef dummydata match
   source(here("analysis", "dummydata", "dummydata_check.R"))
-  dummydata_check(
+  data_dummy <- dummydata_check(
     dummydata_studydef= data_studydef,
     dummydata_custom = data_dummy
   )
@@ -506,12 +493,13 @@ data_eligible <- data_criteria %>%
     data_processed %>% 
       select(
         patient_id,
+        any_of(c("match_id", "trial_date")),
         starts_with("vax_"),
         all_of(unique(c(keep_vars, initial_vars)))
         ), 
     by="patient_id"
-    ) #%>%
-  # droplevels()
+    ) %>%
+  droplevels()
 
 rm(data_processed)
 
@@ -613,7 +601,7 @@ if (stage == "treated") {
   
 }
 
-# check match (only when stage="actual") ----
+# rematch (only when stage="controlactual") ----
 if (stage == "controlactual") { 
   
   # TODO only keen the necessary variables to reduce file size
@@ -643,8 +631,8 @@ if (stage == "controlactual") {
   rematch <-
     # first join on exact variables + match_id + trial_date
     inner_join(
-      x=data_treated %>% select(match_id, trial_date, all_of(c(names(caliper_vars), exact_vars))),
-      y=data_control %>% select(match_id, trial_date, all_of(c(names(caliper_vars), exact_vars))),
+      x = data_treated %>% select(match_id, trial_date, all_of(c(names(caliper_vars), exact_vars))),
+      y = data_control %>% select(match_id, trial_date, all_of(c(names(caliper_vars), exact_vars))),
       by = c("match_id", "trial_date", exact_vars)
     ) 
   
@@ -696,8 +684,8 @@ if (stage == "controlactual") {
   obj_matchit <-
     safely_matchit(
       data = data_unsuccessful_match,
-      exact = c("trial_time", exact_vars),
-      caliper = caliper_vars
+      exact = "trial_time"#c("trial_time", exact_vars),
+      # caliper = caliper_vars
     )[[1]]
   
   # save output

@@ -25,7 +25,7 @@ source(here("lib", "functions", "match_control.R"))
 # import command-line arguments
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
-  match_strategy <- "A"
+  match_strategy <- "riskscore_i"
   match_round <- as.integer("1")
 } else {
   match_strategy <- args[[1]]
@@ -104,13 +104,8 @@ local({
   # - still at risk of an outcome (not deregistered or dead); 
   # - had not already been selected as a control in a previous trial
 
-
-  # set maximum number of daily trials
-  # time index is incremental to "start date"
-  # trial index start at one, not zero. i.e., study start date is "day 1" (but the _time_ at the start of study start date is zero)
-  start_trial_time <- 0
-  end_trial_time <- as.integer(study_dates$recruitmentend + 1 - study_dates$studystart)
-  trials <- seq(start_trial_time+1, end_trial_time, 1) 
+  # all possible trial dates
+  all_trial_dates <- seq(study_dates$studystart, study_dates$recruitmentend, 1) 
   
   # initialise list of candidate controls
   candidate_ids <- data_eligible %>% filter(treated==0) %>% pull(patient_id)
@@ -119,26 +114,24 @@ local({
   data_treated <- NULL
   data_matched <- NULL
 
-  #trial=1
-  for(trial in trials){
+  # trial_index = 1
+  for(trial_index in seq_along(all_trial_dates)){
 
-    cat("match trial ", trial, "\n")
-    trial_time <- trial-1
-    trial_date <- study_dates$studystart + trial_time
+    cat("match trial ", trial_index, "\n")
     
-    # set of people vaccinated on trial day
+    # set of people vaccinated on all_trial_dates[trial_index]
     data_treated_i <-
       data_eligible %>%
       filter(
         # select treated
         treated == 1L,
         # select people vaccinated on trial day i
-        treatment_date == trial_date
+        treatment_date == all_trial_dates[trial_index]
         ) %>% 
       transmute(
         patient_id,
         treated,
-        trial_time=trial_time,
+        trial_index=trial_index,
         trial_date=trial_date
       )
     
@@ -159,14 +152,14 @@ local({
       transmute(
         patient_id,
         treated,
-        trial_time=trial_time,
+        trial_index=trial_index,
         trial_date=trial_date
       )
     
     n_treated_all <- nrow(data_treated_i)
     
     if(n_treated_all<1) {
-      message("Skipping trial ", trial, " - No treated people eligible for inclusion.")
+      message("Skipping trial ", trial_index, " - No treated people eligible for inclusion.")
       next
     }
   
@@ -196,7 +189,7 @@ local({
       )[[1]]
     
     if(is.null(obj_matchit_i)) {
-      message("Skipping trial ", trial, " - No exact matches found.")
+      message("Skipping trial ", trial_index, " - No exact matches found.")
       next
     }
     
@@ -209,7 +202,7 @@ local({
           match_id = NA_integer_,
           treated = match_candidates_i$treated,
           weight = 0,
-          trial_time = trial_time,
+          trial_index = trial_index,
           trial_date = trial_date,
         )
       } else {
@@ -220,7 +213,7 @@ local({
           match_id = as.integer(as.character(obj_matchit_i$subclass)),
           treated = obj_matchit_i$treat,
           weight = obj_matchit_i$weights,
-          trial_time = trial_time,
+          trial_index = trial_index,
           trial_date = trial_date,
         ) 
       } %>%
@@ -253,8 +246,8 @@ local({
 
   }
 
-  #remove trial_time and trial_date counters created by the loop
-  trial_time <- NULL
+  # replace trial_index and trial_date counters created by the loop with NULL
+  trial_index <- NULL
   trial_date <- NULL
 
   data_matched <-
@@ -265,7 +258,7 @@ local({
       matched=1L, 
       treated,
       control=1L-treated, 
-      trial_time, 
+      trial_index, 
       trial_date, 
       controlistreated_date
     )
@@ -275,8 +268,8 @@ local({
   data_matchstatus <<-
     data_treated %>%
     left_join(
-      data_matched %>% filter(treated==1L, matched==1L), 
-      by=c("patient_id", "treated", "trial_time", "trial_date")
+      data_matched %>% filter(treated==1L, matched==1L) %>% select(-trial_date), 
+      by=c("patient_id", "treated", "trial_index")
       ) %>%
     mutate(
       matched = replace_na(matched, 0L), # 1 if matched, 0 if unmatched
@@ -294,8 +287,7 @@ data_matchstatus %>%
   write_rds(file.path(outdir, "data_potential_matchstatus.rds"), compress="gz")
 
 # number of treated/controls per trial
-# use trial=trial_time+1 so that this printout matches the printout from the loop for(trial in trials){}
-with(data_matchstatus %>% filter(matched==1), table(trial=trial_time+1, treated))
+with(data_matchstatus %>% filter(matched==1), table(trial_index, treated))
 
 # total matched pairs
 with(data_matchstatus %>% filter(matched==1), table(treated))
@@ -304,7 +296,7 @@ with(data_matchstatus %>% filter(matched==1), table(treated))
 print(
   paste0(
     "max trial day is ", 
-    as.integer(max(data_matchstatus %>% filter(matched==1) %>% pull(trial_time), na.rm=TRUE))
+    as.integer(max(data_matchstatus %>% filter(matched==1) %>% pull(trial_index), na.rm=TRUE))
     )
   )
 

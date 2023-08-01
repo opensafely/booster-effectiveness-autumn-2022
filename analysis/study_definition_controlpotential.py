@@ -29,7 +29,7 @@ else:
     # match_strategy_obj
     with open(f"lib/design/match-strategy-{match_strategy}.json") as f:
       match_strategy_ojb = json.load(f)
-      match_vars = match_strategy_ojb["match_vars"]
+      match_vars = match_strategy_ojb["keep_vars"]
 
 
 

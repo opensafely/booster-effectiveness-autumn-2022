@@ -114,8 +114,8 @@ outcomes <- c("covidadmitted", "coviddeath", "noncoviddeath", "fracture")
 
 treatment_lookup <- tribble(
   ~course, ~treatment, ~treatment_descr,
-  "boostaumtumn","pfizerbivalent", "Bivalent BNT162b2",
-  "boostaumtumn", "modernabivalent", "Bivalent mRNA-1273",
+  "boostautumn","pfizerbivalent", "Bivalent BNT162b2",
+  "boostautumn", "modernabivalent", "Bivalent mRNA-1273",
   "boostspring","pfizer", "BNT162b2",
   "boostspring", "moderna", "mRNA-1273",
   "boostfirst","pfizer", "BNT162b2",

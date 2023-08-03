@@ -119,14 +119,16 @@ local({
 
     cat("match trial ", trial_index, "\n")
     
-    # set of people vaccinated on all_trial_dates[trial_index]
+    trial_date <- all_trial_dates[trial_index]
+    
+    # set of people vaccinated on trial_date
     data_treated_i <-
       data_eligible %>%
       filter(
         # select treated
         treated == 1L,
         # select people vaccinated on trial day i
-        treatment_date == all_trial_dates[trial_index]
+        treatment_date == trial_date
         ) %>% 
       transmute(
         patient_id,
@@ -246,9 +248,8 @@ local({
 
   }
 
-  # replace trial_index and trial_date counters created by the loop with NULL
-  trial_index <- NULL
-  trial_date <- NULL
+  # remove trial_index and trial_date counters created by the loop
+  rm(trial_index, trial_date)
 
   data_matched <-
     data_matched %>%
@@ -311,36 +312,10 @@ data_matchstatus %>%
   write_csv(file.path(outdir, "potential_matchedcontrols.csv.gz"))
 
 
-print(
-  paste0(
-    "number of duplicate control IDs is ", 
-    data_matchstatus %>%
-      filter(control==1L, matched==1L) %>% 
-      group_by(patient_id) %>% 
-      summarise(n=n()) %>%
-      filter(n>1) %>% nrow() 
-    )
-  )
-# should be zero
-# 
-# 
-# ## output dataset containing all matched pairs + match factors
-# data_matched <-
-#   data_matchstatus %>%
-#   filter(matched==1L) %>%
-#   left_join(
-#     data_eligible %>%
-#     select(
-#       patient_id,
-#       treated,
-#       all_of(
-#         exact_variables_incremental#,
-#         #names(caliper_variables)
-#       ),
-#     ),
-#     by=c("patient_id", "treated")
-#   ) %>%
-#   arrange(trial_date, match_id, treated)
-# 
-# 
-# write_rds(data_matched, fs::path(output_dir, glue("data_potential_matched{match_round}.rds")), compress="gz")
+dup_control_ids <- data_matchstatus %>%
+  filter(control==1L, matched==1L) %>% 
+  group_by(patient_id) %>% 
+  summarise(n=n()) %>%
+  filter(n>1) %>% nrow() 
+
+stopifnot("Duplicate patient_ids in the control group" = dup_control_ids == 0)

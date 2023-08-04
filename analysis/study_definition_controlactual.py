@@ -19,7 +19,7 @@ match_strategy = params["match_strategy"]
 match_round = params["match_round"]
 
 # match_strategy_ojb
-with open("lib/design/match-strategy-A.json") as f:
+with open(f"lib/design/match-strategy-{match_strategy}.json") as f:
    match_strategy_ojb = json.load(f)
 
 ############################################################

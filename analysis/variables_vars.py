@@ -91,7 +91,7 @@ def generate_vars_variables(
   # date of last discharged from unplanned hospital admission
   # don't need to worry about people who were discharged after riskscore_start_date, 
   # as they'll be excluded anyway
-  if any(x in vars for x in {"everything", "unplanneddischarged_0_date"}):
+  if any(x in vars for x in {"everything", "timesince_discharged"}):
     variables.update(
         unplanneddischarged_0_date=patients.admitted_to_hospital(
                 returning = "date_discharged",

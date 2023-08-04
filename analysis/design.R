@@ -220,7 +220,7 @@ create_match_strategy <- function(
     riskscore_fup_vars,
     keep_vars = unique(
       c(
-        "age", # always keep
+        "age", "agegroup_match", # always keep
         exact_vars, names(caliper_vars), 
         riskscore_vars, riskscore_fup_vars
         )
@@ -242,7 +242,8 @@ create_match_strategy <- function(
 
 match_strategy_riskscore_i <- create_match_strategy(
   name = "riskscore_i",
-  caliper_vars = c("riskscore_i" = 0.1), # TODO need to refine this, maybe based on percentile?
+  exact_vars = "riskscore_i_percentile",
+  # caliper_vars = c("riskscore_i" = 0.1), # TODO need to refine this, maybe based on percentile?
   riskscore_vars = c(
     "age", 
     "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",

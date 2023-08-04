@@ -40,7 +40,7 @@ if (length(args) == 0) {
   # match_strategy <- "none"
   # match_round <- as.integer("1")
   stage <- "controlactual"
-  match_strategy <- "a"
+  match_strategy <- "riskscore_i"
   match_round <- as.integer("1")
 } else {
   stage <- args[[1]]
@@ -475,19 +475,13 @@ data_criteria <- data_processed %>%
 data_eligible <- data_criteria %>%
   filter(include) %>%
   select(patient_id) %>% 
-  # create a dummy riskscore here so that the 
-  # select(all_of(unique(c(keep_vars, initial_vars)))) below doesn't fail
-  mutate(
-    # add any other risk scores here too
-    riskscore_i = NA_real_
-  ) %>%
   left_join(
     data_processed %>% 
       select(
         patient_id,
         any_of(c("match_id", "trial_date", "trial_index")),
         starts_with("vax_"),
-        all_of(unique(c(keep_vars, initial_vars)))
+        any_of(unique(c(keep_vars, initial_vars)))
         ), 
     by="patient_id"
     ) %>%
@@ -503,9 +497,14 @@ if (
   
   agegroup_indices <- seq_along(levels(data_eligible$agegroup_match))
   
-  model_list <- lapply(
+  model_list <- map(
     agegroup_indices,
-    function(x) read_rds(here("output", "riskscore_i", glue("agegroup_{x}"), glue("model_agegroup_{x}.rds")))
+    ~read_rds(here("output", "riskscore_i", glue("agegroup_", .x), glue("model_agegroup_",.x,".rds")))
+  )
+  
+  percentile_breaks_list <- map(
+    agegroup_indices,
+    ~read_rds(here("output", "riskscore_i", glue("agegroup_", .x), glue("percentile_breaks_",.x,".rds")))
   )
   
   # calculate riskscore predictions
@@ -515,14 +514,101 @@ if (
     as.list()
   
   for (x in agegroup_indices) {
-    data_eligible_list[[x]]$riskscore_i <- predict(
-      model_list[[x]],
-      newdata = data_eligible_list[[x]],
-      type = "response"
+    
+    data_eligible_list[[x]] <- data_eligible_list[[x]] %>%
+      mutate(
+        riskscore_i = predict(
+          model_list[[x]],
+          newdata = data_eligible_list[[x]],
+          type = "response"
+        ),
+        riskscore_i_percentile = cut(
+          riskscore_i,
+          breaks = percentile_breaks_list[[x]],
+          labels = FALSE,
+          include.lowest = TRUE
+        )
       )
+    
   }
   
   data_eligible <- bind_rows(data_eligible_list)
+  
+  # plot the distribution of the risk scores and the percentile breaks
+  local({
+    
+    # add names to the list of percentile breaks
+    names(percentile_breaks_list) <- levels(data_eligible$agegroup_match)
+    # create an object with the number of percentile breaks for each agegroup
+    break_lengths <- map_int(percentile_breaks_list, ~length(.x))
+    # create dataset of breaks for the plot
+    data_tmp <- tibble(
+      agegroup_match = rep(names(break_lengths), times = unname(break_lengths)),
+      riskscore_i_percentile_breaks = unlist(percentile_breaks_list)
+    ) %>%
+      filter(!(riskscore_i_percentile_breaks %in% c(0,1)))
+    
+    # plot the distribution of risk scores
+    plot_riskscore_distribution <- data_eligible %>%
+      ggplot(aes(x=riskscore_i, y = after_stat(density), colour = agegroup_match)) +
+      # add vertical lines at the percentile breaks
+      geom_vline(
+        aes(xintercept = riskscore_i_percentile_breaks),
+        data = data_tmp,
+        alpha = 0.1
+      ) +
+      # plot the distribution of riskscore_i
+      geom_freqpoly(binwidth = 0.01) +
+      facet_grid(rows = vars(agegroup_match)) +
+      labs(
+        caption = str_c(
+          "Number of unique breaks: ", 
+          str_c(
+            str_c(names(break_lengths), unname(break_lengths), sep = " = "), 
+            collapse = ", "),
+          "."
+        )
+      ) +
+      theme_bw() +
+      theme(
+        panel.grid = element_blank(),
+        legend.position = "bottom"
+      )
+    
+    # plot the distribution of risk score percentiles
+    plot_percentile_distribution <- data_eligible %>%
+      ggplot(
+        aes(
+          x=riskscore_i_percentile,
+          y = stat(prop),
+          fill = agegroup_match
+          )
+        ) +
+      geom_bar(width = 1) +
+      facet_grid(rows = vars(agegroup_match)) +
+      scale_x_continuous(expand = c(0,0)) +
+      scale_y_continuous(labels = scales::percent) +
+      labs(y=NULL) +
+      theme_bw() +
+      theme(
+        legend.position = "bottom"
+      )
+    
+    # create output directory and save plots
+    riskcsore_i_dir <- file.path(path_stem, "riskscore_i")
+    fs::dir_create(riskcsore_i_dir)
+    ggsave(
+      filename = file.path(riskcsore_i_dir, "plot_riskscore_distribution.png"),
+      plot = plot_riskscore_distribution
+    )
+    ggsave(
+      filename = file.path(riskcsore_i_dir, "plot_percentile_distribution.png"),
+      plot = plot_percentile_distribution
+    )
+    
+  })
+
+  rm(agegroup_indices, model_list, percentile_breaks_list, data_eligible_list)
   
 }
 

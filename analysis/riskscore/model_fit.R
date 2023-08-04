@@ -131,7 +131,26 @@ data_mod <- data_mod %>%
   mutate(
     residual = mod$residuals,
     probability =  mod$fitted.values,
-    probability_cut = cut(probability, seq(0,1,0.01))#, labels = FALSE)
+    probability_cut = cut(probability, seq(0,1,0.01))
+  )
+
+# get breaks for percentiles of predicted probabilities of death
+percentile_breaks <- quantile(
+  data_mod$probability,
+  probs = seq(0,1,0.01)
+)
+percentile_breaks_unique <- unique(percentile_breaks)
+n_breaks <- length(percentile_breaks)
+n_breaks_unique <- length(percentile_breaks_unique)
+print(glue("{n_breaks_unique} of {n_breaks} percentile breaks are unique."))
+
+# replace bottom with zero and top with 1 to ensure all predictions captured in other datasets
+percentile_breaks_unique[1] <- 0
+percentile_breaks_unique[length(percentile_breaks_unique)] <- 1
+
+write_rds(
+  percentile_breaks_unique,
+  file.path(outdir, glue("percentile_breaks_{agegroup_index}.rds"))
   )
 
 # distribution of predictions by true outcome ----------------------------------

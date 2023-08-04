@@ -92,6 +92,14 @@ action_controlpotential <- function(match_strategy, match_round) {
   
   controlpotential_path <- "output/incremental_{match_strategy}/matchround{match_round}/controlpotential/extract/input_controlpotential.feather"
   
+  riskscore_i_plots <- 
+    if(
+      (match_strategy == "controlpotential" & match_round ==1) | 
+      match_strategy == "riskscore_i"
+    ) {
+      glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/riskscore_i/plot_*.png")
+      } else NULL
+    
   actions <- splice(
     
     action(
@@ -116,7 +124,7 @@ action_controlpotential <- function(match_strategy, match_round) {
     
     action(
       name = glue("process_controlpotential_{match_strategy}_{match_round}"),
-      run = glue("r:latest analysis/process/process_stage.R"),
+      run = "r:latest analysis/process/process_stage.R",
       arguments = c("controlpotential", match_strategy, match_round),
       needs = c(
         "dummydata_stage",
@@ -127,11 +135,12 @@ action_controlpotential <- function(match_strategy, match_round) {
       highly_sensitive = lst(
         eligible_rds = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/eligible/*.rds")
       ),
-      moderately_sensitive = lst(
+      moderately_sensitive = c(
         data_extract_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/extract/*.txt"),
         data_processed_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/process/*.txt"),
-        data_controlpotential_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/eligible/*.txt")
-      )
+        data_controlpotential_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/eligible/*.txt"),
+        riskscore_i_plots = riskscore_i_plots
+      ) %>% as.list()
     )
   )
   
@@ -143,6 +152,11 @@ action_1matchround <- function(match_strategy, match_round) {
   control_extract_date <- study_dates[["control_extract"]][match_round]
   
   controlactual_path <- "output/incremental_{match_strategy}/matchround{match_round}/controlactual/extract/input_controlactual.feather"
+  
+  riskscore_i_plots <- 
+    if(match_strategy == "riskscore_i") {
+      glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/riskscore_i/plot_*.png")
+    } else NULL
   
   match_actions <- splice(
     
@@ -205,11 +219,12 @@ action_1matchround <- function(match_strategy, match_round) {
           rds = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/match/*.rds"),
           final = if(match_round==n_match_rounds) {glue("output/incremental_{match_strategy}/match/*.csv.gz")} else NULL
         )),
-      moderately_sensitive = lst(
+      moderately_sensitive = c(
         input_controlactual_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/extract/*.txt"),
         eligible_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/eligible/*.txt"),
         process_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/process/*.txt"),
-      )
+        riskscore_i_plots = riskscore_i_plots
+      ) %>% as.list()
     )
 
   )
@@ -415,7 +430,7 @@ actions_match_strategy <- function(effect, match_strategy, include_models=FALSE)
         run = "r:latest analysis/match/match_comparative.R",
         arguments = match_strategy,
         needs = c(
-          "process_initial",
+          # "process_initial",
           "process_treated",
           needs_model_riskscore(match_strategy)
         ) %>% as.list(),
@@ -696,7 +711,8 @@ actions_list <- splice(
       arguments = .x,
       needs = namelesslst("process_riskscore_i"),
       highly_sensitive = lst(
-        model_agegroup = glue("output/riskscore_i/agegroup_", .x, "/model_agegroup_*.rds")
+        model = glue("output/riskscore_i/agegroup_", .x, "/model_agegroup_*.rds"),
+        percentile_breaks = glue("output/riskscore_i/agegroup_", .x, "/percentile_breaks_*.rds")
       ),
       moderately_sensitive = lst(
         dist_predictions = glue("output/riskscore_i/agegroup_", .x, "/dist_predictions_*.png"),
@@ -744,6 +760,7 @@ actions_list <- splice(
       eligiblecsv = "output/treated/eligible/*.csv.gz"
     ),
     moderately_sensitive = lst(
+      riskscore_i_plots = "output/treated/riskscore_i/plot_*.png",
       flowchart_treated = "output/treated/flowchart/*.csv",
       flowchart_combined = "output/report/flowchart_combined*.csv",
       extract_treated_skim = "output/treated/extract/*.txt",

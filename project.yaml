@@ -102,7 +102,8 @@ actions:
     - process_riskscore_i
     outputs:
       highly_sensitive:
-        model_agegroup: output/riskscore_i/agegroup_1/model_agegroup_*.rds
+        model: output/riskscore_i/agegroup_1/model_agegroup_*.rds
+        percentile_breaks: output/riskscore_i/agegroup_1/percentile_breaks_*.rds
       moderately_sensitive:
         dist_predictions: output/riskscore_i/agegroup_1/dist_predictions_*.png
         calibration: output/riskscore_i/agegroup_1/calibration_*.png
@@ -114,7 +115,8 @@ actions:
     - process_riskscore_i
     outputs:
       highly_sensitive:
-        model_agegroup: output/riskscore_i/agegroup_2/model_agegroup_*.rds
+        model: output/riskscore_i/agegroup_2/model_agegroup_*.rds
+        percentile_breaks: output/riskscore_i/agegroup_2/percentile_breaks_*.rds
       moderately_sensitive:
         dist_predictions: output/riskscore_i/agegroup_2/dist_predictions_*.png
         calibration: output/riskscore_i/agegroup_2/calibration_*.png
@@ -126,7 +128,8 @@ actions:
     - process_riskscore_i
     outputs:
       highly_sensitive:
-        model_agegroup: output/riskscore_i/agegroup_3/model_agegroup_*.rds
+        model: output/riskscore_i/agegroup_3/model_agegroup_*.rds
+        percentile_breaks: output/riskscore_i/agegroup_3/percentile_breaks_*.rds
       moderately_sensitive:
         dist_predictions: output/riskscore_i/agegroup_3/dist_predictions_*.png
         calibration: output/riskscore_i/agegroup_3/calibration_*.png
@@ -159,6 +162,7 @@ actions:
         eligiblerds: output/treated/eligible/*.rds
         eligiblecsv: output/treated/eligible/*.csv.gz
       moderately_sensitive:
+        riskscore_i_plots: output/treated/riskscore_i/plot_*.png
         flowchart_treated: output/treated/flowchart/*.csv
         flowchart_combined: output/report/flowchart_combined*.csv
         extract_treated_skim: output/treated/extract/*.txt
@@ -224,7 +228,6 @@ actions:
   match_comparative_a:
     run: r:latest analysis/match/match_comparative.R a
     needs:
-    - process_initial
     - process_treated
     outputs:
       highly_sensitive:
@@ -266,7 +269,6 @@ actions:
   match_comparative_riskscore_i:
     run: r:latest analysis/match/match_comparative.R riskscore_i
     needs:
-    - process_initial
     - process_treated
     - fit_model_riskscore_i_1
     - fit_model_riskscore_i_2
@@ -517,6 +519,7 @@ actions:
         input_controlactual_skim: output/incremental_riskscore_i/matchround1/controlactual/extract/*.txt
         eligible_skim: output/incremental_riskscore_i/matchround1/controlactual/eligible/*.txt
         process_skim: output/incremental_riskscore_i/matchround1/controlactual/process/*.txt
+        riskscore_i_plots: output/incremental_riskscore_i/matchround1/controlactual/riskscore_i/plot_*.png
 
   extract_controlpotential_riskscore_i_2:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
@@ -546,6 +549,7 @@ actions:
         data_extract_skim: output/incremental_riskscore_i/matchround2/controlpotential/extract/*.txt
         data_processed_skim: output/incremental_riskscore_i/matchround2/controlpotential/process/*.txt
         data_controlpotential_skim: output/incremental_riskscore_i/matchround2/controlpotential/eligible/*.txt
+        riskscore_i_plots: output/incremental_riskscore_i/matchround2/controlpotential/riskscore_i/plot_*.png
 
   match_controlpotential_riskscore_i_2:
     run: r:latest analysis/match/match_controlpotential.R riskscore_i 2
@@ -592,6 +596,7 @@ actions:
         input_controlactual_skim: output/incremental_riskscore_i/matchround2/controlactual/extract/*.txt
         eligible_skim: output/incremental_riskscore_i/matchround2/controlactual/eligible/*.txt
         process_skim: output/incremental_riskscore_i/matchround2/controlactual/process/*.txt
+        riskscore_i_plots: output/incremental_riskscore_i/matchround2/controlactual/riskscore_i/plot_*.png
 
   table1_incremental_riskscore_i:
     run: r:latest analysis/report/table1.R incremental riskscore_i

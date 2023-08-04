@@ -315,7 +315,7 @@ data_matchstatus %>%
 dup_control_ids <- data_matchstatus %>%
   filter(control==1L, matched==1L) %>% 
   group_by(patient_id) %>% 
-  summarise(n=n()) %>%
+  summarise(n=n(), .groups = "drop") %>%
   filter(n>1) %>% nrow() 
 
 stopifnot("Duplicate patient_ids in the control group" = dup_control_ids == 0)

@@ -44,7 +44,7 @@ study = StudyDefinition(
   
     # This line defines the study population
   population = patients.which_exist_in_file(
-    f_path="output/riskscore/data_eligible.csv.gz"
+    f_path="output/initial/eligible/data_eligible_riskscore_i.csv.gz"
     ),
 
   riskscore_i_start_date = patients.fixed_value(study_dates["riskscore_i"]["start"]),

@@ -52,7 +52,6 @@ actions:
       highly_sensitive:
         data_eligible_csv: output/initial/eligible/*.csv.gz
         data_eligible_rds: output/initial/eligible/*.rds
-        data_riskscore: output/riskscore/*.csv.gz
       moderately_sensitive:
         flowchart: output/initial/flowchart/*.csv
 
@@ -82,7 +81,7 @@ actions:
         dummydata_controlpotential: output/incremental_none/matchround1/controlpotential/dummydata/*.feather
 
   process_riskscore_i:
-    run: r:latest analysis/process/process_stage.R riskscore_i none 0
+    run: r:latest analysis/process/process_stage.R riskscore_i riskscore_i 0
     needs:
     - process_initial
     - extract_riskscore_i

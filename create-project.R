@@ -640,8 +640,7 @@ actions_list <- splice(
     ),
     highly_sensitive = lst(
       data_eligible_csv = "output/initial/eligible/*.csv.gz",
-      data_eligible_rds = "output/initial/eligible/*.rds",
-      data_riskscore = "output/riskscore/*.csv.gz"
+      data_eligible_rds = "output/initial/eligible/*.rds"
     ),
     moderately_sensitive = lst(
       flowchart = "output/initial/flowchart/*.csv",
@@ -686,7 +685,7 @@ actions_list <- splice(
     run = "r:latest analysis/process/process_stage.R",
     # set match_strategy="none" and match_round=0 to keep the code happy,
     # but these don't really mean anything here
-    arguments = c("riskscore_i", "none", 0),
+    arguments = c("riskscore_i", "riskscore_i", 0),
     needs = namelesslst(
       "process_initial",
       "extract_riskscore_i",

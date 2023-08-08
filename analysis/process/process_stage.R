@@ -30,18 +30,22 @@ args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) == 0) {
   # use for interactive testing
-  # stage <- "riskscore_i"
-  # match_strategy <- "riskscore_i"
-  # match_round <- as.integer("0")
+  # uncomment 3 lines at a time
+  stage <- "riskscore_i"
+  match_strategy <- "riskscore_i"
+  match_round <- as.integer("0")
+  ##
   # stage <- "treated"
   # match_strategy <- "none"
   # match_round <- as.integer("0")
+  ##
   # stage <- "controlpotential"
   # match_strategy <- "none"
   # match_round <- as.integer("1")
-  stage <- "controlactual"
-  match_strategy <- "riskscore_i"
-  match_round <- as.integer("1")
+  ##
+  # stage <- "controlactual"
+  # match_strategy <- "riskscore_i"
+  # match_round <- as.integer("1")
 } else {
   stage <- args[[1]]
   match_strategy <- args[[2]]
@@ -490,7 +494,7 @@ data_eligible <- data_criteria %>%
 rm(data_processed)
 
 if (
-  !is.null(riskscore_vars) |
+  (!is.null(riskscore_vars) & stage != "riskscore_i") |
   (stage == "treated") |
   (stage == "controlpotential" & match_round == 1)
   ) {

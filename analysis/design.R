@@ -179,31 +179,6 @@ fup_params <- lst(
 )
 
 # matching ----
-# non-vaccination variables extracted in study_definition_initial
-initial_vars <- c("sex", "ethnicity", "hscworker")
-# variables defined in analysis/variables_jcvi.py to keep in processed data
-jcvi_vars <- c(
-  "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",
-  "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease",
-  "chronic_liver_disease", "immunosuppressed", "learndis"
-  # "asplenia", "bmi_value", "sev_obesity",
-)
-elig_vars <- c(
-  
-)
-# variables that we want to keep in the processed data
-keep_vars <- c(
-  # defined in analysis/variables_elig.py
-  "age", 
-  # defined in analysis/variables_jcvi.py
-  "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",
-  "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease",
-  "chronic_liver_disease", "immunosuppressed", "learndis",
-  # "asplenia", "bmi_value", "sev_obesity",
-  # derived from the above variables
-  "multimorb", "cv", "agegroup_match", "timesince_coviddischarged"
-)
-
 create_match_strategy <- function(
     name,
     exact_vars = NULL,
@@ -240,31 +215,47 @@ create_match_strategy <- function(
   return(out)
 }
 
+match_strategy_none <- create_match_strategy(
+  name = "none",
+  # all possible vars used across matching strategies
+  exact_vars = c(
+    # defined in or derived from analysis/study_definition_initial.py
+    "vax_primary_brand", "vax_boostfirst_brand", "vax_boostspring_brand",
+    "vax_lastbeforeindex_date", "sex", "ethnicity",
+    # defined in or derived from analysis/variables_elig.py
+    "age", "agegroup_match", "timesince_coviddischarged", "imd_Q5",
+    # defined in or derived from analysis/variables_jcvi.py
+    "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",
+    "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease",
+    "chronic_liver_disease", "immunosuppressed", "learndis", "multimorb", "cv",
+    # "asplenia", "bmi_value", "sev_obesity",
+    # optional variables in analysis/variables_vars.py
+    "region", "flu_vaccine", "timesince_discharged", 
+    # defined in or derived from analysis/study_definitionriskscore_i.py
+    "death", "dereg", "riskscore_i", "riskscore_i_percentile"
+  )
+)
+
 match_strategy_riskscore_i <- create_match_strategy(
   name = "riskscore_i",
   exact_vars = "riskscore_i_percentile",
   # caliper_vars = c("riskscore_i" = 0.1), # TODO need to refine this, maybe based on percentile?
+  # riskscore_vars are the variables used in the model to predict the risk score
   riskscore_vars = c(
-    "age", 
-    "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",
+    "age", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",
     "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease",
     "chronic_liver_disease", "immunosuppressed", "learndis",
     "ethnicity", "imd_Q5", "region", "flu_vaccine", "timesince_discharged"
     ),
-  riskscore_fup_vars = c("death", "dereg") # should these have suffix _date?
+  riskscore_fup_vars = c("death", "dereg")
 )
 
 match_strategy_a <- create_match_strategy(
   name = "a",
   exact_vars = c(
-    "agegroup_match",
-    "vax_primary_brand",
-    "vax_boostfirst_brand",
-    "vax_boostspring_brand",
-    "cv",
-    "region",
-    NULL
-  ),
+    "agegroup_match", "vax_primary_brand", "vax_boostfirst_brand",
+    "vax_boostspring_brand", "cv", "region"
+    ),
   caliper_vars = c(
     age = 3,
     # match on `lastvaxbeforeindex_day` rather than `timesincelastvax` as the 
@@ -273,28 +264,24 @@ match_strategy_a <- create_match_strategy(
     NULL
   ),
   adj_vars = c(
-    "sex",
-    "ethnicity",
-    "imd_Q5",
-    "bmi",
-    "learndis",
-    "sev_mental",
-    "immunosuppressed",
-    "multimorb", 
-    "timesince_coviddischarged",
+    "sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental",
+    "immunosuppressed", "multimorb",  "timesince_coviddischarged",
     "flu_vaccine"
   ),
   strata_vars = c("trial_date", "region")
 )
 
-match_strategy_none <- create_match_strategy(
-  name = "none",
-  exact_vars = c(match_strategy_a$exact_vars),
-  caliper_vars = c(match_strategy_a$caliper_vars),
-  riskscore_vars = c(match_strategy_riskscore_i$riskscore_vars)
-)
-# TODO should contain variables across all possible match strategies and risk scores
-# write a check after defining the match strategies
+# check if all variables from all matching strategies are in match_strategy_none$keep_vars
+local({
+  all_vars <- unique(c(match_strategy_a$keep_vars, match_strategy_riskscore_i$keep_vars))
+  check_all_present <- all_vars %in% match_strategy_none$keep_vars
+  if (!all(check_all_present)) {
+    stop(
+      "The following variables are specified in a matching strategy but not in match_strategy_none:\n",
+      str_c(all_vars[!check_all_present], sep = ", ")
+    )
+  }
+})
 
 # match_strategy_C <- lst(
 #   score_vars = xxx,

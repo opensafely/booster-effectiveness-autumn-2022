@@ -356,7 +356,7 @@ data_vax_eligible <- data_vax %>%
   # only keep those who are eligible
   inner_join(data_crit_main %>% filter(include), by = "patient_id") %>%
   # remove the columns used for eligiblility criteria
-  select(-c(undefinedbeforestart)) %>%
+  select(-c(undefinedbeforestart, vax_undefined_brand)) %>%
   # recode vax_*_brand variables as factors
   mutate(across(matches("vax_\\w+_brand"), ~replace_na(.x, replace = "none"))) %>%
   mutate(
@@ -464,7 +464,6 @@ data_vax_riskscore <- data_vax %>%
   ) 
 
 # save patient ids for reading into a study definition
-fs::dir_create(here("output", "riskscore"))
 data_vax_riskscore %>%
   distinct(patient_id) %>%
-  write_csv(here("output", "riskscore", "data_eligible.csv.gz"))
+  write_csv(here("output", "initial", "eligible", "data_eligible_riskscore_i.csv.gz"))

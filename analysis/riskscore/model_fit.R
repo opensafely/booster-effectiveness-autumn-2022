@@ -21,7 +21,7 @@ source(here("lib", "functions", "utility.R"))
 outdir <- ghere("output", "riskscore_i", "agegroup_{agegroup_index}")
 fs::dir_create(outdir)
 
-data_riskscore <- read_rds(here("output", "riskscore", "eligible", "data_riskscore.rds"))
+data_riskscore <- read_rds(here("output", "riskscore_i", "eligible", "data_riskscore_i.rds"))
 
 # fit model separately in age groups
 agegroup_levels <- levels(data_riskscore$agegroup_match)

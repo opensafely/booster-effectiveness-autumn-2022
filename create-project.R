@@ -217,6 +217,7 @@ action_1matchround <- function(match_strategy, match_round) {
       ) %>% as.list,
       highly_sensitive = as.list(c(
           rds = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/match/*.rds"),
+          csv = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/match/*.csv.gz"),
           final = if(match_round==n_match_rounds) {glue("output/incremental_{match_strategy}/match/*.csv.gz")} else NULL
         )),
       moderately_sensitive = c(

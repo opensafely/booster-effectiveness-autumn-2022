@@ -256,9 +256,9 @@ local({
     transmute(
       patient_id, 
       match_id, 
-      matched=1L, 
+      matched = TRUE, 
       treated,
-      control=1L-treated, 
+      control = 1L - treated, 
       trial_index, 
       trial_date, 
       controlistreated_date
@@ -269,11 +269,11 @@ local({
   data_matchstatus <<-
     data_treated %>%
     left_join(
-      data_matched %>% filter(treated==1L, matched==1L) %>% select(-trial_date), 
+      data_matched %>% filter(treated==1L, matched) %>% select(-trial_date), 
       by=c("patient_id", "treated", "trial_index")
       ) %>%
     mutate(
-      matched = replace_na(matched, 0L), # 1 if matched, 0 if unmatched
+      matched = replace_na(matched, FALSE), 
       control = if_else(matched==1L, 0L, NA_integer_) # 1 if matched control, 0 if matched treated, NA if unmatched treated
     ) %>%
     bind_rows(
@@ -288,23 +288,23 @@ data_matchstatus %>%
   write_rds(file.path(outdir, "data_potential_matchstatus.rds"), compress="gz")
 
 # number of treated/controls per trial
-with(data_matchstatus %>% filter(matched==1), table(trial_index, treated))
+with(data_matchstatus %>% filter(matched), table(trial_index, treated))
 
 # total matched pairs
-with(data_matchstatus %>% filter(matched==1), table(treated))
+with(data_matchstatus %>% filter(matched), table(treated))
 
 # max trial date
 print(
   paste0(
     "max trial day is ", 
-    as.integer(max(data_matchstatus %>% filter(matched==1) %>% pull(trial_index), na.rm=TRUE))
+    as.integer(max(data_matchstatus %>% filter(matched) %>% pull(trial_index), na.rm=TRUE))
     )
   )
 
 
 # output csv for subsequent study definition
 data_matchstatus %>% 
-  filter(control==1L, matched==1L) %>% 
+  filter(control==1L, matched) %>% 
   select(patient_id, trial_date, match_id) %>%
   mutate(
     trial_date=as.character(trial_date)
@@ -313,7 +313,7 @@ data_matchstatus %>%
 
 
 dup_control_ids <- data_matchstatus %>%
-  filter(control==1L, matched==1L) %>% 
+  filter(control==1L, matched) %>% 
   group_by(patient_id) %>% 
   summarise(n=n(), .groups = "drop") %>%
   filter(n>1) %>% nrow() 

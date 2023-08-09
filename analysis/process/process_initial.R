@@ -430,6 +430,7 @@ data_vax_eligible %>%
 
 # save dataset
 data_vax_eligible %>%
+  select(-matches("^c\\d+$"), -include) %>%
   write_rds(
     file.path(path_stem, "eligible", "data_vax.rds"), 
     compress = "gz"

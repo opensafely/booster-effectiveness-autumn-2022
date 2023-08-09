@@ -195,7 +195,7 @@ create_match_strategy <- function(
     riskscore_fup_vars,
     keep_vars = unique(
       c(
-        "age", "agegroup_match", # always keep
+        "age", "agegroup_match", "sex",
         exact_vars, names(caliper_vars), 
         riskscore_vars, riskscore_fup_vars
         )
@@ -221,7 +221,7 @@ match_strategy_none <- create_match_strategy(
   exact_vars = c(
     # defined in or derived from analysis/study_definition_initial.py
     "vax_primary_brand", "vax_boostfirst_brand", "vax_boostspring_brand",
-    "vax_lastbeforeindex_date", "sex", "ethnicity",
+    "vax_lastbeforeindex_date", "sex", "ethnicity", "hscworker",
     # defined in or derived from analysis/variables_elig.py
     "age", "agegroup_match", "timesince_coviddischarged", "imd_Q5",
     # defined in or derived from analysis/variables_jcvi.py

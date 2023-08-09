@@ -389,9 +389,11 @@ data_processed <- data_processed %>%
   select(-any_of("vax_boostautumn_date")) %>% # as it's in data_vax_processed
   left_join(data_vax_processed, by = "patient_id") %>%
   left_join(
-    data_vax %>% select(patient_id, all_of(initial_vars)),
+    # join the static vars from data_vax
+    data_vax %>% select(-starts_with("vax"), -age), 
     by = "patient_id"
-    )
+    ) %>%
+  select(patient_id, everything())
 
 rm(data_vax, data_vax_processed)
 
@@ -485,7 +487,7 @@ data_eligible <- data_criteria %>%
         patient_id,
         any_of(c("match_id", "trial_date", "trial_index")),
         starts_with("vax_"),
-        any_of(unique(c(keep_vars, initial_vars)))
+        any_of(unique(keep_vars))
         ), 
     by="patient_id"
     ) %>%

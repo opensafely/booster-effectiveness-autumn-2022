@@ -345,6 +345,7 @@ actions:
     outputs:
       highly_sensitive:
         rds: output/incremental_a/matchround1/controlactual/match/*.rds
+        csv: output/incremental_a/matchround1/controlactual/match/*.csv.gz
       moderately_sensitive:
         input_controlactual_skim: output/incremental_a/matchround1/controlactual/extract/*.txt
         eligible_skim: output/incremental_a/matchround1/controlactual/eligible/*.txt
@@ -410,6 +411,7 @@ actions:
     outputs:
       highly_sensitive:
         rds: output/incremental_a/matchround2/controlactual/match/*.rds
+        csv: output/incremental_a/matchround2/controlactual/match/*.csv.gz
         final: output/incremental_a/match/*.csv.gz
       moderately_sensitive:
         input_controlactual_skim: output/incremental_a/matchround2/controlactual/extract/*.txt
@@ -514,6 +516,7 @@ actions:
     outputs:
       highly_sensitive:
         rds: output/incremental_riskscore_i/matchround1/controlactual/match/*.rds
+        csv: output/incremental_riskscore_i/matchround1/controlactual/match/*.csv.gz
       moderately_sensitive:
         input_controlactual_skim: output/incremental_riskscore_i/matchround1/controlactual/extract/*.txt
         eligible_skim: output/incremental_riskscore_i/matchround1/controlactual/eligible/*.txt
@@ -590,6 +593,7 @@ actions:
     outputs:
       highly_sensitive:
         rds: output/incremental_riskscore_i/matchround2/controlactual/match/*.rds
+        csv: output/incremental_riskscore_i/matchround2/controlactual/match/*.csv.gz
         final: output/incremental_riskscore_i/match/*.csv.gz
       moderately_sensitive:
         input_controlactual_skim: output/incremental_riskscore_i/matchround2/controlactual/extract/*.txt

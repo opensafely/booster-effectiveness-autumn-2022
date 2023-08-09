@@ -31,9 +31,9 @@ args <- commandArgs(trailingOnly = TRUE)
 if (length(args) == 0) {
   # use for interactive testing
   # uncomment 3 lines at a time
-  stage <- "riskscore_i"
-  match_strategy <- "riskscore_i"
-  match_round <- as.integer("0")
+  # stage <- "riskscore_i"
+  # match_strategy <- "riskscore_i"
+  # match_round <- as.integer("0")
   ##
   # stage <- "treated"
   # match_strategy <- "none"
@@ -43,9 +43,9 @@ if (length(args) == 0) {
   # match_strategy <- "none"
   # match_round <- as.integer("1")
   ##
-  # stage <- "controlactual"
-  # match_strategy <- "riskscore_i"
-  # match_round <- as.integer("1")
+  stage <- "controlactual"
+  match_strategy <- "riskscore_i"
+  match_round <- as.integer("1")
 } else {
   stage <- args[[1]]
   match_strategy <- args[[2]]
@@ -98,7 +98,7 @@ if (stage == "controlactual") {
     read_rds(
       ghere("output", "incremental_{match_strategy}", "matchround{match_round}", "controlpotential", "match", "data_potential_matchstatus.rds")
       ) %>% 
-    filter(matched==1L)
+    filter(matched)
   
 }
 
@@ -456,8 +456,12 @@ data_criteria <- data_processed %>%
     c07_descr = factor("  Missing sex, IMD, ethnicity, geographical region"),
     c07 = c06 & has_sex & has_imd & has_ethnicity & has_region,
     
-    c08_descr = factor("  Care home residents, where known"),
-    c08 = c07 & isnot_carehomeresident,
+    # c08_descr = factor("  Care home residents, where known"),
+    # c08 = c07 & isnot_carehomeresident,
+    # the below two lines are a placeholder so we don't have to renumber all 
+    # subsequent criteria if we re-introduce isnot_carehomeresident
+    c08_descr = factor("  --placeholder--"),
+    c08 = c07 & TRUE,
     
     c09_descr = factor("  Health care workers, where known"),
     c09 = c08 & isnot_hscworker,
@@ -698,7 +702,7 @@ if (stage == "controlactual") {
     # only keep treated individuals who were successfully matched in the 
     # controlpotential stage for this match_round
     right_join(
-      data_potential_matchstatus %>% filter(treated==1L, matched==1L),
+      data_potential_matchstatus %>% filter(treated==1L, matched),
       by = "patient_id"
     )
   

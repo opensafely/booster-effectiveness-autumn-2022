@@ -3,7 +3,7 @@
   "caliper_vars": {},
   "riskscore_vars": ["age", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi", "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease", "chronic_liver_disease", "immunosuppressed", "learndis", "ethnicity", "imd_Q5", "region", "flu_vaccine", "timesince_discharged"],
   "riskscore_fup_vars": ["death", "dereg"],
-  "keep_vars": ["age", "agegroup_match", "riskscore_i_percentile", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi", "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease", "chronic_liver_disease", "immunosuppressed", "learndis", "ethnicity", "imd_Q5", "region", "flu_vaccine", "timesince_discharged", "death", "dereg"],
+  "keep_vars": ["age", "agegroup_match", "sex", "riskscore_i_percentile", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi", "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease", "chronic_liver_disease", "immunosuppressed", "learndis", "ethnicity", "imd_Q5", "region", "flu_vaccine", "timesince_discharged", "death", "dereg"],
   "adj_vars": {},
   "strata_vars": {}
 }

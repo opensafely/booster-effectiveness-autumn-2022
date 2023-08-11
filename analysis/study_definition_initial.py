@@ -8,7 +8,6 @@ import json
 with open("./lib/design/study-dates.json") as f:
   study_dates = json.load(f)
 
-dose2end_date = study_dates["dose2"]["end"]
 recruitmentend_date = study_dates["recruitmentend"]
 
 from cohortextractor import (
@@ -47,25 +46,9 @@ study = StudyDefinition(
   },
   
   # This line defines the study population
-  population=patients.satisfying(
-    """
-    registered
-    AND
-    NOT has_died
-    AND
-    age >= 50
-    AND 
-    primarycourse_end
-    """,
-    
-    **inclusion_variables,  
-
-    primarycourse_end = patients.satisfying(
-      "covid_vax_disease_2_date < dose2end_date",
-      dose2end_date = patients.fixed_value(dose2end_date),
-    ),
-
-  ),
+  population=patients.all(),
+  
+  **inclusion_variables,  
   
   age=patients.age_as_of( 
     days(recruitmentend_date, -1),

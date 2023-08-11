@@ -50,8 +50,8 @@ actions:
     - dummydata_initial
     outputs:
       highly_sensitive:
+        data_vax: output/initial/processed/*.rds
         data_eligible_csv: output/initial/eligible/*.csv.gz
-        data_eligible_rds: output/initial/eligible/*.rds
       moderately_sensitive:
         flowchart: output/initial/flowchart/*.csv
 
@@ -64,7 +64,6 @@ actions:
       --output-file output/riskscore_i/extract/input_riskscore_i.feather
     needs:
     - design
-    - process_initial
     outputs:
       highly_sensitive:
         extract: output/riskscore_i/extract/input_riskscore_i.feather
@@ -74,7 +73,6 @@ actions:
     needs:
     - dummydata_initial
     - process_initial
-    - extract_treated
     outputs:
       highly_sensitive:
         dummydata_treated: output/treated/dummydata/*.feather
@@ -92,7 +90,7 @@ actions:
       moderately_sensitive:
         flowchart: output/riskscore_i/flowchart/*.csv
         extract_skim: output/riskscore_i/extract/*.txt
-        data_processed_skim: output/riskscore_i/process/*.txt
+        data_processed_skim: output/riskscore_i/processed/*.txt
         data_eligible_skim: output/riskscore_i/eligible/*.txt
 
   fit_model_riskscore_i_1:
@@ -165,7 +163,7 @@ actions:
         flowchart_treated: output/treated/flowchart/*.csv
         flowchart_combined: output/report/flowchart_combined*.csv
         extract_treated_skim: output/treated/extract/*.txt
-        data_processed_skim: output/treated/process/*.txt
+        data_processed_skim: output/treated/processed/*.txt
         data_eligible_skim: output/treated/eligible/*.txt
 
   table1_treated:
@@ -216,7 +214,7 @@ actions:
         eligible_rds: output/incremental_none/matchround1/controlpotential/eligible/*.rds
       moderately_sensitive:
         data_extract_skim: output/incremental_none/matchround1/controlpotential/extract/*.txt
-        data_processed_skim: output/incremental_none/matchround1/controlpotential/process/*.txt
+        data_processed_skim: output/incremental_none/matchround1/controlpotential/processed/*.txt
         data_controlpotential_skim: output/incremental_none/matchround1/controlpotential/eligible/*.txt
 
   ## # # # # # # # # # # # # # # # # # # # 
@@ -349,7 +347,7 @@ actions:
       moderately_sensitive:
         input_controlactual_skim: output/incremental_a/matchround1/controlactual/extract/*.txt
         eligible_skim: output/incremental_a/matchround1/controlactual/eligible/*.txt
-        process_skim: output/incremental_a/matchround1/controlactual/process/*.txt
+        process_skim: output/incremental_a/matchround1/controlactual/processed/*.txt
 
   extract_controlpotential_a_2:
     run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
@@ -374,7 +372,7 @@ actions:
         eligible_rds: output/incremental_a/matchround2/controlpotential/eligible/*.rds
       moderately_sensitive:
         data_extract_skim: output/incremental_a/matchround2/controlpotential/extract/*.txt
-        data_processed_skim: output/incremental_a/matchround2/controlpotential/process/*.txt
+        data_processed_skim: output/incremental_a/matchround2/controlpotential/processed/*.txt
         data_controlpotential_skim: output/incremental_a/matchround2/controlpotential/eligible/*.txt
 
   match_controlpotential_a_2:
@@ -416,7 +414,7 @@ actions:
       moderately_sensitive:
         input_controlactual_skim: output/incremental_a/matchround2/controlactual/extract/*.txt
         eligible_skim: output/incremental_a/matchround2/controlactual/eligible/*.txt
-        process_skim: output/incremental_a/matchround2/controlactual/process/*.txt
+        process_skim: output/incremental_a/matchround2/controlactual/processed/*.txt
 
   table1_incremental_a:
     run: r:latest analysis/report/table1.R incremental a
@@ -520,7 +518,7 @@ actions:
       moderately_sensitive:
         input_controlactual_skim: output/incremental_riskscore_i/matchround1/controlactual/extract/*.txt
         eligible_skim: output/incremental_riskscore_i/matchround1/controlactual/eligible/*.txt
-        process_skim: output/incremental_riskscore_i/matchround1/controlactual/process/*.txt
+        process_skim: output/incremental_riskscore_i/matchround1/controlactual/processed/*.txt
         riskscore_i_plots: output/incremental_riskscore_i/matchround1/controlactual/riskscore_i/plot_*.png
 
   extract_controlpotential_riskscore_i_2:
@@ -549,7 +547,7 @@ actions:
         eligible_rds: output/incremental_riskscore_i/matchround2/controlpotential/eligible/*.rds
       moderately_sensitive:
         data_extract_skim: output/incremental_riskscore_i/matchround2/controlpotential/extract/*.txt
-        data_processed_skim: output/incremental_riskscore_i/matchround2/controlpotential/process/*.txt
+        data_processed_skim: output/incremental_riskscore_i/matchround2/controlpotential/processed/*.txt
         data_controlpotential_skim: output/incremental_riskscore_i/matchround2/controlpotential/eligible/*.txt
         riskscore_i_plots: output/incremental_riskscore_i/matchround2/controlpotential/riskscore_i/plot_*.png
 
@@ -598,7 +596,7 @@ actions:
       moderately_sensitive:
         input_controlactual_skim: output/incremental_riskscore_i/matchround2/controlactual/extract/*.txt
         eligible_skim: output/incremental_riskscore_i/matchround2/controlactual/eligible/*.txt
-        process_skim: output/incremental_riskscore_i/matchround2/controlactual/process/*.txt
+        process_skim: output/incremental_riskscore_i/matchround2/controlactual/processed/*.txt
         riskscore_i_plots: output/incremental_riskscore_i/matchround2/controlactual/riskscore_i/plot_*.png
 
   table1_incremental_riskscore_i:

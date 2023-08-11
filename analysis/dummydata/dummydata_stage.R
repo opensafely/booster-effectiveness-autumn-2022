@@ -122,7 +122,21 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
         study_dates$riskscore$start - ceiling(runif(n = nrow(.), min = 1, max = 6*365)),
         as.Date(NA_character_)
       )
-    ) 
+    ) %>%
+    # additional variables for the risk score
+    mutate(
+      riskscore_i_start_date = study_dates$riskscore_i$start,
+      death_date = if_else(
+        purrr::rbernoulli(n = nrow(.), p = 0.1),
+        riskscore_i_start_date + ceiling(rnorm(n = nrow(.), sd = 50)),
+        as.Date(NA_character_)
+      ),
+      dereg_date = if_else(
+        purrr::rbernoulli(n = nrow(.), p = 0.1),
+        riskscore_i_start_date + abs(ceiling(rnorm(n = nrow(.), sd = 50))),
+        as.Date(NA_character_)
+      )
+    )
   
   # treated
   data_stage %>%

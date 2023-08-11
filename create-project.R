@@ -137,7 +137,7 @@ action_controlpotential <- function(match_strategy, match_round) {
       ),
       moderately_sensitive = c(
         data_extract_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/extract/*.txt"),
-        data_processed_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/process/*.txt"),
+        data_processed_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/processed/*.txt"),
         data_controlpotential_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/eligible/*.txt"),
         riskscore_i_plots = riskscore_i_plots
       ) %>% as.list()
@@ -223,7 +223,7 @@ action_1matchround <- function(match_strategy, match_round) {
       moderately_sensitive = c(
         input_controlactual_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/extract/*.txt"),
         eligible_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/eligible/*.txt"),
-        process_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/process/*.txt"),
+        process_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/processed/*.txt"),
         riskscore_i_plots = riskscore_i_plots
       ) %>% as.list()
     )
@@ -640,8 +640,8 @@ actions_list <- splice(
       "extract_initial", "dummydata_initial"
     ),
     highly_sensitive = lst(
-      data_eligible_csv = "output/initial/eligible/*.csv.gz",
-      data_eligible_rds = "output/initial/eligible/*.rds"
+      data_vax = "output/initial/processed/*.rds",
+      data_eligible_csv = "output/initial/eligible/*.csv.gz"
     ),
     moderately_sensitive = lst(
       flowchart = "output/initial/flowchart/*.csv",
@@ -659,9 +659,7 @@ actions_list <- splice(
       " --study-definition study_definition_riskscore_i", 
       " --output-file output/riskscore_i/extract/input_riskscore_i.feather",
     ),
-    needs = namelesslst(
-      "design", "process_initial"
-    ),
+    needs = namelesslst("design"),
     highly_sensitive = lst(
       extract = "output/riskscore_i/extract/input_riskscore_i.feather"
     ),
@@ -672,8 +670,7 @@ actions_list <- splice(
     run = "r:latest analysis/dummydata/dummydata_stage.R",
     needs = namelesslst(
       "dummydata_initial",
-      "process_initial",
-      "extract_treated"
+      "process_initial"
     ),
     highly_sensitive = lst(
       dummydata_treated = "output/treated/dummydata/*.feather",
@@ -698,7 +695,7 @@ actions_list <- splice(
     moderately_sensitive = lst(
       flowchart = "output/riskscore_i/flowchart/*.csv",
       extract_skim = "output/riskscore_i/extract/*.txt",
-      data_processed_skim = "output/riskscore_i/process/*.txt",
+      data_processed_skim = "output/riskscore_i/processed/*.txt",
       data_eligible_skim = "output/riskscore_i/eligible/*.txt"
     )
   ),
@@ -764,7 +761,7 @@ actions_list <- splice(
       flowchart_treated = "output/treated/flowchart/*.csv",
       flowchart_combined = "output/report/flowchart_combined*.csv",
       extract_treated_skim = "output/treated/extract/*.txt",
-      data_processed_skim = "output/treated/process/*.txt",
+      data_processed_skim = "output/treated/processed/*.txt",
       data_eligible_skim = "output/treated/eligible/*.txt"
     )
   ),

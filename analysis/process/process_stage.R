@@ -39,13 +39,13 @@ if (length(args) == 0) {
   # match_strategy <- "none"
   # match_round <- as.integer("0")
   ##
-  # stage <- "controlpotential"
-  # match_strategy <- "none"
-  # match_round <- as.integer("1")
-  ##
-  stage <- "controlactual"
-  match_strategy <- "riskscore_i"
+  stage <- "controlpotential"
+  match_strategy <- "none"
   match_round <- as.integer("1")
+  ##
+  # stage <- "controlactual"
+  # match_strategy <- "riskscore_i"
+  # match_round <- as.integer("1")
 } else {
   stage <- args[[1]]
   match_strategy <- args[[2]]
@@ -81,7 +81,7 @@ if (stage == "riskscore_i") {
 }
 
 fs::dir_create(file.path(path_stem, "eligible"))
-fs::dir_create(file.path(path_stem, "process"))
+fs::dir_create(file.path(path_stem, "processed"))
 
 # import data ----
 
@@ -105,25 +105,6 @@ if (stage == "controlactual") {
 if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
   
   data_dummy <- arrow::read_feather(custom_path) 
-  
-  # fix dummy data
-  if (stage == "riskscore_i") {
-    data_dummy <- data_dummy %>%
-      select(-vax_boostautumn_date) %>%
-      mutate(
-        riskscore_i_start_date = study_dates$riskscore_i$start,
-        death_date = if_else(
-          purrr::rbernoulli(n = nrow(.), p = 0.1),
-          riskscore_i_start_date + ceiling(rnorm(n = nrow(.), sd = 50)),
-          as.Date(NA_character_)
-        ),
-        dereg_date = if_else(
-          purrr::rbernoulli(n = nrow(.), p = 0.1),
-          riskscore_i_start_date + abs(ceiling(rnorm(n = nrow(.), sd = 50))),
-          as.Date(NA_character_)
-        )
-      )
-  }
   
   if (stage == "controlpotential") {
     data_dummy <- data_dummy %>%
@@ -156,12 +137,12 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
   
   # check custom and studydef dummydata match
   source(here("analysis", "dummydata", "dummydata_check.R"))
-  data_dummy <- dummydata_check(
+  # assign updated dummydata to data_extract
+  data_extract <- dummydata_check(
     dummydata_studydef= data_studydef,
     dummydata_custom = data_dummy
   )
   
-  data_extract <- data_dummy
   rm(data_dummy)
   
 } else {
@@ -335,8 +316,8 @@ if (stage %in% "riskscore_i") {
 
 rm(data_extract)
 
-# read vaccination data
-data_vax <- read_rds(here("output", "initial", "eligible", "data_vax.rds")) 
+# read vaccination data (contains inelgible patients, so be careful with joins)
+data_vax <- read_rds(here("output", "initial", "processed", "data_vax.rds")) 
 
 # process vaccination data
 data_vax_processed <- data_processed %>%
@@ -400,7 +381,7 @@ rm(data_vax, data_vax_processed)
 # summarise processed data
 my_skim(
   data_processed,
-  path = file.path(path_stem, "process", "data_processed_skim.txt")
+  path = file.path(path_stem, "processed", "data_processed_skim.txt")
   )
 
 ####################################################################################

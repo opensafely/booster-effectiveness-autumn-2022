@@ -3,7 +3,7 @@
 # arguments: effect
 # - effect=comparative: include all boosted individuals, plot coverage 
 #   split by brand, matches for comparative effectiveness analysis
-# - effect=relative unclude all boosted individuals, don't split by brand,
+# - effect=incremental include all boosted individuals, don't split by brand,
 #   matches for relative effectiveness analysis
 # # # # # # # # # # # # # # # # # # # # #
 
@@ -23,7 +23,7 @@ source(here("lib", "functions", "utility.R"))
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
   effect <- "incremental"
-  match_strategy <- "A"
+  match_strategy <- "a"
 } else {
   effect <- args[[1]]
   match_strategy <- args[[2]]
@@ -55,11 +55,13 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
   
   if (effect == "incremental") {
     
-    data_matchstatus <- read_rds(ghere("output", effect_match_strategy, "matchround{n_match_rounds}", "controlactual", "match", "data_matchstatus_allrounds.rds"))
+    # get the matched data from all matching rounds
+    source(here("analysis", "process", "process_postmatch.R"))
     
-    data_matchstatus <- data_matchstatus %>%
+    data_matchstatus <- data_matched %>%
       # only keep treated individuals who were successfully matched
       filter(treated == 1) %>%
+      select(patient_id, trial_date, match_id) %>%
       # join data from all people eligible for the treated group to include 
       # unmatched treated individuals
       right_join(

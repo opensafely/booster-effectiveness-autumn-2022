@@ -1,4 +1,5 @@
 {
+  "n_match_rounds": 2,
   "exact_vars": "riskscore_i_percentile",
   "caliper_vars": {},
   "riskscore_vars": ["age", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi", "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease", "chronic_liver_disease", "immunosuppressed", "learndis", "ethnicity", "imd_Q5", "region", "flu_vaccine", "timesince_discharged"],

@@ -20,12 +20,12 @@ with open("./lib/design/study-dates.json") as f:
 
 studystart_date = study_dates["studystart"]
 
-# match_strategy_ojb
-with open("lib/design/match-strategy-A.json") as f:
-   match_strategy_ojb = json.load(f)
-
 # define params
 match_strategy = params["match_strategy"]
+
+# match_strategy_ojb
+with open(f"lib/design/match-strategy-{match_strategy}.json") as f:
+   match_strategy_ojb = json.load(f)
 
 ############################################################
 # variables for adjustment
@@ -53,9 +53,7 @@ study = StudyDefinition(
   },
   
   # This line defines the study population
-  population = patients.which_exist_in_file(
-    f_path=file_path
-    ),
+  population = patients.which_exist_in_file(f_path=file_path),
 
   trial_date = patients.with_value_from_file(
     f_path=file_path, 

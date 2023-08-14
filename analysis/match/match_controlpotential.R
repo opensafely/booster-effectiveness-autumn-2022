@@ -25,8 +25,8 @@ source(here("lib", "functions", "match_control.R"))
 # import command-line arguments
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
-  match_strategy <- "riskscore_i"
-  match_round <- as.integer("1")
+  match_strategy <- "a"
+  match_round <- as.integer("2")
 } else {
   match_strategy <- args[[1]]
   match_round <- as.integer(args[[2]])
@@ -64,9 +64,11 @@ data_control <- read_rds(
 # remove already-matched people from previous match rounds
 if(match_round > 1) {
   
-  data_matchstatusprevious <- read_rds(
-    ghere("output", "incremental_{match_strategy}", "matchround{match_round-1L}", "controlactual", "match", "data_matchstatus_allrounds.rds")
-    ) %>%
+  # read data from up all successful matches so far
+  data_matchstatusprevious <- map_dfr(
+    1:(match_round-1),
+    ~read_rds(here("output", glue("incremental_{match_strategy}"), glue("matchround", .x), "controlactual", "match", "data_matched.rds"))
+  ) %>%
     select(patient_id, treated)
   
   # do not select treated people who have already been matched

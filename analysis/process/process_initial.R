@@ -81,7 +81,6 @@ data_any <- data_extract %>%
     # need to do this as mutate after as the version of dplyr in opensafely does not support this option
     # names_transform = ~as.integer(str_extract(.x, "\\d")),
     values_to = "date",
-    # values_drop_na = TRUE
   ) %>%
   mutate(across(index, ~as.integer(str_extract(.x, "\\d"))))
 
@@ -215,42 +214,42 @@ data_vax <- data_vax %>%
     )
   )
 
-
-# check for any doses categorised as multiple courses
-check_courses_cols <- data_vax %>%
-  group_by(primary, boostfirst, boostspring, boostautumn) %>%
-  count() %>%
-  ungroup() %>%
-  mutate(total = primary + boostfirst + boostspring + boostautumn)
-
-if (any(check_courses_cols$total > 1)) {
-  cat("Doses categorised as multiple courses:\n")
-  check_courses_cols %>% print()
-}
-
-# Check for any individuals with multiple doses categorised as the same course
-check_courses_rows <- data_vax %>%
-  group_by(patient_id) %>%
-  summarise(across(c(primary, boostfirst, boostspring, boostautumn), sum)) %>%
-  ungroup() %>%
-  filter_at(
-    vars(c(primary, boostfirst, boostspring, boostautumn)),
-    any_vars(. > 1)
-    )
-
-if (nrow(check_courses_rows) > 0) {
+local({
   
-  cat("Number of patients with multiple doses categorised as the following courses:\n")
-  
-  check_courses_rows %>%
-    pivot_longer(
-      cols = -patient_id
-    ) %>% 
-    group_by(name) %>%
+  # check for any doses categorised as multiple courses
+  check_courses_cols <- data_vax %>%
+    group_by(primary, boostfirst, boostspring, boostautumn) %>%
     count() %>%
-    print()
+    ungroup() %>%
+    mutate(total = primary + boostfirst + boostspring + boostautumn)
   
-} 
+  if (any(check_courses_cols$total > 1)) {
+    cat("Doses categorised as multiple courses:\n")
+    check_courses_cols %>% print()
+  }
+  
+  # Check for any individuals with multiple doses categorised as the same course
+  check_courses_rows <- data_vax %>%
+    group_by(patient_id) %>%
+    summarise(across(c(primary, boostfirst, boostspring, boostautumn), sum)) %>%
+    ungroup() %>%
+    filter_at(
+      vars(c(primary, boostfirst, boostspring, boostautumn)),
+      any_vars(. > 1)
+    )
+  
+  if (nrow(check_courses_rows) > 0) {
+    cat("Number of patients with multiple doses categorised as the following courses:\n")
+    check_courses_rows %>%
+      pivot_longer(
+        cols = -patient_id
+      ) %>% 
+      group_by(name) %>%
+      count() %>%
+      print()
+  } 
+  
+})
 
 # derive the course variable
 data_vax <- data_vax %>%

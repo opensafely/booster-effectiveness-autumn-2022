@@ -22,14 +22,14 @@ matchroundindex_date = params["index_date"]
 if match_round==1:
     # all individuals satisfying initial eligibility criteria
     file_path = "output/initial/eligible/data_eligible.csv.gz"
-    match_vars = 'everything'
+    match_vars = "everything"
 else:
     # all individuals satisfying initial eligibility criteria and not previously matched as controls
     file_path = f"output/incremental_{match_strategy}/matchround{match_round-1}/controlactual/match/data_unsuccessful_matchedcontrols.csv.gz"
     # match_strategy_obj
     with open(f"lib/design/match-strategy-{match_strategy}.json") as f:
-      match_strategy_ojb = json.load(f)
-      match_vars = match_strategy_ojb["keep_vars"]
+      match_strategy_obj = json.load(f)
+      match_vars = match_strategy_obj["keep_vars"]
 
 
 
@@ -59,15 +59,8 @@ study = StudyDefinition(
   },
   
   # This line defines the study population
-  population=patients.satisfying(
-    "eligible_initial",   
-
-    # patients that satisfy the original eligibility criteria
-    eligible_initial = patients.which_exist_in_file(
-    f_path = file_path
-    ),
-
-  ),
+  # patients that satisfy the original eligibility criteria
+  population=patients.which_exist_in_file(f_path = file_path),
 
   matchroundindex_date = patients.fixed_value(matchroundindex_date),
     

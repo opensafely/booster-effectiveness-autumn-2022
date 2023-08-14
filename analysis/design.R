@@ -77,11 +77,11 @@ extract_increment <- 14
 study_dates$control_extract = seq(study_dates$studystart, study_dates$recruitmentend, extract_increment)
 
 # reduce the match rounds for testing
-study_dates$control_extract <- study_dates$control_extract[1:2]
-
-# number of match rounds to perform for each cohort
-
-n_match_rounds <- length(study_dates[["control_extract"]])
+# study_dates$control_extract <- study_dates$control_extract[1:2]
+# 
+# # number of match rounds to perform for each cohort
+# 
+# n_match_rounds <- length(study_dates[["control_extract"]])
 
 jsonlite::write_json(study_dates, path = here("lib", "design", "study-dates.json"), auto_unbox=TRUE, pretty =TRUE)
 
@@ -181,6 +181,7 @@ fup_params <- lst(
 # matching ----
 create_match_strategy <- function(
     name,
+    n_match_rounds = 2,
     exact_vars = NULL,
     caliper_vars = NULL,
     riskscore_vars = NULL, # variable to be included as covariates in risk score model
@@ -189,6 +190,7 @@ create_match_strategy <- function(
     strata_vars = NULL
 ) {
   out <- lst(
+    n_match_rounds = n_match_rounds,
     exact_vars = exact_vars,
     caliper_vars = caliper_vars,
     riskscore_vars = riskscore_vars,
@@ -239,7 +241,7 @@ match_strategy_none <- create_match_strategy(
 match_strategy_riskscore_i <- create_match_strategy(
   name = "riskscore_i",
   exact_vars = "riskscore_i_percentile",
-  # caliper_vars = c("riskscore_i" = 0.1), # TODO need to refine this, maybe based on percentile?
+  # caliper_vars = c("riskscore_i" = 0.1), 
   # riskscore_vars are the variables used in the model to predict the risk score
   riskscore_vars = c(
     "age", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",

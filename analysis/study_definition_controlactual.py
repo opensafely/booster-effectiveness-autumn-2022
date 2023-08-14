@@ -48,14 +48,10 @@ study = StudyDefinition(
   },
   
   # This line defines the study population
-  population=patients.satisfying(
-    "prematched",
-    
-    prematched = patients.which_exist_in_file(
+  # Patients who were matched in match_controlpotential_{match_strategy}_{match_round}
+  population=patients.which_exist_in_file(
         f_path=f"output/incremental_{match_strategy}/matchround{match_round}/controlpotential/match/potential_matchedcontrols.csv.gz"
-        ), 
-
-  ),
+      ), 
 
   trial_date = patients.with_value_from_file(
       f_path=f"output/incremental_{match_strategy}/matchround{match_round}/controlpotential/match/potential_matchedcontrols.csv.gz", 

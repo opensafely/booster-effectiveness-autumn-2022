@@ -429,7 +429,7 @@ actions_postmatch <- function(effect, match_strategy) {
   
   out <- action(
     name = glue("coverage_{effect_match_strategy}"),
-    run = "r:latest analysis/match/coverage.R",
+    run = "r:latest analysis/match/match_coverage.R",
     arguments = c(effect, match_strategy),
     needs = as.list(needs_list),
     moderately_sensitive= lst(

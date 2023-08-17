@@ -32,15 +32,11 @@ source(here("lib", "functions", "utility.R"))
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
   # use for interactive testing
-  effect <- "treated"
-  match_strategy <- NULL
+  effect <- "incremental"
+  match_strategy <- "riskscore_i"
 } else {
   effect <- args[[1]]
-  if (length(args)>1) {
-    match_strategy <- args[[2]]
-  } else {
-    match_strategy <- NULL
-  }
+  match_strategy <- args[[2]]
 }
 
 # save items in the match_strategy list to the global environment
@@ -67,14 +63,16 @@ if (effect == "treated") {
   rm(data_matched)
 }
 
-# derive extra variables / revel variables
-data_table1 <- data_table1 %>%
-  # derive extra variables
-  mutate(
-    # vax_lastbeforeindex_date was a matching variable, but more meaningful 
-    # to summarise as timesince_lastvax
-    timesince_lastvax = as.integer(trial_date - vax_lastbeforeindex_date)
-  )
+if ("vax_lastbeforeindex_date" %in% keep_vars) {
+  # derive extra variables / revel variables
+  data_table1 <- data_table1 %>%
+    # derive extra variables
+    mutate(
+      # vax_lastbeforeindex_date was a matching variable, but more meaningful 
+      # to summarise as timesince_lastvax
+      timesince_lastvax = as.integer(trial_date - vax_lastbeforeindex_date)
+    )
+}
 
 if (effect == "treated") {
   data_table1 <- data_table1 %>% mutate(treated_descr = "All boosted")

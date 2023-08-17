@@ -21,7 +21,7 @@ source(here("analysis", "process", "process_functions.R"))
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
   # use for interactive testing
-  effect <- "incremental"
+  effect <- "comparative"
   match_strategy <- "a"
   
 } else {
@@ -186,3 +186,9 @@ write_csv(
   flowchart_final,
   file.path(outdir, "flowchart_unrounded.csv")
 )
+
+flowchart_final %>%
+  mutate(across(n, ~roundmid_any(n, threshold))) %>%
+  write_csv(
+    file.path(outdir, glue("flowchart_midpoint{threshold}.csv"))
+  )

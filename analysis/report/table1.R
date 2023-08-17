@@ -1,14 +1,15 @@
 # # # # # # # # # # # # # # # # # # # # #
 # Purpose: describe match results
 # creates "table 1"
-# this file takes the following argument:
+# this file takes the following arguments:
 # - effect: 
-#   - effect="treated", match_strategy=NULL:
+#   - effect="treated":
+#       (match_strategy defaults to NULL)
 #       table1 for all individuals boosted during the recruitment period
-#   - effect="comparative", match_strategy="A": 
-#       table1 for the matched pfizer and moderna arms using match_strategy "A"
-#   - effect="incremental", match_strategy="A":  
-#       table1 for the matched treated and control arms using match_strategy "A"
+#   - effect="comparative", match_strategy="a": 
+#       table1 for the matched pfizer and moderna arms using match_strategy "a"
+#   - effect="incremental", match_strategy="a":  
+#       table1 for the matched treated and control arms using match_strategy "a"
 # # # # # # # # # # # # # # # # # # # # #
 
 # Preliminaries ----
@@ -31,8 +32,8 @@ source(here("lib", "functions", "utility.R"))
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
   # use for interactive testing
-  effect <- "incremental"
-  match_strategy <- "a"
+  effect <- "treated"
+  match_strategy <- NULL
 } else {
   effect <- args[[1]]
   if (length(args)>1) {

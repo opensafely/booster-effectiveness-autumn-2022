@@ -1,4 +1,3 @@
-
 # # # # # # # # # # # # # # # # # # # # #
 # This script:
 # imports processed data
@@ -21,20 +20,30 @@ library(MatchIt)
 # import local functions and parameters
 source(here("analysis", "design.R"))
 source(here("lib", "functions", "utility.R"))
+source(here("lib", "functions", "match_control.R"))
 
 # import command-line arguments
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
-  match_round <- as.integer("1")
+  match_strategy <- "a"
+  match_round <- as.integer("2")
 } else {
-  match_round <- as.integer(args[[1]])
+  match_strategy <- args[[1]]
+  match_round <- as.integer(args[[2]])
 }
+
+# save elements of match_strategy_* list to global environment
+list2env(
+  x = get(glue("match_strategy_{match_strategy}")),
+  envir = environment()
+  )
 
 # get cohort-specific parameters study dates and parameters
 match_round_date <- study_dates$control_extract[match_round]
 
 # create output directory
-fs::dir_create(ghere("output", "matchround{match_round}", "controlpotential", "match"))
+outdir <- ghere("output", "incremental_{match_strategy}", "matchround{match_round}", "controlpotential", "match")
+fs::dir_create(outdir)
 
 # Import datasets ----
 # import treated cohort
@@ -42,17 +51,24 @@ data_treated <- read_rds(here("output", "treated", "eligible", "data_treated.rds
   mutate(treated=1L)
 
 # import control cohort 
+if (match_round == 1) {
+  controlpotential_dir <- "none"
+} else {
+  controlpotential_dir <- match_strategy
+}
 data_control <- read_rds(
-  ghere("output", "matchround{match_round}", "controlpotential", "eligible", "data_controlpotential.rds")
-  ) %>% 
+  ghere("output", "incremental_{controlpotential_dir}", "matchround{match_round}", "controlpotential", "eligible", "data_controlpotential.rds")
+) %>% 
   mutate(treated=0L)
 
 # remove already-matched people from previous match rounds
 if(match_round > 1) {
   
-  data_matchstatusprevious <- read_rds(
-    ghere("output", "matchround{match_round-1L}", "controlactual", "match", "data_matchstatus_allrounds.rds")
-    ) %>%
+  # read data from up all successful matches so far
+  data_matchstatusprevious <- map_dfr(
+    1:(match_round-1),
+    ~read_rds(here("output", glue("incremental_{match_strategy}"), glue("matchround", .x), "controlactual", "match", "data_matched.rds"))
+  ) %>%
     select(patient_id, treated)
   
   # do not select treated people who have already been matched
@@ -90,13 +106,8 @@ local({
   # - still at risk of an outcome (not deregistered or dead); 
   # - had not already been selected as a control in a previous trial
 
-
-  # set maximum number of daily trials
-  # time index is relative to "start date"
-  # trial index start at one, not zero. i.e., study start date is "day 1" (but the _time_ at the start of study start date is zero)
-  start_trial_time <- 0
-  end_trial_time <- as.integer(study_dates$recruitmentend + 1 - study_dates$studystart)
-  trials <- seq(start_trial_time+1, end_trial_time, 1) 
+  # all possible trial dates
+  all_trial_dates <- seq(study_dates$studystart, study_dates$recruitmentend, 1) 
   
   # initialise list of candidate controls
   candidate_ids <- data_eligible %>% filter(treated==0) %>% pull(patient_id)
@@ -105,14 +116,14 @@ local({
   data_treated <- NULL
   data_matched <- NULL
 
-  #trial=1
-  for(trial in trials){
+  # trial_index = 1
+  for(trial_index in seq_along(all_trial_dates)){
 
-    cat("match trial ", trial, "\n")
-    trial_time <- trial-1
-    trial_date <- study_dates$studystart + trial_time
+    cat("match trial ", trial_index, "\n")
     
-    # set of people vaccinated on trial day
+    trial_date <- all_trial_dates[trial_index]
+    
+    # set of people vaccinated on trial_date
     data_treated_i <-
       data_eligible %>%
       filter(
@@ -124,7 +135,7 @@ local({
       transmute(
         patient_id,
         treated,
-        trial_time=trial_time,
+        trial_index=trial_index,
         trial_date=trial_date
       )
     
@@ -145,14 +156,14 @@ local({
       transmute(
         patient_id,
         treated,
-        trial_time=trial_time,
+        trial_index=trial_index,
         trial_date=trial_date
       )
     
     n_treated_all <- nrow(data_treated_i)
     
     if(n_treated_all<1) {
-      message("Skipping trial ", trial, " - No treated people eligible for inclusion.")
+      message("Skipping trial ", trial_index, " - No treated people eligible for inclusion.")
       next
     }
   
@@ -164,37 +175,25 @@ local({
             patient_id, 
             treated,
             all_of(c(
-              exact_variables_relative, 
-              names(caliper_variables)
+              exact_vars, 
+              names(caliper_vars)
               )),
         ),
         by = c("patient_id", "treated")
       )
-    
 
-    safely_matchit <- purrr::safely(matchit)
-    
-    set.seed(10)
     # run match algorithm
+    # (this will be updated to allow for different matching strategies)
+    set.seed(10)
     obj_matchit_i <-
       safely_matchit(
-        formula = treated ~ 1,
         data = match_candidates_i,
-        # these method and distance options don't really do anything because we
-        # only want exact + caliper match
-        method = "nearest", distance = "glm", 
-        replace = FALSE,
-        estimand = "ATT",
-        exact = exact_variables_relative,
-        caliper = caliper_variables, std.caliper=FALSE,
-        m.order = "random",
-        #verbose = TRUE,
-        ratio = 1L # 1:1 match
+        exact = exact_vars,
+        caliper = caliper_vars
       )[[1]]
-
     
     if(is.null(obj_matchit_i)) {
-      message("Skipping trial ", trial, " - No exact matches found.")
+      message("Skipping trial ", trial_index, " - No exact matches found.")
       next
     }
     
@@ -207,7 +206,7 @@ local({
           match_id = NA_integer_,
           treated = match_candidates_i$treated,
           weight = 0,
-          trial_time = trial_time,
+          trial_index = trial_index,
           trial_date = trial_date,
         )
       } else {
@@ -218,7 +217,7 @@ local({
           match_id = as.integer(as.character(obj_matchit_i$subclass)),
           treated = obj_matchit_i$treat,
           weight = obj_matchit_i$weights,
-          trial_time = trial_time,
+          trial_index = trial_index,
           trial_date = trial_date,
         ) 
       } %>%
@@ -251,19 +250,18 @@ local({
 
   }
 
-  #remove trial_time and trial_date counters created by the loop
-  trial_time <- NULL
-  trial_date <- NULL
+  # remove trial_index and trial_date counters created by the loop
+  rm(trial_index, trial_date)
 
   data_matched <-
     data_matched %>%
     transmute(
       patient_id, 
       match_id, 
-      matched=1L, 
+      matched = TRUE, 
       treated,
-      control=1L-treated, 
-      trial_time, 
+      control = 1L - treated, 
+      trial_index, 
       trial_date, 
       controlistreated_date
     )
@@ -273,11 +271,11 @@ local({
   data_matchstatus <<-
     data_treated %>%
     left_join(
-      data_matched %>% filter(treated==1L, matched==1L), 
-      by=c("patient_id", "treated", "trial_time", "trial_date")
+      data_matched %>% filter(treated==1L, matched) %>% select(-trial_date), 
+      by=c("patient_id", "treated", "trial_index")
       ) %>%
     mutate(
-      matched = replace_na(matched, 0L), # 1 if matched, 0 if unmatched
+      matched = replace_na(matched, FALSE), 
       control = if_else(matched==1L, 0L, NA_integer_) # 1 if matched control, 0 if matched treated, NA if unmatched treated
     ) %>%
     bind_rows(
@@ -289,69 +287,37 @@ local({
  
 # output match status ----
 data_matchstatus %>%
-  write_rds(
-    ghere("output", "matchround{match_round}", "controlpotential", "match", "data_potential_matchstatus.rds"), 
-    compress="gz"
-    )
+  write_rds(file.path(outdir, "data_potential_matchstatus.rds"), compress="gz")
 
 # number of treated/controls per trial
-# use trial=trial_time+1 so that this printout matches the printout from the loop for(trial in trials){}
-with(data_matchstatus %>% filter(matched==1), table(trial=trial_time+1, treated))
+with(data_matchstatus %>% filter(matched), table(trial_index, treated))
 
 # total matched pairs
-with(data_matchstatus %>% filter(matched==1), table(treated))
+with(data_matchstatus %>% filter(matched), table(treated))
 
 # max trial date
 print(
   paste0(
     "max trial day is ", 
-    as.integer(max(data_matchstatus %>% filter(matched==1) %>% pull(trial_time), na.rm=TRUE))
+    as.integer(max(data_matchstatus %>% filter(matched) %>% pull(trial_index), na.rm=TRUE))
     )
   )
 
 
 # output csv for subsequent study definition
 data_matchstatus %>% 
-  filter(control==1L, matched==1L) %>% 
+  filter(control==1L, matched) %>% 
   select(patient_id, trial_date, match_id) %>%
   mutate(
     trial_date=as.character(trial_date)
   ) %>%
-  write_csv(
-    ghere("output", "matchround{match_round}", "controlpotential", "match", "potential_matchedcontrols.csv.gz")
-    )
+  write_csv(file.path(outdir, "potential_matchedcontrols.csv.gz"))
 
 
-print(
-  paste0(
-    "number of duplicate control IDs is ", 
-    data_matchstatus %>%
-      filter(control==1L, matched==1L) %>% 
-      group_by(patient_id) %>% 
-      summarise(n=n()) %>%
-      filter(n>1) %>% nrow() 
-    )
-  )
-# should be zero
-# 
-# 
-# ## output dataset containing all matched pairs + match factors
-# data_matched <-
-#   data_matchstatus %>%
-#   filter(matched==1L) %>%
-#   left_join(
-#     data_eligible %>%
-#     select(
-#       patient_id,
-#       treated,
-#       all_of(
-#         exact_variables_relative#,
-#         #names(caliper_variables)
-#       ),
-#     ),
-#     by=c("patient_id", "treated")
-#   ) %>%
-#   arrange(trial_date, match_id, treated)
-# 
-# 
-# write_rds(data_matched, fs::path(output_dir, glue("data_potential_matched{match_round}.rds")), compress="gz")
+dup_control_ids <- data_matchstatus %>%
+  filter(control==1L, matched) %>% 
+  group_by(patient_id) %>% 
+  summarise(n=n(), .groups = "drop") %>%
+  filter(n>1) %>% nrow() 
+
+stopifnot("Duplicate patient_ids in the control group" = dup_control_ids == 0)

@@ -95,7 +95,7 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
       period_id = tdc(fupstart_time, period_id)
     ) 
   
-  cox_formula_string <- "Surv(tstart, tstop, ind_outcome) ~ treated"
+  cox_formula_string <- "Surv(tstart, tstop, ind_outcome) ~ strata(trial_date) + strata(region) + treated"
   
   # only keep periods with >2 events per level of exposure
   data_cox <- data_split %>%
@@ -108,12 +108,12 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
     select(-n_events, -min_events) %>%
     group_by(!!subgroup_sym) %>%
     nest() %>%
-    # add strata(period_id) to cox_formula if period_id has more than one distinct values
+    # add :period_id to cox_formula if period_id has more than one distinct values
     mutate(cox_formula = map(data, ~{
       if_else(
         n_distinct(.x$period_id) == 1,
         cox_formula_string,
-        str_c(cox_formula_string, ":strata(period_id)")
+        str_c(cox_formula_string, ":period_id")
       )
     })) %>%
     unnest(cox_formula)

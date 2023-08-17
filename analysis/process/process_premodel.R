@@ -86,6 +86,7 @@ data_surv <- data_matched %>%
     # select only variables needed for models to save space
     patient_id, new_id, treated, trial_date, censor_date,
     outcome_date = !! sym(glue("{outcome}_date")),
+    all_of(strata_vars),
     all_of(covariates_model),
     all_of(subgroup)
   ) %>%

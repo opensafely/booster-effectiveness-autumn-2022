@@ -3,8 +3,15 @@
 # This script:
 # processes data and applies eligibility criteria  
 # arguments: stage, match_round
-# - stage = treated, potentialcontrol or actualcontrol
-# - match_round only required when stage = potentialcontrol or actualcontrol
+# - stage:
+#   - "riskscore_i", "treated", "controlpotential", "controlactual"
+# - match_strategy:
+#   - must be "riskscore_i" when stage = "riskscore_i"
+#   - must be "none" when stage = "treated"
+#   - must be "none" when stage = "controlpotential" and match_round = 1
+# - match_round: 
+#   - integer
+#   - must be 0 when stage = "riskscore_i" or "treated"
 ######################################
 
 # Preliminaries ----
@@ -20,6 +27,7 @@ library(here)
 source(here("analysis", "design.R"))
 
 source(here("lib", "functions", "utility.R"))
+source(here("lib", "functions", "match_control.R"))
 
 source(here("analysis", "process", "process_functions.R"))
 
@@ -29,37 +37,58 @@ args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) == 0) {
   # use for interactive testing
-  stage <- "treated"
+  # uncomment 3 lines at a time
+  # stage <- "riskscore_i"
+  # match_strategy <- "riskscore_i"
+  # match_round <- as.integer("0")
+  ##
+  # stage <- "treated"
+  # match_strategy <- "none"
+  # match_round <- as.integer("0")
+  ##
   # stage <- "controlpotential"
-  # stage <- "controlactual"
+  # match_strategy <- "none"
+  # match_round <- as.integer("1")
+  ##
+  stage <- "controlactual"
+  match_strategy <- "a"
   match_round <- as.integer("1")
 } else {
   stage <- args[[1]]
-  if (stage %in% "treated") {
-    if (length(args) > 1) 
-      stop("No additional args to be specified when `stage=\"treated\"")
-  } else {
-    if (length(args) == 1) {
-      stop("`match_round` must be specified when `stage=\"controlpotential\"` or \"controlactual\"")
-    }
-    match_round <- as.integer(args[[2]]) # NULL if treated    
-  } 
+  match_strategy <- args[[2]]
+  match_round <- as.integer(args[[3]])
 } 
 
-# ## create output directories and define parameters ----
-if (stage == "treated") {
+# save items in the match_strategy list to the global environment
+list2env(
+  x = get(glue("match_strategy_{match_strategy}")),
+  envir = environment()
+)
+
+# create output directories and define parameters ----
+if (stage == "riskscore_i") {
+  
+  path_stem <- here("output", "riskscore_i")
+  fs::dir_create(file.path(path_stem, "flowchart"))
+  custom_path <- here("output", "treated", "dummydata", "dummydata_treated.feather")
+  
+} else if (stage == "treated") {
+  
   path_stem <- here("output", "treated")
   fs::dir_create(file.path(path_stem, "flowchart"))
+  fs::dir_create(here("output", "report"))
   custom_path <- file.path(path_stem, "dummydata", "dummydata_treated.feather")
+  
 } else if (stage %in% c("controlpotential", "controlactual")) {
-  path_stem <- ghere("output", "matchround{match_round}", stage)
-  fs::dir_create(file.path(path_stem, "match"))
-  custom_path <- here("output", "matchround1", "controlpotential", "dummydata", "dummydata_controlpotential.feather")
+  
+  path_stem <- ghere("output", "incremental_{match_strategy}", "matchround{match_round}", stage)
+  custom_path <- here("output", "incremental_none", "matchround1", "controlpotential", "dummydata", "dummydata_controlpotential.feather")
   match_round_date <- study_dates$control_extract[match_round]
+  
 }
-fs::dir_create(file.path(path_stem, "eligible"))
-fs::dir_create(file.path(path_stem, "process"))
 
+fs::dir_create(file.path(path_stem, "eligible"))
+fs::dir_create(file.path(path_stem, "processed"))
 
 # import data ----
 
@@ -71,12 +100,11 @@ data_studydef <- arrow::read_feather(
 
 if (stage == "controlactual") {
   
-  ## trial info for potential matches in round X
-  data_potential_matchstatus <- 
-    read_rds(
-      ghere("output", "matchround{match_round}", "controlpotential", "match", "data_potential_matchstatus.rds")
-      ) %>% 
-    filter(matched==1L)
+  # trial info for potential matches in round X
+  data_potential_matchstatus <- read_rds(
+    ghere("output", "incremental_{match_strategy}", "matchround{match_round}", "controlpotential", "match", "data_potential_matchstatus.rds")
+    ) %>% 
+    filter(matched)
   
 }
 
@@ -97,7 +125,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
     
     # reuse previous extraction for dummy run, dummy_control_potential1.feather
     data_dummy <- data_dummy %>%
-      filter(patient_id %in% data_potential_matchstatus[(data_potential_matchstatus$treated==0L),]$patient_id) %>%
+      filter(patient_id %in% (data_potential_matchstatus %>% filter(treated==0L) %>% pull(patient_id))) %>%
       # trial_date and match_id are not included in the dummy data so join them on here
       # they're joined in the study def using `with_values_from_file`
       left_join(
@@ -108,19 +136,29 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
       ) %>%
       # change a few variables so some matches fail
       mutate(
-        region = if_else(runif(n())<0.05, sample(x=unique(region), size=n(), replace=TRUE), region)
+        region = if_else(
+          runif(n())<0.05,
+          sample(x=unique(region), size=n(), replace=TRUE), 
+          region
+          ),
+        bmi = if_else(
+          runif(n())<0.05, 
+          sample(x=unique(bmi), size=n(), replace=TRUE),
+          bmi
+          ),
+        imd = as.character(as.integer(imd) + runif(n = n(), -1000, 1000))
       )
     
   }
   
-  # check cutom and studydef dummydata match
+  # check custom and studydef dummydata match
   source(here("analysis", "dummydata", "dummydata_check.R"))
-  dummydata_check(
+  # assign updated dummydata to data_extract
+  data_extract <- dummydata_check(
     dummydata_studydef= data_studydef,
     dummydata_custom = data_dummy
   )
   
-  data_extract <- data_dummy
   rm(data_dummy)
   
 } else {
@@ -137,7 +175,7 @@ if (stage == "controlactual") {
   # add: treated 
   data_extract <- data_extract %>%
     mutate(treated=0L) %>%
-    # add: trial_time, matched, control, controlistreated_date to data_extract
+    # add: trial_index, matched, control, controlistreated_date to data_extract
     left_join(
       data_potential_matchstatus %>%
         filter(treated==0L),
@@ -149,18 +187,11 @@ if (stage == "controlactual") {
 # summarise extracted data 
 my_skim(data_extract, path = file.path(path_stem, "extract", glue("input_{stage}_skim.txt")))
 
-cat("check for dates that are '1900-01-01', as this may indicate missing:\n")
-data_extract %>%
-  select(where(is.Date)) %>%
-  pivot_longer(cols = everything()) %>%
-  filter(!is.na(value), value == "1900-01-01") %>%
-  group_by(name) %>%
-  count()
-
 # process data -----
 
 # define index_date depending on stage
 stage_index_date <- list(
+  riskscore_i = "riskscore_i_start_date",
   treated = "vax_boostautumn_date",
   controlpotential = "match_round_date",
   controlactual = "trial_date"
@@ -169,8 +200,27 @@ stage_index_date <- list(
 # process variables
 data_processed <- data_extract %>%
   mutate(index_date = !! sym(stage_index_date[[stage]]), .after=1) %>%
+  # process demographic variables
+  mutate(
+    # these are the agegroups by which people were eligible to book vaccine doses
+    # note that technically those aged both 65-74 and 75+ could receive from 12 Sept,
+    # but those aged 75+ could book from 7 Sept, whereas 65-74 could only book from 12 Sept
+    agegroup_match = cut(
+      age,
+      breaks=c(50, 65, 75, Inf),
+      labels=c("50-64", "65-74", "75+"),
+      right=FALSE
+    ),
+    imd = as.integer(imd)
+  ) %>%
   # process jcvi variables
   mutate(
+    
+    # bmi
+    bmi = factor(
+      bmi,
+      levels = c("Not obese", "Obese I (30-34.9)", "Obese II (35-39.9)", "Obese III (40+)")
+    ),
     
     # number of conditions in different organ systems
     multimorb = sev_obesity + chronic_heart_disease + chronic_kidney_disease +
@@ -191,64 +241,99 @@ data_processed <- data_extract %>%
       diabetes | chronic_liver_disease | chronic_neuro_disease | 
       chronic_heart_disease | learndis | sev_mental | sev_obesity,
     
-    # these are the agegroups by which people were eligible to book vaccine doses
-    # note that technically those aged both 65-74 and 75+ could receive from 12 Sept,
-    # but those aged 75+ could book from 7 Sept, whereas 65-74 could only book from 12 Sept
-    agegroup_match = cut(
-      age,
-      breaks=c(50, 65, 75, Inf),
-      labels=c("50-64", "65-74", "75+"),
-      right=FALSE
-    ),
-    
   )  %>%
-  # process demographics
-  mutate(
-    
-    sex = fct_case_when(
-      sex == "F" ~ "Female",
-      sex == "M" ~ "Male",
-      TRUE ~ NA_character_
-    ),
-    
-    ethnicity = factor(
-      ethnicity,
-      levels = c("White", "Mixed", "Asian or Asian British", "Black or Black British", "Other")
-    ),
-    
-    region = fct_collapse(
-      region,
-      `East of England` = "East",
-      `London` = "London",
-      `Midlands` = c("West Midlands", "East Midlands"),
-      `North East and Yorkshire` = c("Yorkshire and The Humber", "North East"),
-      `North West` = "North West",
-      `South East` = "South East",
-      `South West` = "South West"
-    ),
-    
-    imd_Q5 = factor(
-      imd_Q5,
-      levels = c("1 (most deprived)", "2", "3", "4", "5 (least deprived)")
-    )
-    
-  ) %>%
   # process pre-baseline events
   mutate(
-    timesincecoviddischarged = as.integer(index_date - discharged_covid_0_date),
-    timesincecoviddischarged = fct_case_when(
-      timesincecoviddischarged <= 0 ~ "In hospital", # will be excluded
-      timesincecoviddischarged <= 30 ~ "1-30 days",
-      timesincecoviddischarged <= 180 ~ "31-180 days",
-      timesincecoviddischarged > 180 ~ "181+ days",
-      is.na(timesincecoviddischarged) ~ "No prior COVID-19 admission"
+    # time since discharged from unplanned covid admission
+    timesince_coviddischarged = as.integer(index_date - discharged_covid_0_date),
+    timesince_coviddischarged = fct_case_when(
+      is.na(timesince_coviddischarged) ~ "No prior COVID-19 admission",
+      timesince_coviddischarged > 180 ~ "181+ days",
+      timesince_coviddischarged <= 180 ~ "31-180 days",
+      timesince_coviddischarged <= 30 ~ "1-30 days", # will be excluded
+      timesince_coviddischarged <= 0 ~ "In hospital" # will be excluded
     )
-  )
+  ) 
+
+if ("region" %in% keep_vars) {
+  
+  data_processed <- data_processed %>%
+    mutate(
+      region = fct_collapse(
+        region,
+        `East of England` = "East",
+        `London` = "London",
+        `Midlands` = c("West Midlands", "East Midlands"),
+        `North East and Yorkshire` = c("Yorkshire and The Humber", "North East"),
+        `North West` = "North West",
+        `South East` = "South East",
+        `South West` = "South West"
+      )
+    )
+  
+}
+
+if ("imd_Q5" %in% keep_vars) {
+  
+  imd_levs <- c("Unknown", "1 (most deprived)", "2", "3", "4", "5 (least deprived)")
+  
+  data_processed <- data_processed %>%
+    mutate(
+      # define imd quintiles
+      imd_Q5 = cut(
+        x = imd,
+        breaks = seq(0,1,0.2)*32800,
+        labels = imd_levs[-1]
+      ),
+      # add labels (done here instead of in cut() so can define labels for NAs)
+      imd_Q5 = factor(
+        replace_na(as.character(imd_Q5), imd_levs[1]),
+        levels = imd_levs
+      )
+      
+    )
+  
+}
+
+if ("timesince_discharged" %in% keep_vars) {
+  data_processed <- data_processed %>%
+    mutate(
+      # time since discharged from any unplanned admission
+      timesince_discharged = as.integer(study_dates$riskscore_i$start - unplanneddischarged_0_date)/365.25,
+      timesince_discharged = fct_case_when(
+        is.na(timesince_discharged) | (timesince_discharged > 5) ~ "Never or >5 years",
+        timesince_discharged > 2 ~ "2-5 years",
+        timesince_discharged > 1 ~ "1-2 years",
+        TRUE ~ "Past year"
+      )
+    )
+}
+
+if (stage %in% "riskscore_i") {
+  data_processed <- data_processed %>%
+    mutate(
+      # outcome: indicator variable for death during follow-up
+      death = !(is.na(death_date) | death_date > study_dates$riskscore_i$end),
+      # indicator for deregistration before death
+      dereg = case_when(
+        # no deregistration
+        is.na(dereg_date) ~ FALSE,
+        # deregistration after study end (shouldn't be allowed by study def)
+        dereg_date > study_dates$riskscore_i$end ~ FALSE,
+        # deregistration after death
+        !is.na(death_date) & dereg_date >= death_date ~ FALSE,
+        # deregistration before death
+        !is.na(death_date) & dereg_date < death_date ~ TRUE,
+        # deregistration and no death
+        is.na(death_date) & !is.na(dereg_date) ~ TRUE
+      )
+    ) 
+}
 
 rm(data_extract)
 
-# read vaccination data
-data_vax <- read_rds(here("output", "initial", "eligible", "data_vax.rds")) 
+# read vaccination data (contains inelgible patients, so be careful with joins)
+data_vax <- read_rds(here("output", "initial", "processed", "data_vax.rds")) 
 
 # process vaccination data
 data_vax_processed <- data_processed %>%
@@ -282,7 +367,7 @@ data_vax_processed <- data_processed %>%
   arrange(date, .by_group = TRUE) %>%
   summarise(
     # date of last vaccine dose
-    lastvaxbeforeindex_date = last(date),
+    vax_lastbeforeindex_date = last(date),
     # number of doses prior to index
     # dosesbeforeindex_n = n() + 1 # +1 because only one line for primary course
     .groups = "drop"
@@ -294,20 +379,25 @@ data_vax_processed <- data_processed %>%
         matches("vax_(primary|boostfirst|boostspring|boostautumn)_(date|brand)")
         ),
     by = "patient_id"
-  ) %>%
-  mutate(across(matches("boost\\w+_brand"), ~replace_na(.x, "unboosted")))
+  ) 
 
 # join to data_processed
 data_processed <- data_processed %>%
   select(-any_of("vax_boostautumn_date")) %>% # as it's in data_vax_processed
-  left_join(data_vax_processed, by = "patient_id")
+  left_join(data_vax_processed, by = "patient_id") %>%
+  left_join(
+    # join the static vars from data_vax
+    data_vax %>% select(-starts_with("vax"), -age), 
+    by = "patient_id"
+    ) %>%
+  select(patient_id, everything())
 
 rm(data_vax, data_vax_processed)
 
 # summarise processed data
 my_skim(
   data_processed,
-  path = file.path(path_stem, "process", "data_processed_skim.txt")
+  path = file.path(path_stem, "processed", "data_processed_skim.txt")
   )
 
 ####################################################################################
@@ -326,9 +416,9 @@ data_criteria <- data_processed %>%
     # as such patients were dropped from data_vax_processed, 
     # so use primary_brand to flag
     no_undefineddose = !is.na(vax_primary_brand), 
-    lastdoseinterval = !is.na(lastvaxbeforeindex_date) & (as.integer(index_date - lastvaxbeforeindex_date) >= 91),
+    lastdoseinterval = !is.na(vax_lastbeforeindex_date) & (as.integer(index_date - vax_lastbeforeindex_date) >= 91),
     has_sex = !is.na(sex),
-    has_imd = !is.na(imd_Q5),
+    has_imd = !is.na(imd),
     has_ethnicity = !is.na(ethnicity),
     has_region = !is.na(region),
     isnot_carehomeresident = !carehome,
@@ -363,8 +453,12 @@ data_criteria <- data_processed %>%
     c07_descr = factor("  Missing sex, IMD, ethnicity, geographical region"),
     c07 = c06 & has_sex & has_imd & has_ethnicity & has_region,
     
-    c08_descr = factor("  Care home residents, where known"),
-    c08 = c07 & isnot_carehomeresident,
+    # c08_descr = factor("  Care home residents, where known"),
+    # c08 = c07 & isnot_carehomeresident,
+    # the below two lines are a placeholder so we don't have to renumber all 
+    # subsequent criteria if we re-introduce isnot_carehomeresident
+    c08_descr = factor("  --placeholder--"),
+    c08 = c07 & TRUE,
     
     c09_descr = factor("  Health care workers, where known"),
     c09 = c08 & isnot_hscworker,
@@ -379,7 +473,7 @@ data_criteria <- data_processed %>%
     c12 = c11 & isnot_inhospital,
     
     c13_descr = factor("  People who had an unplanned hospital admission with covid-19 and were discharged in the past 1-30 days"),
-    c13 = c12 & !(timesincecoviddischarged %in% c("In hospital", "1-30 days")),
+    c13 = c12 & !(timesince_coviddischarged %in% c("In hospital", "1-30 days")),
     
     include = c13
     
@@ -387,14 +481,143 @@ data_criteria <- data_processed %>%
 
 data_eligible <- data_criteria %>%
   filter(include) %>%
-  select(patient_id) %>%
+  select(patient_id) %>% 
   left_join(
-    data_processed %>% select(-index_date), #  maybe select specific variables to keep??
+    data_processed %>% 
+      select(
+        patient_id,
+        any_of(c("match_id", "trial_date", "trial_index")),
+        starts_with("vax_"),
+        any_of(unique(keep_vars))
+        ), 
     by="patient_id"
     ) %>%
   droplevels()
 
 rm(data_processed)
+
+if (
+  (!is.null(riskscore_vars) & stage != "riskscore_i") |
+  (stage == "treated") |
+  (stage == "controlpotential" & match_round == 1)
+  ) {
+  
+  agegroup_indices <- seq_along(levels(data_eligible$agegroup_match))
+  
+  model_list <- map(
+    agegroup_indices,
+    ~read_rds(here("output", "riskscore_i", glue("agegroup_", .x), glue("model_agegroup_",.x,".rds")))
+  )
+  
+  percentile_breaks_list <- map(
+    agegroup_indices,
+    ~read_rds(here("output", "riskscore_i", glue("agegroup_", .x), glue("percentile_breaks_",.x,".rds")))
+  )
+  
+  # calculate riskscore predictions
+  data_eligible_list <- data_eligible %>%
+    arrange(agegroup_match) %>%
+    group_split(agegroup_match) %>%
+    as.list()
+  
+  for (x in agegroup_indices) {
+    
+    data_eligible_list[[x]] <- data_eligible_list[[x]] %>%
+      mutate(
+        riskscore_i = predict(
+          model_list[[x]],
+          newdata = data_eligible_list[[x]],
+          type = "response"
+        ),
+        riskscore_i_percentile = cut(
+          riskscore_i,
+          breaks = percentile_breaks_list[[x]],
+          labels = FALSE,
+          include.lowest = TRUE
+        )
+      )
+    
+  }
+  
+  data_eligible <- bind_rows(data_eligible_list)
+  
+  # plot the distribution of the risk scores and the percentile breaks
+  local({
+    
+    # add names to the list of percentile breaks
+    names(percentile_breaks_list) <- levels(data_eligible$agegroup_match)
+    # create an object with the number of percentile breaks for each agegroup
+    break_lengths <- map_int(percentile_breaks_list, ~length(.x))
+    # create dataset of breaks for the plot
+    data_tmp <- tibble(
+      agegroup_match = rep(names(break_lengths), times = unname(break_lengths)),
+      riskscore_i_percentile_breaks = unlist(percentile_breaks_list)
+    ) %>%
+      filter(!(riskscore_i_percentile_breaks %in% c(0,1)))
+    
+    # plot the distribution of risk scores
+    plot_riskscore_distribution <- data_eligible %>%
+      ggplot(aes(x=riskscore_i, y = after_stat(density), colour = agegroup_match)) +
+      # add vertical lines at the percentile breaks
+      geom_vline(
+        aes(xintercept = riskscore_i_percentile_breaks),
+        data = data_tmp,
+        alpha = 0.1
+      ) +
+      # plot the distribution of riskscore_i
+      geom_freqpoly(binwidth = 0.01) +
+      facet_grid(rows = vars(agegroup_match)) +
+      labs(
+        caption = str_c(
+          "Number of unique breaks: ", 
+          str_c(
+            str_c(names(break_lengths), unname(break_lengths), sep = " = "), 
+            collapse = ", "),
+          "."
+        )
+      ) +
+      theme_bw() +
+      theme(
+        panel.grid = element_blank(),
+        legend.position = "bottom"
+      )
+    
+    # plot the distribution of risk score percentiles
+    plot_percentile_distribution <- data_eligible %>%
+      ggplot(
+        aes(
+          x=riskscore_i_percentile,
+          y = stat(prop),
+          fill = agegroup_match
+          )
+        ) +
+      geom_bar(width = 1) +
+      facet_grid(rows = vars(agegroup_match)) +
+      scale_x_continuous(expand = c(0,0)) +
+      scale_y_continuous(labels = scales::percent) +
+      labs(y=NULL) +
+      theme_bw() +
+      theme(
+        legend.position = "bottom"
+      )
+    
+    # create output directory and save plots
+    riskcsore_i_dir <- file.path(path_stem, "riskscore_i")
+    fs::dir_create(riskcsore_i_dir)
+    ggsave(
+      filename = file.path(riskcsore_i_dir, "plot_riskscore_distribution.png"),
+      plot = plot_riskscore_distribution
+    )
+    ggsave(
+      filename = file.path(riskcsore_i_dir, "plot_percentile_distribution.png"),
+      plot = plot_percentile_distribution
+    )
+    
+  })
+
+  rm(agegroup_indices, model_list, percentile_breaks_list, data_eligible_list)
+  
+}
 
 # save data_eligible ----
 my_skim(
@@ -402,15 +625,11 @@ my_skim(
   path = file.path(path_stem, "eligible", "data_eligible_skim.txt")
 )
 
-if (stage %in% c("treated", "controlpotential")) {
-  
-  write_rds(
-    data_eligible,
-    file.path(path_stem, "eligible", glue("data_{stage}.rds")),
-    compress="gz"
-  )
-  
-}
+write_rds(
+  data_eligible, 
+  file.path(path_stem, "eligible", glue("data_{stage}.rds")),
+  compress="gz"
+)
 
 if (stage == "treated") {
   
@@ -421,8 +640,8 @@ if (stage == "treated") {
   
 } 
 
-# create flowchart (only when stage="treated") ----
-if (stage == "treated") {
+# create flowchart (only when stage is "riskscore_i" or "treated") ----
+if (stage %in% c("riskscore_i", "treated")) {
   
   data_flowchart <- data_criteria %>%
     select(patient_id, matches("^c\\d+")) %>%
@@ -447,143 +666,18 @@ if (stage == "treated") {
   
 }
 
-# check match (only when stage="actual") ----
-if (stage == "controlactual") { 
+if (stage == "treated") {
   
-  data_control <- data_eligible
-  
-  data_treated <- read_rds(ghere("output", "treated", "eligible", "data_treated.rds")) 
-  
-  data_treated <- 
-    left_join(
-      data_potential_matchstatus %>% filter(treated==1L),
-      data_treated %>% 
-        # only keep variables that are in data_control
-        select(any_of(names(data_control))),
-      by="patient_id"
-    )
-  
-  match_candidates <- 
-    bind_rows(data_treated, data_control) %>%
-    arrange(treated, match_id, trial_date)
-  
-  #print missing values
-  match_candidates_missing <- map(match_candidates, ~any(is.na(.x)))
-  sort(names(match_candidates_missing[unlist(match_candidates_missing)]))
-  
-  # rematch ----
-  rematch <-
-    # first join on exact variables + match_id + trial_date
-    inner_join(
-      x=data_treated %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables_relative))),
-      y=data_control %>% select(match_id, trial_date, all_of(c(names(caliper_variables), exact_variables_relative))),
-      by = c("match_id", "trial_date", exact_variables_relative)
-    ) 
-  
-  
-  if (length(caliper_variables) > 0) {
-    
-    # check caliper_variables are still within caliper
-    rematch <- rematch %>%
-      bind_cols(
-        map_dfr(
-          set_names(names(caliper_variables), names(caliper_variables)),
-          ~ abs(rematch[[str_c(.x, ".x")]] - rematch[[str_c(.x, ".y")]]) <= caliper_variables[.x]
-        )
-      ) %>%
-      # dplyr::if_all not in opensafely version of dplyr so use filter_at instead
-      # filter(if_all(
-      #   all_of(names(caliper_variables))
-      # )) 
-      filter_at(
-        all_of(names(caliper_variables)),
-        all_vars(.)
-      )
-    
-  } 
-  
-  rematch <- rematch %>%
-    select(match_id, trial_date) %>%
-    mutate(matched=1)
-  
-  data_successful_match <-
-    match_candidates %>%
-    inner_join(rematch, by=c("match_id", "trial_date", "matched")) %>%
-    mutate(
-      match_round = match_round
-    ) %>%
-    arrange(trial_date, match_id, treated)
-  
-  ###
-  
-  matchstatus_vars <- c("patient_id", "match_id", "trial_date", "match_round", "treated", "controlistreated_date")
-  
-  data_successful_matchstatus <- data_successful_match %>% 
-    # keep all variables from the processed data as they are required for adjustments in the cox model
-    select(all_of(matchstatus_vars), everything())
-  
-  ## size of dataset
-  print("data_successful_match treated/untreated numbers")
-  table(treated = data_successful_matchstatus$treated, useNA="ifany")
-  
-  ## how many matches are lost?
-  print(glue(
-    "{sum(data_successful_matchstatus$treated)} matched-pairs kept out of {sum(data_potential_matchstatus$treated)} 
-  ({round(100*(sum(data_successful_matchstatus$treated) / sum(data_potential_matchstatus$treated)),2)}%)"
-  ))
-  
-  ## pick up all previous successful matches ----
-  
-  if (match_round > 1) {
-    
-    data_matchstatusprevious <- read_rds(
-      ghere("output", "matchround{match_round-1}", "controlactual", "match", "data_matchstatus_allrounds.rds")
-    )
-    
-    data_matchstatus_allrounds <- 
-      data_successful_matchstatus %>% 
-      select(all_of(matchstatus_vars)) %>%
-      bind_rows(data_matchstatusprevious) 
-    
-  } else {
-    
-    data_matchstatus_allrounds <- 
-      data_successful_matchstatus %>%
-      select(all_of(matchstatus_vars))
-    
-  }
-  
-  # save all successful matches
-  data_matchstatus_allrounds %>%
-    write_rds(
-      file.path(path_stem, "match", "data_matchstatus_allrounds.rds"), 
-      compress="gz"
-      )
-  
-  ## size of dataset
-  print("data_matchstatus_allrounds treated/untreated numbers")
-  table(treated = data_matchstatus_allrounds$treated, useNA="ifany")
-  
-  ## duplicate IDs
-  data_matchstatus_allrounds %>% group_by(treated, patient_id) %>%
-    summarise(n=n()) %>% group_by(treated) %>% summarise(ndups = sum(n>1)) %>%
-    print()
-  
-  data_eligible %>%
-    my_skim(
-      path = file.path(path_stem, "match", "data_successful_matchedcontrols_skim.txt")
-      )
-  
-  data_successful_matchstatus %>% 
-    filter(treated==0L) %>% 
-    select(-starts_with("vax_boostautumn")) %>%
-    write_rds(
-      file.path(path_stem, "match", "data_successful_matchedcontrols.rds"), 
-      compress="gz"
-      )
-  
-  ## size of dataset
-  print("data_successful_match treated/untreated numbers")
-  table(treated = data_successful_matchstatus$treated, useNA="ifany")
+  # combine initial and treated flowcharts 
+  # apply midpoint rounding
+  # save for release
+  read_csv(here("output", "initial", "flowchart", "flowchart_unrounded.csv")) %>%
+    mutate(stage = "initial") %>%
+    bind_rows(data_flowchart %>% mutate(stage = "treated")) %>%
+    group_by(stage) %>%
+    flow_stats_rounded(to = threshold) %>%
+    ungroup() %>%
+    select(stage, crit, criteria, n, everything()) %>%
+    write_csv(ghere("output", "report", "flowchart_combined_midpoint{threshold}.csv"))
   
 }

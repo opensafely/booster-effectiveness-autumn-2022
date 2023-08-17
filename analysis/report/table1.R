@@ -2,15 +2,14 @@
 # Purpose: describe match results
 # creates "table 1"
 # this file takes the following arguments:
-# - vars: the variables to summarise
-#   - vars="match" will only include the variables used in matching, so it can 
-#     be run before the other covaraiets are extracted
-#   - vars="covs" will only include the model covariates which are extracted at
-#     a later stage
 # - effect: 
-#   - effect="treated" will summarise data for all individuals boosted during the recruitment period
-#   - effect="comparative" will summarise data for the matched pfizer and moderna arms
-#   - effect="relative" will summarise data for the matched treated and control arms
+#   - effect="treated":
+#       (match_strategy defaults to NULL)
+#       table1 for all individuals boosted during the recruitment period
+#   - effect="comparative", match_strategy="a": 
+#       table1 for the matched pfizer and moderna arms using match_strategy "a"
+#   - effect="incremental", match_strategy="a":  
+#       table1 for the matched treated and control arms using match_strategy "a"
 # # # # # # # # # # # # # # # # # # # # #
 
 # Preliminaries ----
@@ -33,15 +32,23 @@ source(here("lib", "functions", "utility.R"))
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
   # use for interactive testing
-  vars <- "all" # "covs" "match"
-  effect <- "treated"
+  effect <- "incremental"
+  match_strategy <- "riskscore_i"
 } else {
-  vars <- args[[1]]
-  effect <- args[[2]]
+  effect <- args[[1]]
+  match_strategy <- args[[2]]
 }
 
+# save items in the match_strategy list to the global environment
+list2env(
+  x = get(glue("match_strategy_{match_strategy}")),
+  envir = environment()
+)
+
+effect_match_strategy <- str_c(effect, match_strategy, sep = "_")
+
 # create output directories 
-output_dir <- here("output", effect, "table1")
+output_dir <- here("output", effect_match_strategy, "table1")
 fs::dir_create(output_dir)
 
 # get data_table1
@@ -56,31 +63,15 @@ if (effect == "treated") {
   rm(data_matched)
 }
 
-# derive extra variables / revel variables
-if (vars %in% c("match", "all")) {
+if ("vax_lastbeforeindex_date" %in% keep_vars) {
+  # derive extra variables / revel variables
   data_table1 <- data_table1 %>%
     # derive extra variables
     mutate(
-      # lastvaxbeforeindex_date was a matching variable, but more meaningful 
-      # to summarise as timesincelastvax
-      timesincelastvax = as.integer(trial_date - lastvaxbeforeindex_date),
-      # relevelling done here to avoid rerunning actions that use process_stage
-      timesincecoviddischarged = fct_rev(timesincecoviddischarged)
+      # vax_lastbeforeindex_date was a matching variable, but more meaningful 
+      # to summarise as timesince_lastvax
+      timesince_lastvax = as.integer(trial_date - vax_lastbeforeindex_date)
     )
-}
-# add covariates if necessary
-if (vars %in% c("covs", "all")) {
-  
-  if (effect %in% c("treated", "comparative")) {
-    data_table1 <- data_table1 %>%
-      add_vars(vars = "covs", group = "treated")
-  }
-  
-  if (effect == "relative") {
-    data_table1 <- data_table1 %>%
-      add_vars(vars = "covs", group = c("treated", "control"))
-  }
-  
 }
 
 if (effect == "treated") {
@@ -90,71 +81,57 @@ if (effect == "treated") {
 }
 
 # table 1 style baseline characteristics ----
-
 var_labels <- list(
   
   N  ~ "Total N",
+  treated_descr ~ "Group",
   
-  treated_descr ~ "Group"
+  age ~ "Age",
+  age_factor ~ "Age (per year)",
+  agegroup_match ~ "Age group for matching",
+  sex ~ "Sex",
+  ethnicity ~ "Ethnicity",
+  imd_Q5 ~ "Deprivation",
+  region ~ "Region",
+  
+  learndis ~ "Learning disability",
+  sev_mental ~ "Severe mental illness",
+  immunosuppressed ~ "Immunouppressed",
+  
+  # multimorb ~ "Multimorbidity score",
+  
+  cv ~ "Clinically vulnerable",
+  
+  vax_primary_brand ~ "Primary course brand",
+  vax_boostfirst_brand ~ "First booster brand",
+  vax_boostspring_brand ~ "Spring booster brand",
+  vax_boostautumn_brand ~ "Autumn booster brand",
+  
+  # vax_primary_date ~ "Primary course date",
+  # vax_boostfirst_date ~ "First booster date",
+  # vax_boostspring_date ~ "Spring booster date",
+  # vax_boostautumn_date ~ "Autumn booster date",
+  
+  timesince_lastvax ~ "Days since last dose",
+  timesince_coviddischarged ~ "Time since COVID-19 hospitalisation",
+  
+  flu_vaccine ~ "Flu vaccine",
+  bmi ~ "Body mass index"
   
   )
 
-if (vars %in% c("match", "all")) {
-  
-  var_labels <- splice(
-    
-    var_labels,
-    
-    age ~ "Age",
-    age_factor ~ "Age (per year)",
-    agegroup_match ~ "Age group for matching",
-    sex ~ "Sex",
-    ethnicity ~ "Ethnicity",
-    imd_Q5 ~ "Deprivation",
-    region ~ "Region",
-    
-    learndis ~ "Learning disability",
-    sev_mental ~ "Severe mental illness",
-    immunosuppressed ~ "Immunouppressed",
-    
-    # multimorb ~ "Multimorbidity score",
-    
-    cv ~ "Clinically vulnerable",
-    
-    vax_primary_brand ~ "Primary course brand",
-    vax_boostfirst_brand ~ "First booster brand",
-    vax_boostspring_brand ~ "Spring booster brand",
-    vax_boostautumn_brand ~ "Autumn booster brand",
-    
-    # vax_primary_date ~ "Primary course date",
-    # vax_boostfirst_date ~ "First booster date",
-    # vax_boostspring_date ~ "Spring booster date",
-    # vax_boostautumn_date ~ "Autumn booster date",
-    
-    timesincelastvax ~ "Days since last dose",
-    timesincecoviddischarged ~ "Time since COVID-19 hospitalisation"
-    
-  )
-    
-}
-
-if (vars %in% c("covs", "all")) {
-  
-  var_labels <- splice(
-    
-    var_labels,
-    
-    flu_vaccine ~ "Flu vaccine",
-    bmi ~ "Body mass index"
-    
-  )
-  
-}
-  
 var_labels <- var_labels %>%
   set_names(., map_chr(., all.vars))
 
-map_chr(var_labels[-c(1,2)], ~last(as.character(.)))
+# only keep variables that are in data_table1
+select_var_labels <- c(
+  TRUE, TRUE, 
+  names(var_labels[-c(1,2)]) %in% names(data_table1)
+  )
+
+var_labels <- var_labels[select_var_labels]
+
+# map_chr(var_labels[-c(1,2)], ~last(as.character(.)))
 
 # use gtsummary to obtain standardized table 1 data
 tab_summary_baseline <- data_table1 %>%
@@ -177,7 +154,7 @@ raw_stats <- tab_summary_baseline$meta_data %>%
   select(var_label, df_stats) %>%
   unnest(df_stats)
 
-raw_stats_redacted <- raw_stats %>%
+raw_stats_midpoint <- raw_stats %>%
   mutate(
     n=roundmid_any(n, threshold),
     N=roundmid_any(N, threshold),
@@ -191,9 +168,7 @@ raw_stats_redacted <- raw_stats %>%
     variable_levels = replace_na(as.character(variable_levels), "")
   ) 
 
-write_csv(raw_stats_redacted, file.path(output_dir, glue("table1_{vars}_{effect}_rounded.csv")))
-
-table1_data <- raw_stats_redacted %>%
+table1_data <- raw_stats_midpoint %>%
   rowwise() %>%
   transmute(
     var_label,
@@ -209,11 +184,5 @@ table1_data <- raw_stats_redacted %>%
     values_from = value
   )
 
-# table to help reviewing
-table1_data %>%
-  knitr::kable(format = "html") %>%
-  kableExtra::kable_paper() %>%
-  kableExtra::kable_styling(
-    full_width = FALSE
-  ) %>%
-  kableExtra::save_kable(file = fs::path(output_dir, glue("table1_{vars}_{effect}_rounded.html")))
+write_csv(table1_data, file.path(output_dir, glue("table1_{effect_match_strategy}_midpoint{threshold}.csv")))
+

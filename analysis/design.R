@@ -29,7 +29,7 @@ study_dates <- lst(
   
   boosterspring = lst(
     start = "2022-03-23",
-    end = "2022-07-30" # based on plot of weekly vaccinations in England
+    end = "2022-06-30" # based on plot of weekly vaccinations in England
   ),
   
   boosterfirst = lst(
@@ -57,7 +57,12 @@ study_dates <- lst(
   
   recruitmentend = "2022-12-24", # based on plot of weekly vaccinations in England
   hospitalisationend = "2023-01-31", # end of available hospitalization data
-  deathend = "2023-02-28" # end of available death data
+  deathend = "2023-02-28", # end of available death data
+  
+  riskscore_i = lst(
+    start = as.Date(boosterspring$end) + 1,
+    end = as.Date(boosterautumn$ages65plus) - 1
+  )
   
 )
 
@@ -73,10 +78,10 @@ study_dates$control_extract = seq(study_dates$studystart, study_dates$recruitmen
 
 # reduce the match rounds for testing
 # study_dates$control_extract <- study_dates$control_extract[1:2]
-
-# number of match rounds to perform for each cohort
-
-n_match_rounds <- length(study_dates[["control_extract"]])
+# 
+# # number of match rounds to perform for each cohort
+# 
+# n_match_rounds <- length(study_dates[["control_extract"]])
 
 jsonlite::write_json(study_dates, path = here("lib", "design", "study-dates.json"), auto_unbox=TRUE, pretty =TRUE)
 
@@ -109,8 +114,8 @@ outcomes <- c("covidadmitted", "coviddeath", "noncoviddeath", "fracture")
 
 treatment_lookup <- tribble(
   ~course, ~treatment, ~treatment_descr,
-  "boostaumtumn","pfizerbivalent", "Bivalent BNT162b2",
-  "boostaumtumn", "modernabivalent", "Bivalent mRNA-1273",
+  "boostautumn","pfizerbivalent", "Bivalent BNT162b2",
+  "boostautumn", "modernabivalent", "Bivalent mRNA-1273",
   "boostspring","pfizer", "BNT162b2",
   "boostspring", "moderna", "mRNA-1273",
   "boostfirst","pfizer", "BNT162b2",
@@ -123,9 +128,8 @@ treatment_lookup <- tribble(
 comparison_definition <- tribble(
   ~comparison, ~level0, ~level0_descr, ~level1, ~level1_descr,
   "comparative", "pfizerbivalent", "Bivalent BNT162b2", "modernabivalent", "Bivalent mRNA-1273",
-  "relative", "unboosted", "Unboosted", "boosted", "Boosted",
+  "incremental", "unboosted", "Unboosted", "boosted", "Boosted",
 )
-# TODO find the correct way to specify pfizer and moderna bivalent
 
 # lookups to convert coded variables to full, descriptive variables ----
 recoder <-
@@ -150,7 +154,7 @@ recoder <-
 subgroups <- c("all", "agegroup_match")
 
 # for the treated variables which are coded as 0 or 1
-for (i in c("comparative", "relative")) {
+for (i in c("comparative", "incremental")) {
   treatment_levels <- comparison_definition %>% filter(comparison==i) %>% select(matches("level\\d_descr")) %>% unlist() 
   recoder[[i]] <- set_names(
     as.integer(str_extract(names(treatment_levels), "\\d")),
@@ -174,51 +178,177 @@ fup_params <- lst(
   maxfup = max(postbaselinecuts),
 )
 
+# matching ----
+create_match_strategy <- function(
+    name,
+    n_match_rounds = 2,
+    exact_vars = NULL,
+    caliper_vars = NULL,
+    riskscore_vars = NULL, # variable to be included as covariates in risk score model
+    riskscore_fup_vars = NULL, # includes outcome and censoring events
+    adj_vars = NULL,
+    strata_vars = NULL
+) {
+  out <- lst(
+    n_match_rounds = n_match_rounds,
+    exact_vars = exact_vars,
+    caliper_vars = caliper_vars,
+    riskscore_vars = riskscore_vars,
+    riskscore_fup_vars,
+    keep_vars = unique(
+      c(
+        "age", "agegroup_match", "sex",
+        exact_vars, names(caliper_vars), 
+        riskscore_vars, riskscore_fup_vars
+        )
+      ),
+    # these variables only need to be extracted in controlfinal, although
+    # they may have been extracted earlier
+    adj_vars = adj_vars,
+    strata_vars = strata_vars
+  )
+  
+  out %>%
+    jsonlite::write_json(
+      path = here::here("lib", "design", glue::glue("match-strategy-{name}.json")), 
+      auto_unbox=TRUE, pretty =TRUE
+      )
+  
+  return(out)
+}
+
+match_strategy_none <- create_match_strategy(
+  name = "none",
+  n_match_rounds = NULL,
+  # all possible vars used across matching strategies
+  exact_vars = c(
+    # defined in or derived from analysis/study_definition_initial.py
+    "vax_primary_brand", "vax_boostfirst_brand", "vax_boostspring_brand",
+    "vax_lastbeforeindex_date", "sex", "ethnicity", "hscworker",
+    # defined in or derived from analysis/variables_elig.py
+    "age", "agegroup_match", "timesince_coviddischarged", "imd_Q5",
+    # defined in or derived from analysis/variables_jcvi.py
+    "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",
+    "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease",
+    "chronic_liver_disease", "immunosuppressed", "learndis", "multimorb", "cv",
+    # "asplenia", "bmi_value", "sev_obesity",
+    # optional variables in analysis/variables_vars.py
+    "region", "flu_vaccine", "timesince_discharged", 
+    # defined in or derived from analysis/study_definitionriskscore_i.py
+    "death", "dereg", "riskscore_i", "riskscore_i_percentile"
+  )
+)
+
+match_strategy_riskscore_i <- create_match_strategy(
+  name = "riskscore_i",
+  exact_vars = "riskscore_i_percentile",
+  # caliper_vars = c("riskscore_i" = 0.1), 
+  # riskscore_vars are the variables used in the model to predict the risk score
+  riskscore_vars = c(
+    "age", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",
+    "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease",
+    "chronic_liver_disease", "immunosuppressed", "learndis",
+    "ethnicity", "imd_Q5", "region", "flu_vaccine", "timesince_discharged"
+    ),
+  riskscore_fup_vars = c("death", "dereg")
+)
+
+match_strategy_a <- create_match_strategy(
+  name = "a",
+  exact_vars = c(
+    "agegroup_match", "vax_primary_brand", "vax_boostfirst_brand",
+    "vax_boostspring_brand", "cv", "region"
+    ),
+  caliper_vars = c(
+    age = 3,
+    # match on `lastvaxbeforeindex_day` rather than `timesincelastvax` as the 
+    # potential matches are less likely to fail in the actual stage
+    vax_lastbeforeindex_date = 14,
+    NULL
+  ),
+  adj_vars = c(
+    "sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental",
+    "immunosuppressed", "multimorb",  "timesince_coviddischarged",
+    "flu_vaccine"
+  ),
+  strata_vars = c("trial_date", "region")
+)
+
+# check if all variables from all matching strategies are in match_strategy_none$keep_vars
+local({
+  all_vars <- unique(
+    c(
+      match_strategy_a$keep_vars, match_strategy_a$adj_vars, 
+      match_strategy_a$strata_vars, 
+      match_strategy_riskscore_i$keep_vars, match_strategy_riskscore_i$adj_vars,
+      match_strategy_riskscore_i$strata_vars
+      )
+    )
+  all_vars <- all_vars[!(all_vars %in% c("trial_date"))]
+  check_all_present <- all_vars %in% match_strategy_none$keep_vars
+  if (!all(check_all_present)) {
+    stop(
+      "The following variables are specified in a matching strategy but not in match_strategy_none:\n",
+      str_c(all_vars[!check_all_present], sep = ", ")
+    )
+  }
+})
+
+# match_strategy_C <- lst(
+#   score_vars = xxx,
+#   model_vars = xxx,
+#   strata_vars = xxx
+# )
+
+# list2env
+
 # match variables ----
 
-# exact variables
-exact_variables_relative <- c(
-  "agegroup_match",
-  "vax_primary_brand",
-  "vax_boostfirst_brand",
-  "vax_boostspring_brand",
-  "cv",
-  "region",
-  NULL
-)
-
-exact_variables_comparative <- c(
-  exact_variables_relative,
-  "vax_boostautumn_date", 
-  NULL
-)
-
-# caliper variables
-caliper_variables <- c(
-  age = 3,
-  # match on `lastvaxbeforeindex_day` rather than `timesincelastvax` as the 
-  # potential matches are less likely to fail in the actual stage
-  lastvaxbeforeindex_date = 14,
-  NULL
-)
-
-match_variables_relative <- c(exact_variables_relative, names(caliper_variables))
-match_variables_comparative <- c(exact_variables_comparative, names(caliper_variables))
-
-# covariates ----
-
-covariates_model <- c(
-  "sex",
-  "ethnicity",
-  "imd_Q5",
-  "bmi",
-  "learndis",
-  "sev_mental",
-  "immunosuppressed",
-  "multimorb", 
-  "timesincecoviddischarged",
-  "flu_vaccine"
-)
+# # exact variables
+# exact_variables_incremental <- c(
+#   "agegroup_match",
+#   "vax_primary_brand",
+#   "vax_boostfirst_brand",
+#   "vax_boostspring_brand",
+#   "cv",
+#   "region",
+#   NULL
+# )
+# 
+# exact_variables_comparative <- c(
+#   exact_variables_incremental,
+#   "vax_boostautumn_date", 
+#   NULL
+# )
+# 
+# # caliper variables
+# caliper_variables <- c(
+#   age = 3,
+#   # match on `lastvaxbeforeindex_day` rather than `timesincelastvax` as the 
+#   # potential matches are less likely to fail in the actual stage
+#   vax_lastbeforeindex_date = 14,
+#   NULL
+# )
+# 
+# match_variables_incremental <- c(exact_variables_incremental, names(caliper_variables))
+# match_variables_comparative <- c(exact_variables_comparative, names(caliper_variables))
+# 
+# # covariates ----
+# 
+# covariates_model <- c(
+#   "sex",
+#   "ethnicity",
+#   "imd_Q5",
+#   "bmi",
+#   "learndis",
+#   "sev_mental",
+#   "immunosuppressed",
+#   "multimorb", 
+#   "timesince_coviddischarged",
+#   "flu_vaccine"
+# )
+# 
+# strata_vars <- c("trial_date", "region")
 
 censor_vars <- list(
   comparative = c(
@@ -226,7 +356,8 @@ censor_vars <- list(
     "dereg_date"
   )
 )
-censor_vars[["relative"]] <- c(censor_vars[["comparative"]], "controlistreated_date")
+censor_vars[["incremental"]] <- c(censor_vars[["comparative"]], "controlistreated_date")
+
 #
 # # other variables -----
 # # keep all variables starting with these strings
@@ -234,7 +365,7 @@ censor_vars[["relative"]] <- c(censor_vars[["comparative"]], "controlistreated_d
 # 
 # analysis table
 model_args <- expand_grid(
-  effect=c("comparative", "relative"),
+  effect=c("comparative", "incremental"),
   model=c("km", "cox_unadj", "cox_adj"),
   subgroup=subgroups,
   outcome=outcomes,

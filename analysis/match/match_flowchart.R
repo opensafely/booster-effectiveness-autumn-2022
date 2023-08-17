@@ -22,19 +22,30 @@ args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
   # use for interactive testing
   effect <- "comparative"
+  match_strategy <- "a"
   
 } else {
   effect <- args[[1]]
+  match_strategy <- args[[2]]
 }
 
+# save items in the match_strategy list to the global environment
+list2env(
+  x = get(glue("match_strategy_{match_strategy}")),
+  envir = environment()
+)
+
+effect_match_strategy <- str_c(effect, match_strategy, sep = "_")
+
 # create output directories
-outdir <- here("output", effect, "flowchart")
+outdir <- here("output", effect_match_strategy, "flowchart")
 fs::dir_create(outdir)
 
 # read data
 if (effect == "comparative") {
   
-  data_matchstatus <- readr::read_rds(here("output", "comparative", "match", "data_matchstatus.rds")) %>%
+  data_matchstatus <- 
+    readr::read_rds(here("output", effect_match_strategy, "match", "data_matchstatus.rds")) %>%
     select(patient_id, treated, matched, trial_date)
   
   flowchart_final <- data_matchstatus %>%
@@ -62,31 +73,38 @@ if (effect == "comparative") {
   
 }
 
-if (effect == "relative") {
+if (effect == "incremental") {
   
-  data_matchstatus_allrounds <- read_rds(ghere("output", "matchround{n_match_rounds}", "controlactual", "match", "data_matchstatus_allrounds.rds"))
+  # derive data_matched
+  source(here("analysis", "process", "process_postmatch.R"))
   
-  data_matchstatus <- data_matchstatus_allrounds %>%
+  # get data from all patients who meet initial eligibility criteria
+  data_initial <- 
+    read_csv(here("output", "initial", "eligible", "data_eligible.csv.gz")) %>%
+    select(patient_id) %>%
+    left_join(
+      read_rds(here("output", "initial", "processed", "data_vax.rds")) %>%
+        select(patient_id, age, vax_boostautumn_date),
+      by = "patient_id"
+    )
+  
+  # get matached data and reshape to wide so 1 row = 1 matchde pair
+  data_matched_wide <- data_matched %>%
     mutate(matched = !is.na(match_id)) %>% # always TRUE
     select(patient_id, treated, matched) %>%
     pivot_wider(
       names_from = treated,
       values_from = matched
     ) %>%
-    rename("treated" = "1", "control" = "0") %>%
-    # include all aligible individuals
-    full_join(
-      read_rds(here("output", "initial", "eligible", "data_vax.rds")) %>%
-        select(patient_id, age),
-      by = "patient_id"
-    ) %>%
-    # get vax_boostautumn_date from treated and eligible individuals
-    left_join(
-      read_rds(here("output", "treated", "eligible", "data_treated.rds")) %>%
-        select(patient_id, vax_boostautumn_date),
-      by = "patient_id"
-    ) %>%
+    rename("treated" = "1", "control" = "0")
+  
+  data_matchstatus <- data_initial %>%
+    # include all eligible individuals
+    left_join(data_matched_wide, by = "patient_id") %>%
     mutate(across(c(treated, control), ~ replace_na(as.logical(.x), replace=FALSE))) 
+  
+  # tidy up
+  rm(data_initial, data_matched, data_matched_wide)
   
   # categorise individuals
   data_match_flow  <- data_matchstatus %>%
@@ -99,15 +117,16 @@ if (effect == "relative") {
     ) %>%
     mutate(
       crit = case_when(
-        # those who are vaccinated on day 1 of recruitment
+        # those who are vaccinated on day 1 of recruitment (can only be treated)
         vax_boostautumn_date == start_date & !control & !treated ~ "A",
         vax_boostautumn_date == start_date & !control & treated ~ "B",
         # those who are vaccinated during the recruitment period but not on day 1
+        # (can be treated and/or control)
         vax_boostautumn_date <= study_dates$recruitmentend & !control & !treated ~ "C",
         vax_boostautumn_date <= study_dates$recruitmentend & !control & treated ~ "D",
         vax_boostautumn_date <= study_dates$recruitmentend & control & !treated ~ "E",
         vax_boostautumn_date <= study_dates$recruitmentend & control & treated ~ "F",
-        # those remain unvaccinated at end of recruitment period
+        # those remain unvaccinated at end of recruitment period (can only be control)
         control ~ "H",
         !control ~ "I",
         TRUE ~ NA_character_
@@ -161,11 +180,10 @@ if (effect == "relative") {
     summarise(n = sum(n), .groups = "keep")  %>%
     ungroup() %>%
     rename(
-      # rename to match flowcharttreatedeligible
+      # rename to match inital and treated flowcharts
       criteria = box_descr,
       crit = box_crit
     )
-  # relative matching flowchart all good up to this point
   
 }
 
@@ -174,3 +192,9 @@ write_csv(
   flowchart_final,
   file.path(outdir, "flowchart_unrounded.csv")
 )
+
+flowchart_final %>%
+  mutate(across(n, ~roundmid_any(n, threshold))) %>%
+  write_csv(
+    file.path(outdir, glue("flowchart_midpoint{threshold}.csv"))
+  )

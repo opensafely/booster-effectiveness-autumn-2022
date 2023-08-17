@@ -21,7 +21,14 @@ with open("./lib/design/study-dates.json") as f:
 studystart_date = study_dates["studystart"]
 
 # define params
-group = params["group"]
+match_strategy = params["match_strategy"]
+
+if match_strategy == "alltreated":
+  file_path = "output/treated/eligible/data_treated.csv.gz"
+  return_var = "vax_boostautumn_date"
+else:
+  file_path = f"output/incremental_{match_strategy}/match/data_matchcontrol.csv.gz"
+  return_var = "trial_date"
 
 # Specify study defeinition
 study = StudyDefinition(
@@ -37,12 +44,12 @@ study = StudyDefinition(
   
     # This line defines the study population
   population = patients.which_exist_in_file(
-    f_path=f"output/postmatch/eligible/data_{group}.csv.gz"
+    f_path=file_path
     ),
 
   trial_date = patients.with_value_from_file(
-    f_path=f"output/postmatch/eligible/data_{group}.csv.gz", 
-    returning="trial_date", 
+    f_path=file_path, 
+    returning=return_var, 
     returning_type="date", 
     date_format="YYYY-MM-DD"
     ),
@@ -65,42 +72,6 @@ study = StudyDefinition(
       on_or_after="trial_date",
       date_format="YYYY-MM-DD",
     ),
-    
-    # # emergency attendance for covid, as per discharge diagnosis
-    # covidemergency_date=patients.attended_emergency_care(
-    #   returning="date_arrived",
-    #   date_format="YYYY-MM-DD",
-    #   on_or_after="trial_date",
-    #   with_these_diagnoses = codelists.covid_emergency,
-    #   find_first_match_in_period=True,
-    # ),
-    
-    # # emergency attendance for covid, as per discharge diagnosis, resulting in discharge to hospital
-    # covidemergencyhosp_date=patients.attended_emergency_care(
-    #   returning="date_arrived",
-    #   date_format="YYYY-MM-DD",
-    #   on_or_after="trial_date",
-    #   find_first_match_in_period=True,
-    #   with_these_diagnoses = codelists.covid_emergency,
-    #   discharged_to = codelists.discharged_to_hospital,
-    # ),
-    
-    # # any emergency attendance
-    # emergency_date=patients.attended_emergency_care(
-    #   returning="date_arrived",
-    #   on_or_after="trial_date",
-    #   date_format="YYYY-MM-DD",
-    #   find_first_match_in_period=True,
-    # ),
-    
-    # # emergency attendance resulting in discharge to hospital
-    # emergencyhosp_date=patients.attended_emergency_care(
-    #   returning="date_arrived",
-    #   on_or_after="trial_date",
-    #   date_format="YYYY-MM-DD",
-    #   find_last_match_in_period=True,
-    #   discharged_to = codelists.discharged_to_hospital,
-    # ),
     
     # Positive covid admission 
     covidadmitted_date=patients.admitted_to_hospital(

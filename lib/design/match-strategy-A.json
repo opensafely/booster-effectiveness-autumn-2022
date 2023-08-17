@@ -1,0 +1,10 @@
+{
+  "n_match_rounds": 2,
+  "exact_vars": ["agegroup_match", "vax_primary_brand", "vax_boostfirst_brand", "vax_boostspring_brand", "cv", "region"],
+  "caliper_vars": [3, 14],
+  "riskscore_vars": {},
+  "riskscore_fup_vars": {},
+  "keep_vars": ["age", "agegroup_match", "sex", "vax_primary_brand", "vax_boostfirst_brand", "vax_boostspring_brand", "cv", "region", "vax_lastbeforeindex_date"],
+  "adj_vars": ["sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental", "immunosuppressed", "multimorb", "timesince_coviddischarged", "flu_vaccine"],
+  "strata_vars": ["trial_date", "region"]
+}

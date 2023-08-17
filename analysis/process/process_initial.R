@@ -1,4 +1,4 @@
-######################################
+################################################################################
 
 # This script:
 # - loads input_initial
@@ -8,7 +8,7 @@
 #   - data for input into subsequent actions
 #   - data for input into subsequent study definitions
 
-######################################
+################################################################################
 
 # Preliminaries ----
 
@@ -18,12 +18,13 @@ library(here)
 library(glue)
 
 # import local functions and parameters
-source(here::here("analysis", "design.R"))
+source(here("analysis", "design.R"))
 source(here("lib", "functions", "utility.R"))
-source(here::here("analysis", "process", "process_functions.R"))
+source(here("analysis", "process", "process_functions.R"))
 
 # create output directories
 path_stem <- here("output", "initial")
+fs::dir_create(file.path(path_stem, "processed"))
 fs::dir_create(file.path(path_stem, "eligible"))
 fs::dir_create(file.path(path_stem, "flowchart"))
 
@@ -43,13 +44,12 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   )
   
   # check custom and studydef dummydata match
-  source(here::here("analysis", "dummydata", "dummydata_check.R"))
-  dummydata_check(
+  source(here("analysis", "dummydata", "dummydata_check.R"))
+  data_extract <- dummydata_check(
     dummydata_studydef = data_studydef,
     dummydata_custom = data_dummy
   )
   
-  data_extract <- data_dummy
   rm(data_dummy)
   
 } else {
@@ -65,7 +65,9 @@ data_extract %>%
     path = file.path(path_stem, "extract", "data_extract_skim.txt")
   )
 
-# Transform vaccine data ----
+################################################################################
+
+# process vaccine data ----
 
 # any brand data
 data_any <- data_extract %>%
@@ -79,7 +81,6 @@ data_any <- data_extract %>%
     # need to do this as mutate after as the version of dplyr in opensafely does not support this option
     # names_transform = ~as.integer(str_extract(.x, "\\d")),
     values_to = "date",
-    values_drop_na = TRUE
   ) %>%
   mutate(across(index, ~as.integer(str_extract(.x, "\\d"))))
 
@@ -106,7 +107,7 @@ data_vax <- data_any %>%
     dose1brand = if_else(index == 2, lag(brand), NA_character_),
     dayssincelastdose = if_else(index > 1, as.integer(date - lag(date)), NA_integer_),
     dateoflastdose = lag(date)
-  )  %>%
+  ) %>%
   left_join(
     data_extract %>% select(patient_id, age), 
     by = "patient_id"
@@ -136,8 +137,12 @@ data_vax <- data_vax %>%
       TRUE ~ FALSE
     )
   ) %>%
-  # don't need rows where index=1 anymore
-  filter(index > 1)
+  # don't need rows where index=1 anymore, as index=2 store the information 
+  # about their primary course
+  filter(index > 1) %>%
+  # don't need rows where date is missing and index>2, we only need to keep 
+  # index=2 here to make sure the individuals with no doses stay in the data
+  filter(!((index > 2) & is.na(date)))
 
 # identify doses that meet the first boost criteria
 data_vax <- data_vax %>%
@@ -209,46 +214,44 @@ data_vax <- data_vax %>%
     )
   )
 
-
-# check for any doses categorised as multiple courses
-check_courses_cols <- data_vax %>%
-  group_by(primary, boostfirst, boostspring, boostautumn) %>%
-  count() %>%
-  ungroup() %>%
-  mutate(total = primary + boostfirst + boostspring + boostautumn)
-
-check_courses_cols %>% print()
-
-stopifnot("Doses categorised as multiple courses." = all(check_courses_cols$total <= 1))
-
-# Check for any individuals with multiple doses categorised as the same course
-check_courses_rows <- data_vax %>%
-  group_by(patient_id) %>%
-  summarise(across(c(primary, boostfirst, boostspring, boostautumn), sum)) %>%
-  ungroup() %>%
-  filter_at(
-    vars(c(primary, boostfirst, boostspring, boostautumn)),
-    any_vars(. > 1)
-    )
-
-if (nrow(check_courses_rows) > 0) {
+local({
   
-  cat("Number of patients with multiple doses categorised as the following courses:\n")
-  
-  check_courses_rows %>%
-    pivot_longer(
-      cols = -patient_id
-    ) %>% 
-    group_by(name) %>%
+  # check for any doses categorised as multiple courses
+  check_courses_cols <- data_vax %>%
+    group_by(primary, boostfirst, boostspring, boostautumn) %>%
     count() %>%
-    print()
+    ungroup() %>%
+    mutate(total = primary + boostfirst + boostspring + boostautumn)
   
-} else {
+  if (any(check_courses_cols$total > 1)) {
+    cat("Doses categorised as multiple courses:\n")
+    check_courses_cols %>% print()
+  }
   
-  cat("No patients have multiple doses categorised as the same course.\n")
+  # Check for any individuals with multiple doses categorised as the same course
+  check_courses_rows <- data_vax %>%
+    group_by(patient_id) %>%
+    summarise(across(c(primary, boostfirst, boostspring, boostautumn), sum)) %>%
+    ungroup() %>%
+    filter_at(
+      vars(c(primary, boostfirst, boostspring, boostautumn)),
+      any_vars(. > 1)
+    )
   
-}
+  if (nrow(check_courses_rows) > 0) {
+    cat("Number of patients with multiple doses categorised as the following courses:\n")
+    check_courses_rows %>%
+      pivot_longer(
+        cols = -patient_id
+      ) %>% 
+      group_by(name) %>%
+      count() %>%
+      print()
+  } 
+  
+})
 
+# derive the course variable
 data_vax <- data_vax %>%
   mutate(
     course = case_when(
@@ -258,112 +261,167 @@ data_vax <- data_vax %>%
       boostautumn ~ "boostautumn",
       TRUE ~ "undefined"
     )
-  ) %>%
-  select(patient_id, age, index, date, brand, course) 
+  )
 
-# identify patients with any undefined doses
-# flag if any undefined dose before study starts,
-# and keep date of first undefined dose after study start
-data_vax_undefined <- data_vax %>%
-  filter(course == "undefined") %>%
-  mutate(
-    undefinedbeforestart = case_when(
-      age < 65 & date < study_dates$boosterautumn$ages50to64 ~ TRUE,
-      age >= 65 & date < study_dates$boosterautumn$ages65plus ~ TRUE,
-      TRUE ~ FALSE
-    )
-  ) 
-
-data_vax_undefined_remove <- data_vax_undefined %>%
-  filter(undefinedbeforestart) %>%
-  distinct(patient_id)
-
-# keep first undefined date after start date
-data_vax_undefined_date <-  data_vax_undefined %>%
-  filter(!undefinedbeforestart) %>%
-  # identify first date of an undefined dose after the study start date
-  group_by(patient_id, course, age) %>%
-  summarise(date = min(date), .groups = "keep") %>%
-  ungroup() 
-    
-# as anyone with a dose of undefined course before the study start date will be excluded
-
+# only keep the first date of a vaccine dose of undefined course
 data_vax <- data_vax %>%
-  filter(course != "undefined") %>%
-  # add the first date of an undefined dose after the start date
-  bind_rows(data_vax_undefined_date) %>%
-  select(patient_id, age, date, brand, course) %>%
+  arrange(patient_id, date) %>%
+  mutate(undefined = course == "undefined") %>%
+  group_by(patient_id, undefined) %>%
+  mutate(course_index = row_number()) %>%
+  ungroup() %>%
+  filter(!(undefined & course_index > 1)) %>%
+  select(patient_id, age, date, brand, course)
+
+# define function for setting the factor levels of the vax_*_brand variables
+set_brand_levels <- function(.data, course_select) {
+  # get the brand levels from treatment_lookup
+  brand_levels <- treatment_lookup %>% 
+    filter(course==course_select) %>% 
+    pull(treatment)
+  # set the factor levels
+  .data %>%
+    mutate(
+      across(
+        !!sym(paste0("vax_", course_select, "_brand")),
+        ~factor(
+          replace_na(.x, replace = "none"), 
+          levels = c("none", brand_levels)
+        )
+      )
+    )
+}
+
+# reshape and apply factor levels
+data_vax <- data_vax %>%
   pivot_wider(
     names_from = course,
     values_from = c(date, brand),
     names_glue = "vax_{course}_{.value}"
   ) %>%
-  mutate(
-    # flag to remove those with an undefined dose before their age group's start date
-    undefinedbeforestart = patient_id %in% data_vax_undefined_remove$patient_id
-  )
-  
-###########
+  # remove unneeded column
+  select(-vax_undefined_brand) %>%
+  # recode vax_*_brand variables as factors
+  set_brand_levels("primary") %>%
+  set_brand_levels("boostfirst") %>%
+  set_brand_levels("boostspring") %>%
+  set_brand_levels("boostautumn") 
 
-# define eligibility criteria ----
+# flag to remove those with an undefined dose before their age group's start date
 data_vax <- data_vax %>%
   mutate(
-
-    # define eligibility criteria
-
-    c0 = TRUE,
-    c1 = c0 & !undefinedbeforestart,
-
-    include = c1
-
-  ) 
-
-# save flowchart data ----
-data_flow <- data_vax %>%
-  summarise(across(matches("^c\\d"), .fns=sum)) %>%
-  pivot_longer(
-    cols=everything(),
-    names_to="crit",
-    values_to="n"
-  ) %>%
-  mutate(
-    criteria = case_when(
-      crit == "c0" ~ glue("Alive and registered on {study_dates$studystart}, aged >= 50 and two doses received before {study_dates$dose2$end}"),
-      crit == "c1" ~ "Eligible for boosted or unboosted group based on initial eligibility criteria"
-    )
+    undefinedbefore_start = case_when(
+      (age < 65) & (vax_undefined_date < study_dates$boosterautumn$ages50to64) ~ TRUE,
+      (age >= 65) & (vax_undefined_date < study_dates$boosterautumn$ages65plus) ~ TRUE,
+      TRUE ~ FALSE
+      )
   )
 
-data_flow %>%
-  flow_stats_rounded(to = 1) %>%
-  write_csv(file.path(path_stem, "flowchart", "flowchart_unrounded.csv"))
-
-# apply eligibility criteria ----
-
+# join the static variables from data_extract
 data_vax <- data_vax %>%
-  filter(include) %>%
-  # remove the columns used for eligiblility criteria
-  select(-c(c0, c1, include, undefinedbeforestart))
+  left_join(
+    data_extract %>% 
+      transmute(
+        patient_id, 
+        # process initial_vars
+        sex = fct_case_when(
+          sex == "F" ~ "Female",
+          sex == "M" ~ "Male",
+          TRUE ~ NA_character_
+        ),
+        ethnicity = factor(
+          ethnicity,
+          levels = c("White", "Mixed", "Asian or Asian British", "Black or Black British", "Other")
+        ),
+        hscworker
+      ),
+    by = "patient_id"
+  )
 
 # save summary
 data_vax %>%
   my_skim(
-    path = file.path(path_stem, "eligible", "data_eligible_skim.txt")
+    path = file.path(path_stem, "processed", "data_vax_skim.txt")
   )
 
-# save dataset
+# save data_vax (do this before applying eligibility criteria, so it can be used 
+# to set the eligibility criteria for the risk score)
 data_vax %>%
   write_rds(
-    file.path(path_stem, "eligible", "data_vax.rds"), 
+    file.path(path_stem, "processed", "data_vax.rds"), 
     compress = "gz"
   )
 
+################################################################################
+
+# define initial eligibility criteria ----
+data_crit_main <- data_vax %>%
+  left_join(
+    data_extract %>% select(patient_id, registered, has_died),
+    by = "patient_id"
+    ) %>%
+  transmute(
+    # define eligibility criteria
+    patient_id,
+    c0_descr = "All patients in OpenSAFELY-TPP",
+    c0 = TRUE,
+    c1_descr = "  Alive and registered at the start of the recruitment period",
+    c1 = c0 & registered & !has_died,
+    c2_descr = "  Aged >= 50 years by the end of the recruitment period",
+    c2 = c1 & age >= 50,
+    c3_descr = glue("  Homologous primary course of pfizer/az/moderna received before {study_dates$dose2$end}"),
+    c3 = c2 & !is.na(vax_primary_date), # homologous/date restrictions already applied
+    c4_descr = "  Valid vaccination history before start of the recruitment period",
+    c4 = c3 & !undefinedbefore_start,
+    include = c4
+  ) 
+
+# save flowchart data ----
+data_flowchart <- data_crit_main %>%
+  select(patient_id, matches("^c\\d+")) %>%
+  rename_at(vars(matches("^c\\d+$")), ~str_c(., "_value")) %>%
+  pivot_longer(
+    cols = matches("^c\\d+"),
+    names_to = c("crit", ".value"),
+    names_pattern = "(.*)_(.*)"
+  ) %>%
+  group_by(crit, descr) %>%
+  summarise(n = sum(value), .groups = "keep") %>%
+  ungroup() %>%
+  rename(criteria = descr) %>%
+  arrange(crit) %>%
+  flow_stats_rounded(1)
+
+write_csv(
+  data_flowchart,
+  file.path(path_stem, "flowchart", "flowchart_unrounded.csv")
+  )
+
+################################################################################
+
+# apply initial eligibility criteria ----
+
+data_vax_eligible <- data_vax %>%
+  # remove the columns used for applying the eligiblility criteria
+  select(-c(undefinedbefore_start)) %>%
+  # only keep those who are eligible
+  inner_join(data_crit_main %>% filter(include), by = "patient_id") 
+
+rm(data_vax)
+
+# save summary
+data_vax_eligible %>%
+  my_skim(
+    path = file.path(path_stem, "eligible", "data_vax_eligible_skim.txt")
+  )
+
 # save patient_ids and vax_boostautumn_date for reading into study_definition_treated.py
-data_vax %>%
+data_vax_eligible %>%
   filter(!is.na(vax_boostautumn_date)) %>%
   select(patient_id, vax_boostautumn_date) %>%
   write_csv(file.path(path_stem, "eligible", "data_eligible_treated.csv.gz"))
 
 # save for reading into study_definition_controlpotential.py
-data_vax %>%
+data_vax_eligible %>%
   select(patient_id) %>%
   write_csv(file.path(path_stem, "eligible", "data_eligible.csv.gz"))

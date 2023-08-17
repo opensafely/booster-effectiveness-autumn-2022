@@ -14,45 +14,38 @@ from cohortextractor import (
   params
 )
 
+# study_dates
+with open("./lib/design/study-dates.json") as f:
+  study_dates = json.load(f)
+
+studystart_date = study_dates["studystart"]
+
 ############################################################
 # inclusion variables
 from variables_inclusion import generate_inclusion_variables 
-inclusion_variables = generate_inclusion_variables(index_date="vax_boostautumn_date")
+inclusion_variables = generate_inclusion_variables(index_date="riskscore_i_start_date")
 ############################################################
 ## match variables
 from variables_vars import generate_vars_variables 
-vars_variables = generate_vars_variables(index_date="vax_boostautumn_date")
+vars_variables = generate_vars_variables(index_date="riskscore_i_start_date")
 ############################################################
 
-# Specify study definition
+# Specify study defeinition
 study = StudyDefinition(
   
   # Configure the expectations framework
   default_expectations={
-    "date": {"earliest": "2020-01-01", "latest": "today"},
+    "date": {"earliest": studystart_date, "latest": "today"},
     "rate": "uniform",
-    "incidence": 0.2,
+    "incidence": 0.1,
     "int": {"distribution": "normal", "mean": 1000, "stddev": 100},
     "float": {"distribution": "normal", "mean": 25, "stddev": 5},
   },
   
-  # This line defines the study population
-  population=patients.satisfying(
-    "eligible_initial", 
+    # This line defines the study population
+  population = patients.all(),
 
-    # patients that satisfy the original eligibility criteria and have autumnbooster2022_date during recruitment period
-    eligible_initial = patients.which_exist_in_file(
-      f_path=f"output/initial/eligible/data_eligible_treated.csv.gz"
-    ),
-
-  ),
-
-  vax_boostautumn_date = patients.with_value_from_file(
-    f_path=f"output/initial/eligible/data_eligible_treated.csv.gz", 
-    returning="vax_boostautumn_date", 
-    returning_type="date", 
-    date_format='YYYY-MM-DD'
-    ),
+  riskscore_i_start_date = patients.fixed_value(study_dates["riskscore_i"]["start"]),
 
   ###############################################################################
   # inclusion variables
@@ -60,8 +53,20 @@ study = StudyDefinition(
   **inclusion_variables,   
 
   ###############################################################################
-  # variables for matching and model adjustment
+  # variables for model adjustment
   ##############################################################################
   **vars_variables,  
-  
+
+  # outcome = death 
+  death_date = patients.died_from_any_cause(
+    returning = "date_of_death",
+    date_format = "YYYY-MM-DD",
+  ),
+
+  # deregistration date
+    dereg_date=patients.date_deregistered_from_all_supported_practices(
+      between=[study_dates["riskscore_i"]["start"], study_dates["riskscore_i"]["end"]],
+      date_format="YYYY-MM-DD",
+    ),
+
 )

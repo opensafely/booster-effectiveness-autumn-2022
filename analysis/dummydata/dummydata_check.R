@@ -14,20 +14,25 @@ dummydata_check <- function(
     )
   )
   
-  if(length(not_in_studydef)!=0) stop(
-    paste(
-      "These variables are in custom but not in studydef: ",
-      paste(not_in_studydef, collapse=", ")
+  if(length(not_in_studydef)!=0) {
+    print(
+      paste(
+        "These variables are not in studydef so will be removed from custom: ",
+        paste(not_in_studydef, collapse=", ")
+      )
     )
-  )
+  }
   
   # reorder columns
-  dummydata_studydef <- dummydata_studydef[,names(dummydata_custom)]
+  dummydata_custom <- dummydata_custom[,names(dummydata_studydef)]
+  
+  coltypes_studydef <- map_chr(dummydata_studydef, ~paste(class(.), collapse=", "))
+  coltypes_custom <- map_chr(dummydata_custom, ~paste(class(.), collapse=", "))
   
   unmatched_types <- cbind(
-    map_chr(dummydata_studydef, ~paste(class(.), collapse=", ")),
-    map_chr(dummydata_custom, ~paste(class(.), collapse=", "))
-  )[ (map_chr(dummydata_studydef, ~paste(class(.), collapse=", ")) != map_chr(dummydata_custom, ~paste(class(.), collapse=", ")) ), ] %>%
+    coltypes_studydef, 
+    coltypes_custom
+    )[coltypes_studydef != coltypes_custom, ] %>%
     as.data.frame() %>% rownames_to_column()
   
   if(nrow(unmatched_types)>0) stop(
@@ -36,6 +41,8 @@ dummydata_check <- function(
     apply(unmatched_types, 1, function(row) paste(paste(row, collapse=" : "), "\n"))
   )
   
-  print("studydef and custom dummy data match!")
+  print("Studydef and custom dummy data now match!")
+  
+  return(dummydata_custom)
   
 }

@@ -2,7 +2,7 @@ version: '3.0'
 
 expectations:
 
-  population_size: 100000
+  population_size: 1000
 
 actions:
 
@@ -23,7 +23,10 @@ actions:
         lib: lib/design/*.json
 
   ## # # # # # # # # # # # # # # # # # # # 
-  ## Extract and process initial data 
+  ## Extract and process initial data. 
+  ## The initial extract comprises vacination data 
+  ## and static variables (i.e. not defined at a timepoint, 
+  ## e.g. sex, ethnicity etc). 
   ## # # # # # # # # # # # # # # # # # # # 
 
   extract_initial:
@@ -50,13 +53,96 @@ actions:
     - dummydata_initial
     outputs:
       highly_sensitive:
-        data_eligible: output/initial/eligible/*.csv.gz
-        data_vax: output/initial/eligible/*.rds
+        data_vax: output/initial/processed/*.rds
+        data_eligible_csv: output/initial/eligible/*.csv.gz
       moderately_sensitive:
         flowchart: output/initial/flowchart/*.csv
 
   ## # # # # # # # # # # # # # # # # # # # 
-  ## Extract and process treated data 
+  ## Extract and process riskscore_i data. 
+  ## These data are extracted from a period prior 
+  ## to the start of the main study period, and are 
+  ## used to fit a linear predictor of death. This 
+  ## model is then used to predict the probability of 
+  ## death during follow-up (riskscore_i), and individuals 
+  ## are matched on these probabilities. 
+  ## # # # # # # # # # # # # # # # # # # # 
+
+  extract_riskscore_i:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_riskscore_i
+      --output-file output/riskscore_i/extract/input_riskscore_i.feather
+    needs:
+    - design
+    outputs:
+      highly_sensitive:
+        extract: output/riskscore_i/extract/input_riskscore_i.feather
+
+  dummydata_stage:
+    run: r:latest analysis/dummydata/dummydata_stage.R
+    needs:
+    - dummydata_initial
+    - process_initial
+    outputs:
+      highly_sensitive:
+        dummydata_treated: output/treated/dummydata/*.feather
+        dummydata_controlpotential: output/incremental_none/matchround1/controlpotential/dummydata/*.feather
+
+  process_riskscore_i:
+    run: r:latest analysis/process/process_stage.R riskscore_i riskscore_i 0
+    needs:
+    - process_initial
+    - extract_riskscore_i
+    - dummydata_stage
+    outputs:
+      highly_sensitive:
+        eligiblerds: output/riskscore_i/eligible/*.rds
+      moderately_sensitive:
+        flowchart: output/riskscore_i/flowchart/*.csv
+        extract_skim: output/riskscore_i/extract/*.txt
+        data_processed_skim: output/riskscore_i/processed/*.txt
+        data_eligible_skim: output/riskscore_i/eligible/*.txt
+
+  fit_model_riskscore_i_1:
+    run: r:latest analysis/riskscore/model_fit.R 1
+    needs:
+    - process_riskscore_i
+    outputs:
+      highly_sensitive:
+        model: output/riskscore_i/agegroup_1/model_agegroup_*.rds
+        percentile_breaks: output/riskscore_i/agegroup_1/percentile_breaks_*.rds
+      moderately_sensitive:
+        dist_predictions: output/riskscore_i/agegroup_1/dist_predictions_*.png
+        calibration: output/riskscore_i/agegroup_1/calibration_*.png
+        binned_residuals: output/riskscore_i/agegroup_1/binned_residuals_*.png
+
+  fit_model_riskscore_i_2:
+    run: r:latest analysis/riskscore/model_fit.R 2
+    needs:
+    - process_riskscore_i
+    outputs:
+      highly_sensitive:
+        model: output/riskscore_i/agegroup_2/model_agegroup_*.rds
+        percentile_breaks: output/riskscore_i/agegroup_2/percentile_breaks_*.rds
+      moderately_sensitive:
+        dist_predictions: output/riskscore_i/agegroup_2/dist_predictions_*.png
+        calibration: output/riskscore_i/agegroup_2/calibration_*.png
+        binned_residuals: output/riskscore_i/agegroup_2/binned_residuals_*.png
+
+  fit_model_riskscore_i_3:
+    run: r:latest analysis/riskscore/model_fit.R 3
+    needs:
+    - process_riskscore_i
+    outputs:
+      highly_sensitive:
+        model: output/riskscore_i/agegroup_3/model_agegroup_*.rds
+        percentile_breaks: output/riskscore_i/agegroup_3/percentile_breaks_*.rds
+      moderately_sensitive:
+        dist_predictions: output/riskscore_i/agegroup_3/dist_predictions_*.png
+        calibration: output/riskscore_i/agegroup_3/calibration_*.png
+        binned_residuals: output/riskscore_i/agegroup_3/binned_residuals_*.png
+
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## Extract and process treated data. 
   ## # # # # # # # # # # # # # # # # # # # 
 
   extract_treated:
@@ -68,1619 +154,544 @@ actions:
       highly_sensitive:
         extract: output/treated/extract/input_treated.feather
 
-  dummydata_stage:
-    run: r:latest analysis/dummydata/dummydata_stage.R
-    needs:
-    - dummydata_initial
-    - process_initial
-    - extract_treated
-    outputs:
-      highly_sensitive:
-        dummydata_treated: output/treated/dummydata/*.feather
-        dummydata_controlpotential: output/matchround1/controlpotential/dummydata/*.feather
-
   process_treated:
-    run: r:latest analysis/process/process_stage.R treated
+    run: r:latest analysis/process/process_stage.R treated none 0
     needs:
     - process_initial
     - extract_treated
     - dummydata_stage
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
     outputs:
       highly_sensitive:
         eligiblerds: output/treated/eligible/*.rds
         eligiblecsv: output/treated/eligible/*.csv.gz
       moderately_sensitive:
-        flowchart: output/treated/flowchart/*.csv
+        riskscore_i_plots: output/treated/riskscore_i/plot_*.png
+        flowchart_treated: output/treated/flowchart/*.csv
+        flowchart_combined: output/report/flowchart_combined*.csv
         extract_treated_skim: output/treated/extract/*.txt
-        data_processed_skim: output/treated/process/*.txt
+        data_processed_skim: output/treated/processed/*.txt
         data_eligible_skim: output/treated/eligible/*.txt
+
+  table1_treated_none:
+    run: r:latest analysis/report/table1.R treated none
+    needs:
+    - process_treated
+    outputs:
+      moderately_sensitive:
+        csv: output/treated_none/table1/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## Extract and process controlpotential1 data. 
+  ## This can be done once for all matching strategies. 
+  ## # # # # # # # # # # # # # # # # # # # 
+
+  extract_controlpotential_none_1:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
+      --output-file output/incremental_none/matchround1/controlpotential/extract/input_controlpotential.feather
+      --param match_strategy=none --param match_round=1 --param index_date=2022-09-12
+    needs:
+    - design
+    - process_initial
+    outputs:
+      highly_sensitive:
+        cohort: output/incremental_none/matchround1/controlpotential/extract/input_controlpotential.feather
+
+  process_controlpotential_none_1:
+    run: r:latest analysis/process/process_stage.R controlpotential none 1
+    needs:
+    - dummydata_stage
+    - process_initial
+    - extract_controlpotential_none_1
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
+    outputs:
+      highly_sensitive:
+        eligible_rds: output/incremental_none/matchround1/controlpotential/eligible/*.rds
+      moderately_sensitive:
+        data_extract_skim: output/incremental_none/matchround1/controlpotential/extract/*.txt
+        data_processed_skim: output/incremental_none/matchround1/controlpotential/processed/*.txt
+        data_controlpotential_skim: output/incremental_none/matchround1/controlpotential/eligible/*.txt
 
   ## # # # # # # # # # # # # # # # # # # # 
   ## Match treated for comparative effectiveness 
+  ## match_strategy = a 
   ## # # # # # # # # # # # # # # # # # # # 
 
-  match_comparative:
-    run: r:latest analysis/match/match_comparative.R
+  match_comparative_a:
+    run: r:latest analysis/match/match_comparative.R a
     needs:
-    - process_initial
     - process_treated
     outputs:
       highly_sensitive:
-        rds: output/comparative/match/*.rds
+        rds: output/comparative_a/match/*.rds
 
-  table1_match_comparative:
-    run: r:latest analysis/report/table1.R match comparative
+  table1_comparative_a:
+    run: r:latest analysis/report/table1.R comparative a
     needs:
     - process_treated
-    - match_comparative
+    - match_comparative_a
     outputs:
       moderately_sensitive:
-        csv: output/comparative/table1/table1_match_comparative_rounded.csv
-        html: output/comparative/table1/table1_match_comparative_rounded.html
+        csv: output/comparative_a/table1/*.csv
 
-  coverage_comparative:
-    run: r:latest analysis/match/coverage.R comparative
+  coverage_comparative_a:
+    run: r:latest analysis/match/match_coverage.R comparative a
     needs:
     - process_treated
-    - match_comparative
+    - match_comparative_a
     outputs:
       moderately_sensitive:
-        csv: output/comparative/coverage/*.csv
-        png: output/comparative/coverage/*.png
+        csv: output/comparative_a/coverage/*.csv
+        png: output/comparative_a/coverage/*.png
 
-  flowchart_comparative:
-    run: r:latest analysis/match/match_flowchart.R comparative
+  flowchart_comparative_a:
+    run: r:latest analysis/match/match_flowchart.R comparative a
     needs:
     - process_treated
-    - match_comparative
+    - match_comparative_a
     outputs:
       moderately_sensitive:
-        csv: output/comparative/flowchart/*.csv
+        csv: output/comparative_a/flowchart/*.csv
 
   ## # # # # # # # # # # # # # # # # # # # 
-  ## Extract, process and match control data 
-  ## for relative effectiveness analysis 
+  ## Match treated for comparative effectiveness 
+  ## match_strategy = riskscore_i 
   ## # # # # # # # # # # # # # # # # # # # 
 
-  extract_controlpotential_1:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
-      --output-file output/matchround1/controlpotential/extract/input_controlpotential.feather
-      --param match_round=1 --param index_date=2022-09-12
-    needs:
-    - design
-    - process_initial
-    outputs:
-      highly_sensitive:
-        cohort: output/matchround1/controlpotential/extract/input_controlpotential.feather
-
-  process_controlpotential_1:
-    run: r:latest analysis/process/process_stage.R controlpotential 1
-    needs:
-    - dummydata_stage
-    - process_initial
-    - extract_controlpotential_1
-    outputs:
-      highly_sensitive:
-        eligible_rds: output/matchround1/controlpotential/eligible/*.rds
-      moderately_sensitive:
-        data_extract_skim: output/matchround1/controlpotential/extract/*.txt
-        data_processed_skim: output/matchround1/controlpotential/process/*.txt
-        data_controlpotential_skim: output/matchround1/controlpotential/eligible/*.txt
-
-  match_controlpotential_1:
-    run: r:latest analysis/match/match_controlpotential.R 1
+  match_comparative_riskscore_i:
+    run: r:latest analysis/match/match_comparative.R riskscore_i
     needs:
     - process_treated
-    - process_controlpotential_1
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
     outputs:
       highly_sensitive:
-        rds: output/matchround1/controlpotential/match/*.rds
-        csv: output/matchround1/controlpotential/match/*.csv.gz
+        rds: output/comparative_riskscore_i/match/*.rds
 
-  extract_controlactual_1:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
-      --output-file output/matchround1/controlactual/extract/input_controlactual.feather
-      --param match_round=1
-    needs:
-    - design
-    - match_controlpotential_1
-    outputs:
-      highly_sensitive:
-        cohort: output/matchround1/controlactual/extract/input_controlactual.feather
-
-  process_controlactual_1:
-    run: r:latest analysis/process/process_stage.R controlactual 1
-    needs:
-    - process_initial
-    - dummydata_stage
-    - process_treated
-    - match_controlpotential_1
-    - extract_controlpotential_1
-    - process_controlpotential_1
-    - extract_controlactual_1
-    outputs:
-      highly_sensitive:
-        rds: output/matchround1/controlactual/match/*.rds
-      moderately_sensitive:
-        input_controlactual_skim: output/matchround1/controlactual/extract/*.txt
-        eligible_skim: output/matchround1/controlactual/eligible/*.txt
-        process_skim: output/matchround1/controlactual/process/*.txt
-
-  extract_controlpotential_2:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
-      --output-file output/matchround2/controlpotential/extract/input_controlpotential.feather
-      --param match_round=2 --param index_date=2022-09-26
-    needs:
-    - design
-    - process_initial
-    - process_controlactual_1
-    outputs:
-      highly_sensitive:
-        cohort: output/matchround2/controlpotential/extract/input_controlpotential.feather
-
-  process_controlpotential_2:
-    run: r:latest analysis/process/process_stage.R controlpotential 2
-    needs:
-    - dummydata_stage
-    - process_initial
-    - extract_controlpotential_2
-    outputs:
-      highly_sensitive:
-        eligible_rds: output/matchround2/controlpotential/eligible/*.rds
-      moderately_sensitive:
-        data_extract_skim: output/matchround2/controlpotential/extract/*.txt
-        data_processed_skim: output/matchround2/controlpotential/process/*.txt
-        data_controlpotential_skim: output/matchround2/controlpotential/eligible/*.txt
-
-  match_controlpotential_2:
-    run: r:latest analysis/match/match_controlpotential.R 2
+  table1_comparative_riskscore_i:
+    run: r:latest analysis/report/table1.R comparative riskscore_i
     needs:
     - process_treated
-    - process_controlpotential_2
-    - process_controlactual_1
-    outputs:
-      highly_sensitive:
-        rds: output/matchround2/controlpotential/match/*.rds
-        csv: output/matchround2/controlpotential/match/*.csv.gz
-
-  extract_controlactual_2:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
-      --output-file output/matchround2/controlactual/extract/input_controlactual.feather
-      --param match_round=2
-    needs:
-    - design
-    - match_controlpotential_2
-    outputs:
-      highly_sensitive:
-        cohort: output/matchround2/controlactual/extract/input_controlactual.feather
-
-  process_controlactual_2:
-    run: r:latest analysis/process/process_stage.R controlactual 2
-    needs:
-    - process_initial
-    - dummydata_stage
-    - process_treated
-    - match_controlpotential_2
-    - extract_controlpotential_2
-    - process_controlpotential_2
-    - extract_controlactual_2
-    - process_controlactual_1
-    outputs:
-      highly_sensitive:
-        rds: output/matchround2/controlactual/match/*.rds
-      moderately_sensitive:
-        input_controlactual_skim: output/matchround2/controlactual/extract/*.txt
-        eligible_skim: output/matchround2/controlactual/eligible/*.txt
-        process_skim: output/matchround2/controlactual/process/*.txt
-
-  extract_controlpotential_3:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
-      --output-file output/matchround3/controlpotential/extract/input_controlpotential.feather
-      --param match_round=3 --param index_date=2022-10-10
-    needs:
-    - design
-    - process_initial
-    - process_controlactual_2
-    outputs:
-      highly_sensitive:
-        cohort: output/matchround3/controlpotential/extract/input_controlpotential.feather
-
-  process_controlpotential_3:
-    run: r:latest analysis/process/process_stage.R controlpotential 3
-    needs:
-    - dummydata_stage
-    - process_initial
-    - extract_controlpotential_3
-    outputs:
-      highly_sensitive:
-        eligible_rds: output/matchround3/controlpotential/eligible/*.rds
-      moderately_sensitive:
-        data_extract_skim: output/matchround3/controlpotential/extract/*.txt
-        data_processed_skim: output/matchround3/controlpotential/process/*.txt
-        data_controlpotential_skim: output/matchround3/controlpotential/eligible/*.txt
-
-  match_controlpotential_3:
-    run: r:latest analysis/match/match_controlpotential.R 3
-    needs:
-    - process_treated
-    - process_controlpotential_3
-    - process_controlactual_2
-    outputs:
-      highly_sensitive:
-        rds: output/matchround3/controlpotential/match/*.rds
-        csv: output/matchround3/controlpotential/match/*.csv.gz
-
-  extract_controlactual_3:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
-      --output-file output/matchround3/controlactual/extract/input_controlactual.feather
-      --param match_round=3
-    needs:
-    - design
-    - match_controlpotential_3
-    outputs:
-      highly_sensitive:
-        cohort: output/matchround3/controlactual/extract/input_controlactual.feather
-
-  process_controlactual_3:
-    run: r:latest analysis/process/process_stage.R controlactual 3
-    needs:
-    - process_initial
-    - dummydata_stage
-    - process_treated
-    - match_controlpotential_3
-    - extract_controlpotential_3
-    - process_controlpotential_3
-    - extract_controlactual_3
-    - process_controlactual_2
-    outputs:
-      highly_sensitive:
-        rds: output/matchround3/controlactual/match/*.rds
-      moderately_sensitive:
-        input_controlactual_skim: output/matchround3/controlactual/extract/*.txt
-        eligible_skim: output/matchround3/controlactual/eligible/*.txt
-        process_skim: output/matchround3/controlactual/process/*.txt
-
-  extract_controlpotential_4:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
-      --output-file output/matchround4/controlpotential/extract/input_controlpotential.feather
-      --param match_round=4 --param index_date=2022-10-24
-    needs:
-    - design
-    - process_initial
-    - process_controlactual_3
-    outputs:
-      highly_sensitive:
-        cohort: output/matchround4/controlpotential/extract/input_controlpotential.feather
-
-  process_controlpotential_4:
-    run: r:latest analysis/process/process_stage.R controlpotential 4
-    needs:
-    - dummydata_stage
-    - process_initial
-    - extract_controlpotential_4
-    outputs:
-      highly_sensitive:
-        eligible_rds: output/matchround4/controlpotential/eligible/*.rds
-      moderately_sensitive:
-        data_extract_skim: output/matchround4/controlpotential/extract/*.txt
-        data_processed_skim: output/matchround4/controlpotential/process/*.txt
-        data_controlpotential_skim: output/matchround4/controlpotential/eligible/*.txt
-
-  match_controlpotential_4:
-    run: r:latest analysis/match/match_controlpotential.R 4
-    needs:
-    - process_treated
-    - process_controlpotential_4
-    - process_controlactual_3
-    outputs:
-      highly_sensitive:
-        rds: output/matchround4/controlpotential/match/*.rds
-        csv: output/matchround4/controlpotential/match/*.csv.gz
-
-  extract_controlactual_4:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
-      --output-file output/matchround4/controlactual/extract/input_controlactual.feather
-      --param match_round=4
-    needs:
-    - design
-    - match_controlpotential_4
-    outputs:
-      highly_sensitive:
-        cohort: output/matchround4/controlactual/extract/input_controlactual.feather
-
-  process_controlactual_4:
-    run: r:latest analysis/process/process_stage.R controlactual 4
-    needs:
-    - process_initial
-    - dummydata_stage
-    - process_treated
-    - match_controlpotential_4
-    - extract_controlpotential_4
-    - process_controlpotential_4
-    - extract_controlactual_4
-    - process_controlactual_3
-    outputs:
-      highly_sensitive:
-        rds: output/matchround4/controlactual/match/*.rds
-      moderately_sensitive:
-        input_controlactual_skim: output/matchround4/controlactual/extract/*.txt
-        eligible_skim: output/matchround4/controlactual/eligible/*.txt
-        process_skim: output/matchround4/controlactual/process/*.txt
-
-  extract_controlpotential_5:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
-      --output-file output/matchround5/controlpotential/extract/input_controlpotential.feather
-      --param match_round=5 --param index_date=2022-11-07
-    needs:
-    - design
-    - process_initial
-    - process_controlactual_4
-    outputs:
-      highly_sensitive:
-        cohort: output/matchround5/controlpotential/extract/input_controlpotential.feather
-
-  process_controlpotential_5:
-    run: r:latest analysis/process/process_stage.R controlpotential 5
-    needs:
-    - dummydata_stage
-    - process_initial
-    - extract_controlpotential_5
-    outputs:
-      highly_sensitive:
-        eligible_rds: output/matchround5/controlpotential/eligible/*.rds
-      moderately_sensitive:
-        data_extract_skim: output/matchround5/controlpotential/extract/*.txt
-        data_processed_skim: output/matchround5/controlpotential/process/*.txt
-        data_controlpotential_skim: output/matchround5/controlpotential/eligible/*.txt
-
-  match_controlpotential_5:
-    run: r:latest analysis/match/match_controlpotential.R 5
-    needs:
-    - process_treated
-    - process_controlpotential_5
-    - process_controlactual_4
-    outputs:
-      highly_sensitive:
-        rds: output/matchround5/controlpotential/match/*.rds
-        csv: output/matchround5/controlpotential/match/*.csv.gz
-
-  extract_controlactual_5:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
-      --output-file output/matchround5/controlactual/extract/input_controlactual.feather
-      --param match_round=5
-    needs:
-    - design
-    - match_controlpotential_5
-    outputs:
-      highly_sensitive:
-        cohort: output/matchround5/controlactual/extract/input_controlactual.feather
-
-  process_controlactual_5:
-    run: r:latest analysis/process/process_stage.R controlactual 5
-    needs:
-    - process_initial
-    - dummydata_stage
-    - process_treated
-    - match_controlpotential_5
-    - extract_controlpotential_5
-    - process_controlpotential_5
-    - extract_controlactual_5
-    - process_controlactual_4
-    outputs:
-      highly_sensitive:
-        rds: output/matchround5/controlactual/match/*.rds
-      moderately_sensitive:
-        input_controlactual_skim: output/matchround5/controlactual/extract/*.txt
-        eligible_skim: output/matchround5/controlactual/eligible/*.txt
-        process_skim: output/matchround5/controlactual/process/*.txt
-
-  extract_controlpotential_6:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
-      --output-file output/matchround6/controlpotential/extract/input_controlpotential.feather
-      --param match_round=6 --param index_date=2022-11-21
-    needs:
-    - design
-    - process_initial
-    - process_controlactual_5
-    outputs:
-      highly_sensitive:
-        cohort: output/matchround6/controlpotential/extract/input_controlpotential.feather
-
-  process_controlpotential_6:
-    run: r:latest analysis/process/process_stage.R controlpotential 6
-    needs:
-    - dummydata_stage
-    - process_initial
-    - extract_controlpotential_6
-    outputs:
-      highly_sensitive:
-        eligible_rds: output/matchround6/controlpotential/eligible/*.rds
-      moderately_sensitive:
-        data_extract_skim: output/matchround6/controlpotential/extract/*.txt
-        data_processed_skim: output/matchround6/controlpotential/process/*.txt
-        data_controlpotential_skim: output/matchround6/controlpotential/eligible/*.txt
-
-  match_controlpotential_6:
-    run: r:latest analysis/match/match_controlpotential.R 6
-    needs:
-    - process_treated
-    - process_controlpotential_6
-    - process_controlactual_5
-    outputs:
-      highly_sensitive:
-        rds: output/matchround6/controlpotential/match/*.rds
-        csv: output/matchround6/controlpotential/match/*.csv.gz
-
-  extract_controlactual_6:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
-      --output-file output/matchround6/controlactual/extract/input_controlactual.feather
-      --param match_round=6
-    needs:
-    - design
-    - match_controlpotential_6
-    outputs:
-      highly_sensitive:
-        cohort: output/matchround6/controlactual/extract/input_controlactual.feather
-
-  process_controlactual_6:
-    run: r:latest analysis/process/process_stage.R controlactual 6
-    needs:
-    - process_initial
-    - dummydata_stage
-    - process_treated
-    - match_controlpotential_6
-    - extract_controlpotential_6
-    - process_controlpotential_6
-    - extract_controlactual_6
-    - process_controlactual_5
-    outputs:
-      highly_sensitive:
-        rds: output/matchround6/controlactual/match/*.rds
-      moderately_sensitive:
-        input_controlactual_skim: output/matchround6/controlactual/extract/*.txt
-        eligible_skim: output/matchround6/controlactual/eligible/*.txt
-        process_skim: output/matchround6/controlactual/process/*.txt
-
-  extract_controlpotential_7:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
-      --output-file output/matchround7/controlpotential/extract/input_controlpotential.feather
-      --param match_round=7 --param index_date=2022-12-05
-    needs:
-    - design
-    - process_initial
-    - process_controlactual_6
-    outputs:
-      highly_sensitive:
-        cohort: output/matchround7/controlpotential/extract/input_controlpotential.feather
-
-  process_controlpotential_7:
-    run: r:latest analysis/process/process_stage.R controlpotential 7
-    needs:
-    - dummydata_stage
-    - process_initial
-    - extract_controlpotential_7
-    outputs:
-      highly_sensitive:
-        eligible_rds: output/matchround7/controlpotential/eligible/*.rds
-      moderately_sensitive:
-        data_extract_skim: output/matchround7/controlpotential/extract/*.txt
-        data_processed_skim: output/matchround7/controlpotential/process/*.txt
-        data_controlpotential_skim: output/matchround7/controlpotential/eligible/*.txt
-
-  match_controlpotential_7:
-    run: r:latest analysis/match/match_controlpotential.R 7
-    needs:
-    - process_treated
-    - process_controlpotential_7
-    - process_controlactual_6
-    outputs:
-      highly_sensitive:
-        rds: output/matchround7/controlpotential/match/*.rds
-        csv: output/matchround7/controlpotential/match/*.csv.gz
-
-  extract_controlactual_7:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
-      --output-file output/matchround7/controlactual/extract/input_controlactual.feather
-      --param match_round=7
-    needs:
-    - design
-    - match_controlpotential_7
-    outputs:
-      highly_sensitive:
-        cohort: output/matchround7/controlactual/extract/input_controlactual.feather
-
-  process_controlactual_7:
-    run: r:latest analysis/process/process_stage.R controlactual 7
-    needs:
-    - process_initial
-    - dummydata_stage
-    - process_treated
-    - match_controlpotential_7
-    - extract_controlpotential_7
-    - process_controlpotential_7
-    - extract_controlactual_7
-    - process_controlactual_6
-    outputs:
-      highly_sensitive:
-        rds: output/matchround7/controlactual/match/*.rds
-      moderately_sensitive:
-        input_controlactual_skim: output/matchround7/controlactual/extract/*.txt
-        eligible_skim: output/matchround7/controlactual/eligible/*.txt
-        process_skim: output/matchround7/controlactual/process/*.txt
-
-  extract_controlpotential_8:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
-      --output-file output/matchround8/controlpotential/extract/input_controlpotential.feather
-      --param match_round=8 --param index_date=2022-12-19
-    needs:
-    - design
-    - process_initial
-    - process_controlactual_7
-    outputs:
-      highly_sensitive:
-        cohort: output/matchround8/controlpotential/extract/input_controlpotential.feather
-
-  process_controlpotential_8:
-    run: r:latest analysis/process/process_stage.R controlpotential 8
-    needs:
-    - dummydata_stage
-    - process_initial
-    - extract_controlpotential_8
-    outputs:
-      highly_sensitive:
-        eligible_rds: output/matchround8/controlpotential/eligible/*.rds
-      moderately_sensitive:
-        data_extract_skim: output/matchround8/controlpotential/extract/*.txt
-        data_processed_skim: output/matchround8/controlpotential/process/*.txt
-        data_controlpotential_skim: output/matchround8/controlpotential/eligible/*.txt
-
-  match_controlpotential_8:
-    run: r:latest analysis/match/match_controlpotential.R 8
-    needs:
-    - process_treated
-    - process_controlpotential_8
-    - process_controlactual_7
-    outputs:
-      highly_sensitive:
-        rds: output/matchround8/controlpotential/match/*.rds
-        csv: output/matchround8/controlpotential/match/*.csv.gz
-
-  extract_controlactual_8:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
-      --output-file output/matchround8/controlactual/extract/input_controlactual.feather
-      --param match_round=8
-    needs:
-    - design
-    - match_controlpotential_8
-    outputs:
-      highly_sensitive:
-        cohort: output/matchround8/controlactual/extract/input_controlactual.feather
-
-  process_controlactual_8:
-    run: r:latest analysis/process/process_stage.R controlactual 8
-    needs:
-    - process_initial
-    - dummydata_stage
-    - process_treated
-    - match_controlpotential_8
-    - extract_controlpotential_8
-    - process_controlpotential_8
-    - extract_controlactual_8
-    - process_controlactual_7
-    outputs:
-      highly_sensitive:
-        rds: output/matchround8/controlactual/match/*.rds
-      moderately_sensitive:
-        input_controlactual_skim: output/matchround8/controlactual/extract/*.txt
-        eligible_skim: output/matchround8/controlactual/eligible/*.txt
-        process_skim: output/matchround8/controlactual/process/*.txt
-
-  table1_match_relative:
-    run: r:latest analysis/report/table1.R match relative
-    needs:
-    - process_treated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
+    - match_comparative_riskscore_i
     outputs:
       moderately_sensitive:
-        csv: output/relative/table1/table1_match_relative_rounded.csv
-        html: output/relative/table1/table1_match_relative_rounded.html
+        csv: output/comparative_riskscore_i/table1/*.csv
 
-  coverage_relative:
-    run: r:latest analysis/match/coverage.R relative
+  coverage_comparative_riskscore_i:
+    run: r:latest analysis/match/match_coverage.R comparative riskscore_i
     needs:
     - process_treated
-    - process_controlactual_8
+    - match_comparative_riskscore_i
     outputs:
       moderately_sensitive:
-        csv: output/relative/coverage/*.csv
-        png: output/relative/coverage/*.png
+        csv: output/comparative_riskscore_i/coverage/*.csv
+        png: output/comparative_riskscore_i/coverage/*.png
 
-  flowchart_relative:
-    run: r:latest analysis/match/match_flowchart.R relative
+  flowchart_comparative_riskscore_i:
+    run: r:latest analysis/match/match_flowchart.R comparative riskscore_i
     needs:
     - process_treated
-    - process_controlactual_8
-    - process_initial
+    - match_comparative_riskscore_i
     outputs:
       moderately_sensitive:
-        csv: output/relative/flowchart/*.csv
+        csv: output/comparative_riskscore_i/flowchart/*.csv
 
   ## # # # # # # # # # # # # # # # # # # # 
-  ## Extract and process covs and outcomes 
-  ## for successfully matched data 
-  ## (relative and comparative effectiveness) 
+  ## Match treated for incremental effectiveness 
+  ## match_strategy = a 
   ## # # # # # # # # # # # # # # # # # # # 
-  ##  
-  ## process_ids creates datasets of all matched treated and control ids 
-  ## for whom to extract the covariates and outcomes 
+  ## Extract, process and match controlpotential data. 
+  ## Match_round = 1 
 
-  process_ids:
-    run: r:latest analysis/process/process_ids.R
+  match_controlpotential_a_1:
+    run: r:latest analysis/match/match_controlpotential.R a 1
     needs:
     - process_treated
-    - process_controlactual_8
+    - process_controlpotential_none_1
     outputs:
       highly_sensitive:
-        ids: output/postmatch/eligible/*.csv.gz
+        rds: output/incremental_a/matchround1/controlpotential/match/*.rds
+        csv: output/incremental_a/matchround1/controlpotential/match/*.csv.gz
 
-  extract_covs_alltreated:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_covs
-      --output-file output/postmatch/covs/input_covs_alltreated.feather --param group=alltreated
+  ## Extract and process controlactual data 
+  ## (matches checked and rematched in the process action). 
+
+  extract_controlactual_a_1:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
+      --output-file output/incremental_a/matchround1/controlactual/extract/input_controlactual.feather
+      --param match_strategy=a --param match_round=1
     needs:
     - design
-    - process_ids
+    - match_controlpotential_a_1
     outputs:
       highly_sensitive:
-        cohort: output/postmatch/covs/input_covs_alltreated.feather
+        cohort: output/incremental_a/matchround1/controlactual/extract/input_controlactual.feather
 
-  extract_covs_matchcontrol:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_covs
-      --output-file output/postmatch/covs/input_covs_matchcontrol.feather --param
-      group=matchcontrol
+  process_controlactual_a_1:
+    run: r:latest analysis/process/process_stage.R controlactual a 1
     needs:
-    - design
-    - process_ids
+    - process_initial
+    - dummydata_stage
+    - match_controlpotential_a_1
+    - extract_controlactual_a_1
     outputs:
       highly_sensitive:
-        cohort: output/postmatch/covs/input_covs_matchcontrol.feather
-
-  extract_outcomes_alltreated:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_outcomes
-      --output-file output/postmatch/outcomes/input_outcomes_alltreated.feather --param
-      group=alltreated
-    needs:
-    - design
-    - process_ids
-    outputs:
-      highly_sensitive:
-        cohort: output/postmatch/outcomes/input_outcomes_alltreated.feather
-
-  extract_outcomes_matchcontrol:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_outcomes
-      --output-file output/postmatch/outcomes/input_outcomes_matchcontrol.feather
-      --param group=matchcontrol
-    needs:
-    - design
-    - process_ids
-    outputs:
-      highly_sensitive:
-        cohort: output/postmatch/outcomes/input_outcomes_matchcontrol.feather
-
-  table1_all_treated:
-    run: r:latest analysis/report/table1.R all treated
-    needs:
-    - process_treated
-    - extract_covs_alltreated
-    outputs:
+        data_eligible: output/incremental_a/matchround1/controlactual/eligible/*.rds
       moderately_sensitive:
-        csv: output/treated/table1/table1_all_treated_rounded.csv
-        html: output/treated/table1/table1_all_treated_rounded.html
+        input_skim: output/incremental_a/matchround1/controlactual/extract/*.txt
+        eligible_skim: output/incremental_a/matchround1/controlactual/eligible/*.txt
+        process_skim: output/incremental_a/matchround1/controlactual/processed/*.txt
 
-  table1_covs_comparative:
-    run: r:latest analysis/report/table1.R covs comparative
-    needs:
-    - process_treated
-    - match_comparative
-    - extract_covs_alltreated
-    outputs:
-      moderately_sensitive:
-        csv: output/comparative/table1/table1_covs_comparative_rounded.csv
-        html: output/comparative/table1/table1_covs_comparative_rounded.html
-
-  table1_covs_relative:
-    run: r:latest analysis/report/table1.R covs relative
-    needs:
-    - process_treated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_covs_alltreated
-    - extract_covs_matchcontrol
-    outputs:
-      moderately_sensitive:
-        csv: output/relative/table1/table1_covs_relative_rounded.csv
-        html: output/relative/table1/table1_covs_relative_rounded.html
-
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## Combine outputs for report 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-
-  combine_flowchart:
-    run: r:latest analysis/report/combine_flowchart.R
+  match_controlactual_a_1:
+    run: r:latest analysis/match/match_controlactual.R a 1
     needs:
     - process_initial
     - process_treated
-    - flowchart_comparative
-    - flowchart_relative
+    - match_controlpotential_a_1
+    - process_controlactual_a_1
     outputs:
-      moderately_sensitive:
-        flowchart: output/report/flowchart/*.csv
+      highly_sensitive:
+        rds: output/incremental_a/matchround1/controlactual/match/*.rds
+        csv: output/incremental_a/matchround1/controlactual/match/*.csv.gz
 
-  combine_table1:
-    run: r:latest analysis/report/combine_table1.R
+  ## Extract, process and match controlpotential data. 
+  ## Match_round = 2 
+
+  extract_controlpotential_a_2:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
+      --output-file output/incremental_a/matchround2/controlpotential/extract/input_controlpotential.feather
+      --param match_strategy=a --param match_round=2 --param index_date=2022-09-26
     needs:
-    - table1_match_comparative
-    - table1_match_relative
-    - table1_all_treated
-    - table1_covs_comparative
-    - table1_covs_relative
+    - design
+    - match_controlactual_a_1
     outputs:
-      moderately_sensitive:
-        flowchart: output/report/table1/*.csv
+      highly_sensitive:
+        cohort: output/incremental_a/matchround2/controlpotential/extract/input_controlpotential.feather
 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## Fit models to estimate comparative effectiveness 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## subgroup=all; outcome=covidadmitted; 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-
-  km_comparative_all_covidadmitted:
-    run: r:latest analysis/model/km.R comparative all covidadmitted
+  process_controlpotential_a_2:
+    run: r:latest analysis/process/process_stage.R controlpotential a 2
     needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
+    - dummydata_stage
+    - process_initial
+    - extract_controlpotential_a_2
     outputs:
+      highly_sensitive:
+        eligible_rds: output/incremental_a/matchround2/controlpotential/eligible/*.rds
       moderately_sensitive:
-        rds: output/comparative/model/km/all/covidadmitted/*.csv
-        png: output/comparative/model/km/all/covidadmitted/*.png
+        data_extract_skim: output/incremental_a/matchround2/controlpotential/extract/*.txt
+        data_processed_skim: output/incremental_a/matchround2/controlpotential/processed/*.txt
+        data_controlpotential_skim: output/incremental_a/matchround2/controlpotential/eligible/*.txt
 
-  cox_unadj_comparative_all_covidadmitted:
-    run: r:latest analysis/model/cox.R comparative cox_unadj all covidadmitted
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
-    outputs:
-      moderately_sensitive:
-        csv: output/comparative/model/cox_unadj/all/covidadmitted/*.csv
-
-  cox_adj_comparative_all_covidadmitted:
-    run: r:latest analysis/model/cox.R comparative cox_adj all covidadmitted
+  match_controlpotential_a_2:
+    run: r:latest analysis/match/match_controlpotential.R a 2
     needs:
     - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
-    - extract_covs_alltreated
+    - process_controlpotential_a_2
+    - match_controlactual_a_1
     outputs:
+      highly_sensitive:
+        rds: output/incremental_a/matchround2/controlpotential/match/*.rds
+        csv: output/incremental_a/matchround2/controlpotential/match/*.csv.gz
+
+  ## Extract and process controlactual data 
+  ## (matches checked and rematched in the process action). 
+
+  extract_controlactual_a_2:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
+      --output-file output/incremental_a/matchround2/controlactual/extract/input_controlactual.feather
+      --param match_strategy=a --param match_round=2
+    needs:
+    - design
+    - match_controlpotential_a_2
+    outputs:
+      highly_sensitive:
+        cohort: output/incremental_a/matchround2/controlactual/extract/input_controlactual.feather
+
+  process_controlactual_a_2:
+    run: r:latest analysis/process/process_stage.R controlactual a 2
+    needs:
+    - process_initial
+    - dummydata_stage
+    - match_controlpotential_a_2
+    - extract_controlactual_a_2
+    outputs:
+      highly_sensitive:
+        data_eligible: output/incremental_a/matchround2/controlactual/eligible/*.rds
       moderately_sensitive:
-        csv: output/comparative/model/cox_adj/all/covidadmitted/*.csv
+        input_skim: output/incremental_a/matchround2/controlactual/extract/*.txt
+        eligible_skim: output/incremental_a/matchround2/controlactual/eligible/*.txt
+        process_skim: output/incremental_a/matchround2/controlactual/processed/*.txt
 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## subgroup=all; outcome=coviddeath; 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  match_controlactual_a_2:
+    run: r:latest analysis/match/match_controlactual.R a 2
+    needs:
+    - process_initial
+    - process_treated
+    - match_controlactual_a_1
+    - match_controlpotential_a_2
+    - process_controlactual_a_2
+    outputs:
+      highly_sensitive:
+        rds: output/incremental_a/matchround2/controlactual/match/*.rds
+        final: output/incremental_a/match/*.csv.gz
 
-  km_comparative_all_coviddeath:
-    run: r:latest analysis/model/km.R comparative all coviddeath
+  table1_incremental_a:
+    run: r:latest analysis/report/table1.R incremental a
     needs:
     - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
+    - match_controlactual_a_1
+    - match_controlactual_a_2
     outputs:
       moderately_sensitive:
-        rds: output/comparative/model/km/all/coviddeath/*.csv
-        png: output/comparative/model/km/all/coviddeath/*.png
+        csv: output/incremental_a/table1/*.csv
 
-  cox_unadj_comparative_all_coviddeath:
-    run: r:latest analysis/model/cox.R comparative cox_unadj all coviddeath
+  coverage_incremental_a:
+    run: r:latest analysis/match/match_coverage.R incremental a
     needs:
     - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
+    - match_controlactual_a_1
+    - match_controlactual_a_2
     outputs:
       moderately_sensitive:
-        csv: output/comparative/model/cox_unadj/all/coviddeath/*.csv
+        csv: output/incremental_a/coverage/*.csv
+        png: output/incremental_a/coverage/*.png
 
-  cox_adj_comparative_all_coviddeath:
-    run: r:latest analysis/model/cox.R comparative cox_adj all coviddeath
+  flowchart_incremental_a:
+    run: r:latest analysis/match/match_flowchart.R incremental a
     needs:
     - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
-    - extract_covs_alltreated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - process_initial
     outputs:
       moderately_sensitive:
-        csv: output/comparative/model/cox_adj/all/coviddeath/*.csv
+        csv: output/incremental_a/flowchart/*.csv
 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## subgroup=all; outcome=noncoviddeath; 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## Extract adjustment variables for final matched controls 
+  ## # # # # # # # # # # # # # # # # # # # 
 
-  km_comparative_all_noncoviddeath:
-    run: r:latest analysis/model/km.R comparative all noncoviddeath
+  extract_controlfinal_a:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlfinal
+      --output-file output/incremental_a/match/input_controlfinal_a.feather --param
+      match_strategy=a
+    needs:
+    - design
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    outputs:
+      highly_sensitive:
+        cohort: output/incremental_a/match/input_controlfinal_a.feather
+
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## Match treated for incremental effectiveness 
+  ## match_strategy = riskscore_i 
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## Extract, process and match controlpotential data. 
+  ## Match_round = 1 
+
+  match_controlpotential_riskscore_i_1:
+    run: r:latest analysis/match/match_controlpotential.R riskscore_i 1
     needs:
     - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
+    - process_controlpotential_none_1
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
     outputs:
-      moderately_sensitive:
-        rds: output/comparative/model/km/all/noncoviddeath/*.csv
-        png: output/comparative/model/km/all/noncoviddeath/*.png
+      highly_sensitive:
+        rds: output/incremental_riskscore_i/matchround1/controlpotential/match/*.rds
+        csv: output/incremental_riskscore_i/matchround1/controlpotential/match/*.csv.gz
 
-  cox_unadj_comparative_all_noncoviddeath:
-    run: r:latest analysis/model/cox.R comparative cox_unadj all noncoviddeath
+  ## Extract and process controlactual data 
+  ## (matches checked and rematched in the process action). 
+
+  extract_controlactual_riskscore_i_1:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
+      --output-file output/incremental_riskscore_i/matchround1/controlactual/extract/input_controlactual.feather
+      --param match_strategy=riskscore_i --param match_round=1
+    needs:
+    - design
+    - match_controlpotential_riskscore_i_1
+    outputs:
+      highly_sensitive:
+        cohort: output/incremental_riskscore_i/matchround1/controlactual/extract/input_controlactual.feather
+
+  process_controlactual_riskscore_i_1:
+    run: r:latest analysis/process/process_stage.R controlactual riskscore_i 1
+    needs:
+    - process_initial
+    - dummydata_stage
+    - match_controlpotential_riskscore_i_1
+    - extract_controlactual_riskscore_i_1
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
+    outputs:
+      highly_sensitive:
+        data_eligible: output/incremental_riskscore_i/matchround1/controlactual/eligible/*.rds
+      moderately_sensitive:
+        input_skim: output/incremental_riskscore_i/matchround1/controlactual/extract/*.txt
+        eligible_skim: output/incremental_riskscore_i/matchround1/controlactual/eligible/*.txt
+        process_skim: output/incremental_riskscore_i/matchround1/controlactual/processed/*.txt
+        riskscore_i_plots: output/incremental_riskscore_i/matchround1/controlactual/riskscore_i/plot_*.png
+
+  match_controlactual_riskscore_i_1:
+    run: r:latest analysis/match/match_controlactual.R riskscore_i 1
+    needs:
+    - process_initial
+    - process_treated
+    - match_controlpotential_riskscore_i_1
+    - process_controlactual_riskscore_i_1
+    outputs:
+      highly_sensitive:
+        rds: output/incremental_riskscore_i/matchround1/controlactual/match/*.rds
+        csv: output/incremental_riskscore_i/matchround1/controlactual/match/*.csv.gz
+
+  ## Extract, process and match controlpotential data. 
+  ## Match_round = 2 
+
+  extract_controlpotential_riskscore_i_2:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
+      --output-file output/incremental_riskscore_i/matchround2/controlpotential/extract/input_controlpotential.feather
+      --param match_strategy=riskscore_i --param match_round=2 --param index_date=2022-09-26
+    needs:
+    - design
+    - match_controlactual_riskscore_i_1
+    outputs:
+      highly_sensitive:
+        cohort: output/incremental_riskscore_i/matchround2/controlpotential/extract/input_controlpotential.feather
+
+  process_controlpotential_riskscore_i_2:
+    run: r:latest analysis/process/process_stage.R controlpotential riskscore_i 2
+    needs:
+    - dummydata_stage
+    - process_initial
+    - extract_controlpotential_riskscore_i_2
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
+    outputs:
+      highly_sensitive:
+        eligible_rds: output/incremental_riskscore_i/matchround2/controlpotential/eligible/*.rds
+      moderately_sensitive:
+        data_extract_skim: output/incremental_riskscore_i/matchround2/controlpotential/extract/*.txt
+        data_processed_skim: output/incremental_riskscore_i/matchround2/controlpotential/processed/*.txt
+        data_controlpotential_skim: output/incremental_riskscore_i/matchround2/controlpotential/eligible/*.txt
+        riskscore_i_plots: output/incremental_riskscore_i/matchround2/controlpotential/riskscore_i/plot_*.png
+
+  match_controlpotential_riskscore_i_2:
+    run: r:latest analysis/match/match_controlpotential.R riskscore_i 2
     needs:
     - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
+    - process_controlpotential_riskscore_i_2
+    - match_controlactual_riskscore_i_1
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
     outputs:
-      moderately_sensitive:
-        csv: output/comparative/model/cox_unadj/all/noncoviddeath/*.csv
+      highly_sensitive:
+        rds: output/incremental_riskscore_i/matchround2/controlpotential/match/*.rds
+        csv: output/incremental_riskscore_i/matchround2/controlpotential/match/*.csv.gz
 
-  cox_adj_comparative_all_noncoviddeath:
-    run: r:latest analysis/model/cox.R comparative cox_adj all noncoviddeath
+  ## Extract and process controlactual data 
+  ## (matches checked and rematched in the process action). 
+
+  extract_controlactual_riskscore_i_2:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
+      --output-file output/incremental_riskscore_i/matchround2/controlactual/extract/input_controlactual.feather
+      --param match_strategy=riskscore_i --param match_round=2
+    needs:
+    - design
+    - match_controlpotential_riskscore_i_2
+    outputs:
+      highly_sensitive:
+        cohort: output/incremental_riskscore_i/matchround2/controlactual/extract/input_controlactual.feather
+
+  process_controlactual_riskscore_i_2:
+    run: r:latest analysis/process/process_stage.R controlactual riskscore_i 2
+    needs:
+    - process_initial
+    - dummydata_stage
+    - match_controlpotential_riskscore_i_2
+    - extract_controlactual_riskscore_i_2
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
+    outputs:
+      highly_sensitive:
+        data_eligible: output/incremental_riskscore_i/matchround2/controlactual/eligible/*.rds
+      moderately_sensitive:
+        input_skim: output/incremental_riskscore_i/matchround2/controlactual/extract/*.txt
+        eligible_skim: output/incremental_riskscore_i/matchround2/controlactual/eligible/*.txt
+        process_skim: output/incremental_riskscore_i/matchround2/controlactual/processed/*.txt
+        riskscore_i_plots: output/incremental_riskscore_i/matchround2/controlactual/riskscore_i/plot_*.png
+
+  match_controlactual_riskscore_i_2:
+    run: r:latest analysis/match/match_controlactual.R riskscore_i 2
+    needs:
+    - process_initial
+    - process_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlpotential_riskscore_i_2
+    - process_controlactual_riskscore_i_2
+    outputs:
+      highly_sensitive:
+        rds: output/incremental_riskscore_i/matchround2/controlactual/match/*.rds
+        final: output/incremental_riskscore_i/match/*.csv.gz
+
+  table1_incremental_riskscore_i:
+    run: r:latest analysis/report/table1.R incremental riskscore_i
     needs:
     - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
-    - extract_covs_alltreated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
     outputs:
       moderately_sensitive:
-        csv: output/comparative/model/cox_adj/all/noncoviddeath/*.csv
+        csv: output/incremental_riskscore_i/table1/*.csv
 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## subgroup=all; outcome=fracture; 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-
-  km_comparative_all_fracture:
-    run: r:latest analysis/model/km.R comparative all fracture
+  coverage_incremental_riskscore_i:
+    run: r:latest analysis/match/match_coverage.R incremental riskscore_i
     needs:
     - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
     outputs:
       moderately_sensitive:
-        rds: output/comparative/model/km/all/fracture/*.csv
-        png: output/comparative/model/km/all/fracture/*.png
+        csv: output/incremental_riskscore_i/coverage/*.csv
+        png: output/incremental_riskscore_i/coverage/*.png
 
-  cox_unadj_comparative_all_fracture:
-    run: r:latest analysis/model/cox.R comparative cox_unadj all fracture
+  flowchart_incremental_riskscore_i:
+    run: r:latest analysis/match/match_flowchart.R incremental riskscore_i
     needs:
     - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - process_initial
     outputs:
       moderately_sensitive:
-        csv: output/comparative/model/cox_unadj/all/fracture/*.csv
+        csv: output/incremental_riskscore_i/flowchart/*.csv
 
-  cox_adj_comparative_all_fracture:
-    run: r:latest analysis/model/cox.R comparative cox_adj all fracture
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## Extract adjustment variables for final matched controls 
+  ## # # # # # # # # # # # # # # # # # # # 
+
+  extract_controlfinal_riskscore_i:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlfinal
+      --output-file output/incremental_riskscore_i/match/input_controlfinal_riskscore_i.feather
+      --param match_strategy=riskscore_i
     needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
-    - extract_covs_alltreated
+    - design
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
     outputs:
-      moderately_sensitive:
-        csv: output/comparative/model/cox_adj/all/fracture/*.csv
-
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## subgroup=agegroup_match; outcome=covidadmitted; 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-
-  km_comparative_agegroup_match_covidadmitted:
-    run: r:latest analysis/model/km.R comparative agegroup_match covidadmitted
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
-    outputs:
-      moderately_sensitive:
-        rds: output/comparative/model/km/agegroup_match/covidadmitted/*.csv
-        png: output/comparative/model/km/agegroup_match/covidadmitted/*.png
-
-  cox_unadj_comparative_agegroup_match_covidadmitted:
-    run: r:latest analysis/model/cox.R comparative cox_unadj agegroup_match covidadmitted
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
-    outputs:
-      moderately_sensitive:
-        csv: output/comparative/model/cox_unadj/agegroup_match/covidadmitted/*.csv
-
-  cox_adj_comparative_agegroup_match_covidadmitted:
-    run: r:latest analysis/model/cox.R comparative cox_adj agegroup_match covidadmitted
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
-    - extract_covs_alltreated
-    outputs:
-      moderately_sensitive:
-        csv: output/comparative/model/cox_adj/agegroup_match/covidadmitted/*.csv
-
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## subgroup=agegroup_match; outcome=coviddeath; 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-
-  km_comparative_agegroup_match_coviddeath:
-    run: r:latest analysis/model/km.R comparative agegroup_match coviddeath
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
-    outputs:
-      moderately_sensitive:
-        rds: output/comparative/model/km/agegroup_match/coviddeath/*.csv
-        png: output/comparative/model/km/agegroup_match/coviddeath/*.png
-
-  cox_unadj_comparative_agegroup_match_coviddeath:
-    run: r:latest analysis/model/cox.R comparative cox_unadj agegroup_match coviddeath
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
-    outputs:
-      moderately_sensitive:
-        csv: output/comparative/model/cox_unadj/agegroup_match/coviddeath/*.csv
-
-  cox_adj_comparative_agegroup_match_coviddeath:
-    run: r:latest analysis/model/cox.R comparative cox_adj agegroup_match coviddeath
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
-    - extract_covs_alltreated
-    outputs:
-      moderately_sensitive:
-        csv: output/comparative/model/cox_adj/agegroup_match/coviddeath/*.csv
-
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## subgroup=agegroup_match; outcome=noncoviddeath; 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-
-  km_comparative_agegroup_match_noncoviddeath:
-    run: r:latest analysis/model/km.R comparative agegroup_match noncoviddeath
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
-    outputs:
-      moderately_sensitive:
-        rds: output/comparative/model/km/agegroup_match/noncoviddeath/*.csv
-        png: output/comparative/model/km/agegroup_match/noncoviddeath/*.png
-
-  cox_unadj_comparative_agegroup_match_noncoviddeath:
-    run: r:latest analysis/model/cox.R comparative cox_unadj agegroup_match noncoviddeath
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
-    outputs:
-      moderately_sensitive:
-        csv: output/comparative/model/cox_unadj/agegroup_match/noncoviddeath/*.csv
-
-  cox_adj_comparative_agegroup_match_noncoviddeath:
-    run: r:latest analysis/model/cox.R comparative cox_adj agegroup_match noncoviddeath
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
-    - extract_covs_alltreated
-    outputs:
-      moderately_sensitive:
-        csv: output/comparative/model/cox_adj/agegroup_match/noncoviddeath/*.csv
-
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## subgroup=agegroup_match; outcome=fracture; 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-
-  km_comparative_agegroup_match_fracture:
-    run: r:latest analysis/model/km.R comparative agegroup_match fracture
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
-    outputs:
-      moderately_sensitive:
-        rds: output/comparative/model/km/agegroup_match/fracture/*.csv
-        png: output/comparative/model/km/agegroup_match/fracture/*.png
-
-  cox_unadj_comparative_agegroup_match_fracture:
-    run: r:latest analysis/model/cox.R comparative cox_unadj agegroup_match fracture
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
-    outputs:
-      moderately_sensitive:
-        csv: output/comparative/model/cox_unadj/agegroup_match/fracture/*.csv
-
-  cox_adj_comparative_agegroup_match_fracture:
-    run: r:latest analysis/model/cox.R comparative cox_adj agegroup_match fracture
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - match_comparative
-    - extract_covs_alltreated
-    outputs:
-      moderately_sensitive:
-        csv: output/comparative/model/cox_adj/agegroup_match/fracture/*.csv
-
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## Fit models to estimate relative effectiveness 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## subgroup=all; outcome=covidadmitted; 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-
-  km_relative_all_covidadmitted:
-    run: r:latest analysis/model/km.R relative all covidadmitted
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    outputs:
-      moderately_sensitive:
-        rds: output/relative/model/km/all/covidadmitted/*.csv
-        png: output/relative/model/km/all/covidadmitted/*.png
-
-  cox_unadj_relative_all_covidadmitted:
-    run: r:latest analysis/model/cox.R relative cox_unadj all covidadmitted
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    outputs:
-      moderately_sensitive:
-        csv: output/relative/model/cox_unadj/all/covidadmitted/*.csv
-
-  cox_adj_relative_all_covidadmitted:
-    run: r:latest analysis/model/cox.R relative cox_adj all covidadmitted
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    - extract_covs_alltreated
-    - extract_covs_matchcontrol
-    outputs:
-      moderately_sensitive:
-        csv: output/relative/model/cox_adj/all/covidadmitted/*.csv
-
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## subgroup=all; outcome=coviddeath; 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-
-  km_relative_all_coviddeath:
-    run: r:latest analysis/model/km.R relative all coviddeath
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    outputs:
-      moderately_sensitive:
-        rds: output/relative/model/km/all/coviddeath/*.csv
-        png: output/relative/model/km/all/coviddeath/*.png
-
-  cox_unadj_relative_all_coviddeath:
-    run: r:latest analysis/model/cox.R relative cox_unadj all coviddeath
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    outputs:
-      moderately_sensitive:
-        csv: output/relative/model/cox_unadj/all/coviddeath/*.csv
-
-  cox_adj_relative_all_coviddeath:
-    run: r:latest analysis/model/cox.R relative cox_adj all coviddeath
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    - extract_covs_alltreated
-    - extract_covs_matchcontrol
-    outputs:
-      moderately_sensitive:
-        csv: output/relative/model/cox_adj/all/coviddeath/*.csv
-
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## subgroup=all; outcome=noncoviddeath; 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-
-  km_relative_all_noncoviddeath:
-    run: r:latest analysis/model/km.R relative all noncoviddeath
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    outputs:
-      moderately_sensitive:
-        rds: output/relative/model/km/all/noncoviddeath/*.csv
-        png: output/relative/model/km/all/noncoviddeath/*.png
-
-  cox_unadj_relative_all_noncoviddeath:
-    run: r:latest analysis/model/cox.R relative cox_unadj all noncoviddeath
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    outputs:
-      moderately_sensitive:
-        csv: output/relative/model/cox_unadj/all/noncoviddeath/*.csv
-
-  cox_adj_relative_all_noncoviddeath:
-    run: r:latest analysis/model/cox.R relative cox_adj all noncoviddeath
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    - extract_covs_alltreated
-    - extract_covs_matchcontrol
-    outputs:
-      moderately_sensitive:
-        csv: output/relative/model/cox_adj/all/noncoviddeath/*.csv
-
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## subgroup=all; outcome=fracture; 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-
-  km_relative_all_fracture:
-    run: r:latest analysis/model/km.R relative all fracture
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    outputs:
-      moderately_sensitive:
-        rds: output/relative/model/km/all/fracture/*.csv
-        png: output/relative/model/km/all/fracture/*.png
-
-  cox_unadj_relative_all_fracture:
-    run: r:latest analysis/model/cox.R relative cox_unadj all fracture
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    outputs:
-      moderately_sensitive:
-        csv: output/relative/model/cox_unadj/all/fracture/*.csv
-
-  cox_adj_relative_all_fracture:
-    run: r:latest analysis/model/cox.R relative cox_adj all fracture
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    - extract_covs_alltreated
-    - extract_covs_matchcontrol
-    outputs:
-      moderately_sensitive:
-        csv: output/relative/model/cox_adj/all/fracture/*.csv
-
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## subgroup=agegroup_match; outcome=covidadmitted; 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-
-  km_relative_agegroup_match_covidadmitted:
-    run: r:latest analysis/model/km.R relative agegroup_match covidadmitted
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    outputs:
-      moderately_sensitive:
-        rds: output/relative/model/km/agegroup_match/covidadmitted/*.csv
-        png: output/relative/model/km/agegroup_match/covidadmitted/*.png
-
-  cox_unadj_relative_agegroup_match_covidadmitted:
-    run: r:latest analysis/model/cox.R relative cox_unadj agegroup_match covidadmitted
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    outputs:
-      moderately_sensitive:
-        csv: output/relative/model/cox_unadj/agegroup_match/covidadmitted/*.csv
-
-  cox_adj_relative_agegroup_match_covidadmitted:
-    run: r:latest analysis/model/cox.R relative cox_adj agegroup_match covidadmitted
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    - extract_covs_alltreated
-    - extract_covs_matchcontrol
-    outputs:
-      moderately_sensitive:
-        csv: output/relative/model/cox_adj/agegroup_match/covidadmitted/*.csv
-
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## subgroup=agegroup_match; outcome=coviddeath; 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-
-  km_relative_agegroup_match_coviddeath:
-    run: r:latest analysis/model/km.R relative agegroup_match coviddeath
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    outputs:
-      moderately_sensitive:
-        rds: output/relative/model/km/agegroup_match/coviddeath/*.csv
-        png: output/relative/model/km/agegroup_match/coviddeath/*.png
-
-  cox_unadj_relative_agegroup_match_coviddeath:
-    run: r:latest analysis/model/cox.R relative cox_unadj agegroup_match coviddeath
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    outputs:
-      moderately_sensitive:
-        csv: output/relative/model/cox_unadj/agegroup_match/coviddeath/*.csv
-
-  cox_adj_relative_agegroup_match_coviddeath:
-    run: r:latest analysis/model/cox.R relative cox_adj agegroup_match coviddeath
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    - extract_covs_alltreated
-    - extract_covs_matchcontrol
-    outputs:
-      moderately_sensitive:
-        csv: output/relative/model/cox_adj/agegroup_match/coviddeath/*.csv
-
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## subgroup=agegroup_match; outcome=noncoviddeath; 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-
-  km_relative_agegroup_match_noncoviddeath:
-    run: r:latest analysis/model/km.R relative agegroup_match noncoviddeath
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    outputs:
-      moderately_sensitive:
-        rds: output/relative/model/km/agegroup_match/noncoviddeath/*.csv
-        png: output/relative/model/km/agegroup_match/noncoviddeath/*.png
-
-  cox_unadj_relative_agegroup_match_noncoviddeath:
-    run: r:latest analysis/model/cox.R relative cox_unadj agegroup_match noncoviddeath
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    outputs:
-      moderately_sensitive:
-        csv: output/relative/model/cox_unadj/agegroup_match/noncoviddeath/*.csv
-
-  cox_adj_relative_agegroup_match_noncoviddeath:
-    run: r:latest analysis/model/cox.R relative cox_adj agegroup_match noncoviddeath
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    - extract_covs_alltreated
-    - extract_covs_matchcontrol
-    outputs:
-      moderately_sensitive:
-        csv: output/relative/model/cox_adj/agegroup_match/noncoviddeath/*.csv
-
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## subgroup=agegroup_match; outcome=fracture; 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-
-  km_relative_agegroup_match_fracture:
-    run: r:latest analysis/model/km.R relative agegroup_match fracture
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    outputs:
-      moderately_sensitive:
-        rds: output/relative/model/km/agegroup_match/fracture/*.csv
-        png: output/relative/model/km/agegroup_match/fracture/*.png
-
-  cox_unadj_relative_agegroup_match_fracture:
-    run: r:latest analysis/model/cox.R relative cox_unadj agegroup_match fracture
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    outputs:
-      moderately_sensitive:
-        csv: output/relative/model/cox_unadj/agegroup_match/fracture/*.csv
-
-  cox_adj_relative_agegroup_match_fracture:
-    run: r:latest analysis/model/cox.R relative cox_adj agegroup_match fracture
-    needs:
-    - process_treated
-    - extract_outcomes_alltreated
-    - process_controlactual_1
-    - process_controlactual_2
-    - process_controlactual_3
-    - process_controlactual_4
-    - process_controlactual_5
-    - process_controlactual_6
-    - process_controlactual_7
-    - process_controlactual_8
-    - extract_outcomes_matchcontrol
-    - extract_covs_alltreated
-    - extract_covs_matchcontrol
-    outputs:
-      moderately_sensitive:
-        csv: output/relative/model/cox_adj/agegroup_match/fracture/*.csv
-
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-  ## Combine all model outputs 
-  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
-
-  combine_model:
-    run: r:latest analysis/report/combine_model.R
-    needs:
-    - km_comparative_all_covidadmitted
-    - km_comparative_all_coviddeath
-    - km_comparative_all_noncoviddeath
-    - km_comparative_all_fracture
-    - km_comparative_agegroup_match_covidadmitted
-    - km_comparative_agegroup_match_coviddeath
-    - km_comparative_agegroup_match_noncoviddeath
-    - km_comparative_agegroup_match_fracture
-    - cox_unadj_comparative_all_covidadmitted
-    - cox_unadj_comparative_all_coviddeath
-    - cox_unadj_comparative_all_noncoviddeath
-    - cox_unadj_comparative_all_fracture
-    - cox_unadj_comparative_agegroup_match_covidadmitted
-    - cox_unadj_comparative_agegroup_match_coviddeath
-    - cox_unadj_comparative_agegroup_match_noncoviddeath
-    - cox_unadj_comparative_agegroup_match_fracture
-    - cox_adj_comparative_all_covidadmitted
-    - cox_adj_comparative_all_coviddeath
-    - cox_adj_comparative_all_noncoviddeath
-    - cox_adj_comparative_all_fracture
-    - cox_adj_comparative_agegroup_match_covidadmitted
-    - cox_adj_comparative_agegroup_match_coviddeath
-    - cox_adj_comparative_agegroup_match_noncoviddeath
-    - cox_adj_comparative_agegroup_match_fracture
-    - km_relative_all_covidadmitted
-    - km_relative_all_coviddeath
-    - km_relative_all_noncoviddeath
-    - km_relative_all_fracture
-    - km_relative_agegroup_match_covidadmitted
-    - km_relative_agegroup_match_coviddeath
-    - km_relative_agegroup_match_noncoviddeath
-    - km_relative_agegroup_match_fracture
-    - cox_unadj_relative_all_covidadmitted
-    - cox_unadj_relative_all_coviddeath
-    - cox_unadj_relative_all_noncoviddeath
-    - cox_unadj_relative_all_fracture
-    - cox_unadj_relative_agegroup_match_covidadmitted
-    - cox_unadj_relative_agegroup_match_coviddeath
-    - cox_unadj_relative_agegroup_match_noncoviddeath
-    - cox_unadj_relative_agegroup_match_fracture
-    - cox_adj_relative_all_covidadmitted
-    - cox_adj_relative_all_coviddeath
-    - cox_adj_relative_all_noncoviddeath
-    - cox_adj_relative_all_fracture
-    - cox_adj_relative_agegroup_match_covidadmitted
-    - cox_adj_relative_agegroup_match_coviddeath
-    - cox_adj_relative_agegroup_match_noncoviddeath
-    - cox_adj_relative_agegroup_match_fracture
-    outputs:
-      moderately_sensitive:
-        rds: output/report/model/*.csv
-        png: output/report/model/*.png
+      highly_sensitive:
+        cohort: output/incremental_riskscore_i/match/input_controlfinal_riskscore_i.feather
 
   ## #### End #### 
 

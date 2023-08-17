@@ -18,10 +18,24 @@ source(here("lib", "functions", "utility.R"))
 ## Import design elements
 source(here("analysis", "design.R"))
 
-# create output directories ----
+# import command-line arguments 
+args <- commandArgs(trailingOnly=TRUE)
+if(length(args)==0){
+  # use for interactive testing
+  match_strategy <- "riskscore_i"
+} else {
+  match_strategy <- args[[1]]
+}
 
-output_dir <- here("output", "comparative", "match")
+# create output directories ----
+output_dir <- here("output", glue("comparative_{match_strategy}"), "match")
 fs::dir_create(output_dir)
+
+# get matching metadata
+list2env(
+  x = get(glue("match_strategy_{match_strategy}")),
+  envir = environment()
+)
 
 # Prepare data ----
 
@@ -36,19 +50,12 @@ print(
   )
 )
 
-## select all match candidates and variables necessary for match
-# encode all exact variables that are characters as factors
-char_to_factor <- data_treated %>%
-  select(all_of(exact_variables_comparative)) %>%
-  select(where(is.character)) %>%
-  names()
-
 data_matchcandidates <- data_treated %>%
   mutate(
     # create variable to parallelise on (just pick an exact match variable??)
     thread_variable = agegroup_match,
     thread_id = dense_rank(thread_variable),
-    # matchit needs a binary variables for match; pfizerbivalent=0, modernabivalent=1
+    # matchit needs a binary variable for match; pfizerbivalent=0, modernabivalent=1
     treated = as.integer(vax_boostautumn_brand == (comparison_definition %>% filter(comparison=="comparative") %>% pull(level1))),
   ) %>%
   select(
@@ -57,9 +64,8 @@ data_matchcandidates <- data_treated %>%
     patient_id,
     vax_boostautumn_date,
     treated,
-    all_of(match_variables_comparative),
+    all_of(c(exact_vars, names(caliper_vars))),
   ) %>%
-  mutate(across(all_of(char_to_factor), as.factor)) %>%
   arrange(patient_id)
 
 # tidy up 
@@ -109,6 +115,7 @@ data_matchstatus <-
       filter(thread_variable==matchthread)
     
     # run match algorithm
+    # (this will be updated to allow for different matching strategies)
     obj_matchit <-
       safely_matchit(
         formula = treated ~ 1,
@@ -116,8 +123,8 @@ data_matchstatus <-
         method = "nearest", distance = "glm", # these two options don't really do anything because we only want exact + caliper match
         replace = FALSE,
         estimand = "ATT",
-        exact = exact_variables_comparative,
-        caliper = caliper_variables, std.caliper=FALSE,
+        exact = c("vax_boostautumn_date", exact_vars),
+        caliper = caliper_vars, std.caliper=FALSE,
         m.order = "data", # data is sorted on (effectively random) patient ID
         #verbose = TRUE,
         ratio = 1L # could also consider exact match only, with n:m ratio, determined by availability

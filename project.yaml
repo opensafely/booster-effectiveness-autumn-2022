@@ -175,13 +175,13 @@ actions:
         data_processed_skim: output/treated/processed/*.txt
         data_eligible_skim: output/treated/eligible/*.txt
 
-  table1_treated:
-    run: r:latest analysis/report/table1.R treated
+  table1_treated_none:
+    run: r:latest analysis/report/table1.R treated none
     needs:
     - process_treated
     outputs:
       moderately_sensitive:
-        csv: output/treated/table1/*.csv
+        csv: output/treated_none/table1/*.csv
 
   ## # # # # # # # # # # # # # # # # # # # 
   ## Extract and process controlpotential1 data. 

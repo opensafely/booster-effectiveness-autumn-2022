@@ -378,7 +378,7 @@ actions_model <- function(effect, subgroup, outcome, match_strategy) {
 }
 
 
-action_table1 <- function(effect, match_strategy = NULL) {
+action_table1 <- function(effect, match_strategy) {
   
   if (!is.null(match_strategy)) {
     match_strategy_obj <- get(paste0("match_strategy_", match_strategy))
@@ -823,7 +823,8 @@ actions_list <- splice(
   
   # table1 for all treated (including unmatched), all variables
   action_table1(
-    effect = "treated"
+    effect = "treated",
+    match_strategy = "none"
   ),
   
   # extract outcome data for all treated people

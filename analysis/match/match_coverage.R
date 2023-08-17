@@ -29,6 +29,12 @@ if(length(args)==0){
   match_strategy <- args[[2]]
 }
 
+# save items in the match_strategy list to the global environment
+list2env(
+  x = get(glue("match_strategy_{match_strategy}")),
+  envir = environment()
+)
+
 effect_match_strategy <- str_c(effect, match_strategy, sep = "_")
 
 if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {

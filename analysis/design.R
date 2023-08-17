@@ -219,6 +219,7 @@ create_match_strategy <- function(
 
 match_strategy_none <- create_match_strategy(
   name = "none",
+  n_match_rounds = NULL,
   # all possible vars used across matching strategies
   exact_vars = c(
     # defined in or derived from analysis/study_definition_initial.py
@@ -275,7 +276,15 @@ match_strategy_a <- create_match_strategy(
 
 # check if all variables from all matching strategies are in match_strategy_none$keep_vars
 local({
-  all_vars <- unique(c(match_strategy_a$keep_vars, match_strategy_riskscore_i$keep_vars))
+  all_vars <- unique(
+    c(
+      match_strategy_a$keep_vars, match_strategy_a$adj_vars, 
+      match_strategy_a$strata_vars, 
+      match_strategy_riskscore_i$keep_vars, match_strategy_riskscore_i$adj_vars,
+      match_strategy_riskscore_i$strata_vars
+      )
+    )
+  all_vars <- all_vars[!(all_vars %in% c("trial_date"))]
   check_all_present <- all_vars %in% match_strategy_none$keep_vars
   if (!all(check_all_present)) {
     stop(

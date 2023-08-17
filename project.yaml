@@ -239,7 +239,7 @@ actions:
         csv: output/comparative_a/table1/*.csv
 
   coverage_comparative_a:
-    run: r:latest analysis/match/coverage.R comparative a
+    run: r:latest analysis/match/match_coverage.R comparative a
     needs:
     - process_treated
     - match_comparative_a
@@ -283,7 +283,7 @@ actions:
         csv: output/comparative_riskscore_i/table1/*.csv
 
   coverage_comparative_riskscore_i:
-    run: r:latest analysis/match/coverage.R comparative riskscore_i
+    run: r:latest analysis/match/match_coverage.R comparative riskscore_i
     needs:
     - process_treated
     - match_comparative_riskscore_i
@@ -451,7 +451,7 @@ actions:
         csv: output/incremental_a/table1/*.csv
 
   coverage_incremental_a:
-    run: r:latest analysis/match/coverage.R incremental a
+    run: r:latest analysis/match/match_coverage.R incremental a
     needs:
     - process_treated
     - match_controlactual_a_1
@@ -656,7 +656,7 @@ actions:
         csv: output/incremental_riskscore_i/table1/*.csv
 
   coverage_incremental_riskscore_i:
-    run: r:latest analysis/match/coverage.R incremental riskscore_i
+    run: r:latest analysis/match/match_coverage.R incremental riskscore_i
     needs:
     - process_treated
     - match_controlactual_riskscore_i_1

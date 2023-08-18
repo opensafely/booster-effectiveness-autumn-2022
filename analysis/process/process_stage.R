@@ -69,13 +69,11 @@ list2env(
 if (stage == "riskscore_i") {
   
   path_stem <- here("output", "riskscore_i")
-  fs::dir_create(file.path(path_stem, "flowchart"))
   custom_path <- here("output", "treated", "dummydata", "dummydata_treated.feather")
   
 } else if (stage == "treated") {
   
   path_stem <- here("output", "treated")
-  fs::dir_create(file.path(path_stem, "flowchart"))
   fs::dir_create(here("output", "report"))
   custom_path <- file.path(path_stem, "dummydata", "dummydata_treated.feather")
   
@@ -87,8 +85,9 @@ if (stage == "riskscore_i") {
   
 }
 
-fs::dir_create(file.path(path_stem, "eligible"))
 fs::dir_create(file.path(path_stem, "processed"))
+fs::dir_create(file.path(path_stem, "eligible"))
+fs::dir_create(file.path(path_stem, "flowchart"))
 
 # import data ----
 
@@ -641,30 +640,36 @@ if (stage == "treated") {
 } 
 
 # create flowchart (only when stage is "riskscore_i" or "treated") ----
-if (stage %in% c("riskscore_i", "treated")) {
-  
-  data_flowchart <- data_criteria %>%
-    select(patient_id, matches("^c\\d+")) %>%
-    rename_at(vars(matches("^c\\d+$")), ~str_c(., "_value")) %>%
-    pivot_longer(
-      cols = matches("^c\\d+"),
-      names_to = c("crit", ".value"),
-      names_pattern = "(.*)_(.*)"
-    ) %>%
-    group_by(crit, descr) %>%
-    summarise(n = sum(value), .groups = "keep") %>%
-    ungroup() %>%
-    rename(criteria = descr) %>%
-    arrange(crit) %>%
-    mutate(across(criteria, ~if_else(crit == "c00", str_c(criteria, " and boosted"), as.character(.x)))) %>%
-    flow_stats_rounded(1)
-  
-  data_flowchart %>%
-    write_csv(
-      file.path(path_stem, "flowchart", "flowchart_unrounded.csv")
+data_flowchart <- data_criteria %>%
+  select(patient_id, matches("^c\\d+")) %>%
+  rename_at(vars(matches("^c\\d+$")), ~str_c(., "_value")) %>%
+  pivot_longer(
+    cols = matches("^c\\d+"),
+    names_to = c("crit", ".value"),
+    names_pattern = "(.*)_(.*)"
+  ) %>%
+  group_by(crit, descr) %>%
+  summarise(n = sum(value), .groups = "keep") %>%
+  ungroup() %>%
+  rename(criteria = descr) %>%
+  arrange(crit) %>%
+  mutate(
+    across(
+      criteria, 
+      ~if_else(
+        # stage is in the global environment, not the tibble
+        crit == "c00" & stage == "treated", 
+        str_c(criteria, " and boosted"), 
+        as.character(.x)
+        )
       )
-  
-}
+    ) %>%
+  flow_stats_rounded(1)
+
+data_flowchart %>%
+  write_csv(
+    file.path(path_stem, "flowchart", "flowchart_unrounded.csv")
+  )
 
 if (stage == "treated") {
   

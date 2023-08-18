@@ -29,7 +29,7 @@ study_dates <- lst(
   
   boosterspring = lst(
     start = "2022-03-23",
-    end = "2022-06-30" # based on plot of weekly vaccinations in England
+    end = "2022-07-31" # when spring booster uptake reached peak coverage of 79.1% of people over 75 years
   ),
   
   boosterfirst = lst(
@@ -60,7 +60,7 @@ study_dates <- lst(
   deathend = "2023-02-28", # end of available death data
   
   riskscore_i = lst(
-    start = as.Date(boosterspring$end) + 1,
+    start = "2022-04-01",
     end = as.Date(boosterautumn$ages65plus) - 1
   )
   
@@ -72,6 +72,7 @@ study_dates <- rapply(
   how = "list"
   )
 
+# the gap between incremental matching rounds
 extract_increment <- 14
 
 study_dates$control_extract = seq(study_dates$studystart, study_dates$recruitmentend, extract_increment)
@@ -248,7 +249,8 @@ match_strategy_riskscore_i <- create_match_strategy(
     "age", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",
     "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease",
     "chronic_liver_disease", "immunosuppressed", "learndis",
-    "ethnicity", "imd_Q5", "region", "flu_vaccine", "timesince_discharged"
+    "ethnicity", "imd_Q5", "region", "flu_vaccine", "timesince_discharged",
+    "vax_boostfirst_brand" # maybe edit this so any/none rather than pfizer/moderna/none
     ),
   riskscore_fup_vars = c("death", "dereg")
 )

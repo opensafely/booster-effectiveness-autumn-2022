@@ -26,8 +26,8 @@ source(here("lib", "functions", "match_control.R"))
 args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) == 0) {
-  match_strategy <- "riskscore_i"
-  match_round <- as.integer("1")
+  match_strategy <- "a"
+  match_round <- as.integer("2")
 } else {
   match_strategy <- args[[1]]
   match_round <- as.integer(args[[2]])
@@ -55,18 +55,26 @@ data_potential_matchstatus <- read_rds(
 
 # controlactual data (matches with matching variables re-extracted on trial_date)
 data_control <- data_eligible %>% mutate(treated = 0L, matched = 1L)
+
 # data from treated individuals
-data_treated_matched <- read_rds(
+data_treated <- read_rds(
   ghere("output", "treated", "eligible", "data_treated.rds")
-  ) %>%
+)
+
+# only keep treated individuals who were successfully matched in the 
+# controlpotential stage for this match_round
+data_treated_matched <- data_treated %>%
   # only keep variables that are in data_control
   select(any_of(names(data_control))) %>%
-  # only keep treated individuals who were successfully matched in the 
-  # controlpotential stage for this match_round
   right_join(
     data_potential_matchstatus %>% filter(treated==1L, matched),
     by = "patient_id"
   )
+
+# keep ids for checking matching coverage later
+data_treated_ids <- data_treated %>% select(patient_id)
+
+rm(data_treated)
 
 # create dataset of candidates for matching
 match_candidates <- bind_rows(data_treated_matched, data_control) %>%
@@ -253,16 +261,6 @@ local({
     print(glue("Overall matching success: {n_overall} of {n_total} ({p_overall}%) treated individuals matched."))
   } 
   cat("----------------------\n")
-  if (
-    ((p_stillmatch > 99.9) | (p_overall > 99.9)) & 
-    (match_round < n_match_rounds)
-    ) {
-    stop(
-      "Matching coverage has exceeded 99.9% and this is not the final match_round.\n",
-      "Reduce `match_strategy_obj$n_match_rounds` in \"analysis/design.R\",\n",
-      "then rerun \"create-project.R\" and rerun this action."
-      )
-  }
 })
 
 # save all successful matches
@@ -299,6 +297,25 @@ local({
     stop("Duplicate patient_ids within treatment groups.")
   }
 })
+
+# check the proportion of treated people successfully matched so far, and stop
+# if it exceeds 0.999
+p_matched <- data_treated_ids %>%
+  left_join(
+    data_matchstatus_allrounds %>% filter(treated == 1) %>% transmute(patient_id, matched = TRUE),
+    by = "patient_id"
+  ) %>%
+  summarise(p_matched = sum(matched, na.rm = TRUE)/n()) %>%
+  pull(p_matched)
+
+if (p_matched > 0.999) {
+  stop(
+    "Matching coverage has exceeded 99.9% and this is not the final match_round.\n",
+    "Reduce `match_strategy_{match_strategy}$n_match_rounds` to ", 
+    glue({match_round}), " in \"analysis/design.R\",\n",
+    "then rerun \"create-project.R\" and rerun this action."
+  )
+}
 
 # restrict to successful matched controls
 data_successful_matchedcontrols <- data_matchstatus_allrounds %>% 

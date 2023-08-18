@@ -139,6 +139,7 @@ action_controlpotential <- function(match_strategy, match_round) {
         data_extract_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/extract/*.txt"),
         data_processed_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/processed/*.txt"),
         data_controlpotential_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/eligible/*.txt"),
+        flowchart = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/flowchart/*.csv"),
         riskscore_i_plots = riskscore_i_plots
       ) %>% as.list()
     )
@@ -233,6 +234,7 @@ action_1matchround <- function(match_strategy, match_round) {
         input_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/extract/*.txt"),
         eligible_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/eligible/*.txt"),
         process_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/processed/*.txt"),
+        flowchart = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/flowchart/*.csv"),
         riskscore_i_plots = riskscore_i_plots
       ) %>% as.list()
     ),

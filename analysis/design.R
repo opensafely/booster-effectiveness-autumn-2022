@@ -257,6 +257,7 @@ match_strategy_riskscore_i <- create_match_strategy(
 
 match_strategy_a <- create_match_strategy(
   name = "a",
+  n_match_rounds = 4,
   exact_vars = c(
     "agegroup_match", "vax_primary_brand", "vax_boostfirst_brand",
     "vax_boostspring_brand", "cv", "region"

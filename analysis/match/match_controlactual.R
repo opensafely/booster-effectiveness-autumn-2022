@@ -72,7 +72,8 @@ data_treated_matched <- data_treated %>%
   )
 
 # keep ids for checking matching coverage later
-data_treated_ids <- data_treated %>% select(patient_id)
+data_treated_ids <- data_treated %>% 
+  select(patient_id, trial_date = vax_boostautumn_date)
 
 rm(data_treated)
 
@@ -241,7 +242,7 @@ stopifnot(
 )
 
 local({
-  cat("---- Match summary ----\n")
+  cat("---- Match round summary ----\n")
   ## overall matching success for match_round
   n_total <- data_potential_matchstatus %>% filter(treated == 0) %>% nrow()
   # stillmatch
@@ -263,6 +264,60 @@ local({
   cat("----------------------\n")
 })
 
+# calculate and save match coverage so far
+data_coverage <- data_treated_ids %>% 
+  left_join(data_successful_matchstatus, by = c("patient_id", "trial_date")) %>%
+  mutate(matched = !is.na(match_id)) %>%
+  group_by(matched) %>%
+  count() %>%
+  ungroup() %>%
+  summarise(
+    match_round = match_round,
+    coverage_increase = 100*n[matched]/sum(n)
+    ) 
+
+data_coverage %>%
+  write_csv(file.path(outdir, "data_coverage.csv"))
+
+if (match_round > 2) {
+  
+  # percentage point increase in coverage for stopping rule
+  coverage_increase_threshold <- 0.1
+  
+  data_coverage <- 
+    map_dfr(
+      unique(1:(match_round-1)),
+      ~read_csv(
+        here("output", glue("incremental_{match_strategy}"), glue("matchround", .x), "controlactual", "match", "data_coverage.csv")
+      )
+    ) %>% 
+    bind_rows(data_coverage) %>% 
+    mutate(
+      cumulative_coverage = cumsum(coverage_increase),
+      under_threshold = coverage_increase < coverage_increase_threshold
+      ) 
+  
+  cat("Coverage from all match rounds so far:\n")
+  print(data_coverage)
+  
+  # if this is not the final match round
+  if (match_round < n_match_rounds) {
+    # if the coverage from this and the previous match round is < coverage_increase_threshold
+    if (all(data_coverage$under_threshold[(match_round-1):match_round])) {
+      stop(
+        glue("Matching coverage has increased by < {coverage_increase_threshold} "),
+        "percentage points for two match rounds in a row.\n",
+        "Carry out the following steps:\n",
+        glue("1. Reduce `match_strategy_{match_strategy}$n_match_rounds` to "),
+        glue({match_round}), " in \"analysis/design.R\"\n",
+        "2. Rerun \"create-project.R\" and push changes to GitHub\n",
+        "3. Rerun this action.\n",
+        "4. Continue running subsequent actions."
+      )
+    }
+  }
+}
+
 # save all successful matches
 data_matched <- data_successful_matchstatus %>%
   select(any_of(c(matchstatus_vars, keep_vars))) 
@@ -274,16 +329,26 @@ write_rds(
 )
 
 # tidy up
-rm(data_potential_matchstatus, data_matched)
+rm(data_potential_matchstatus)
 rm(data_rematch_all, data_rematch_successful)
 rm(data_stillmatch, data_stillmatch_pairs)
 rm(data_successful_match, data_successful_matchstatus)
 
 # read data from up all successful matches so far
-data_matchstatus_allrounds <- map_dfr(
-  unique(1:max(1, match_round-1)),
-  ~read_rds(file.path(outdir, "data_matched.rds"))
-)
+if (match_round > 1) {
+  data_matchstatus_allrounds <- 
+    map_dfr(
+      unique(1:(match_round-1)),
+      ~read_rds(
+        here("output", glue("incremental_{match_strategy}"), glue("matchround", .x), "controlactual", "match", "data_matched.rds")
+      )
+    ) %>%
+    bind_rows(data_matched)
+} else {
+  data_matchstatus_allrounds <- data_matched
+}
+rm(data_matched)
+  
 
 # check for duplicate ids within treatment groups
 local({
@@ -297,25 +362,6 @@ local({
     stop("Duplicate patient_ids within treatment groups.")
   }
 })
-
-# check the proportion of treated people successfully matched so far, and stop
-# if it exceeds 0.999
-p_matched <- data_treated_ids %>%
-  left_join(
-    data_matchstatus_allrounds %>% filter(treated == 1) %>% transmute(patient_id, matched = TRUE),
-    by = "patient_id"
-  ) %>%
-  summarise(p_matched = sum(matched, na.rm = TRUE)/n()) %>%
-  pull(p_matched)
-
-if (p_matched > 0.999) {
-  stop(
-    "Matching coverage has exceeded 99.9% and this is not the final match_round.\n",
-    "Reduce `match_strategy_{match_strategy}$n_match_rounds` to ", 
-    glue({match_round}), " in \"analysis/design.R\",\n",
-    "then rerun \"create-project.R\" and rerun this action."
-  )
-}
 
 # restrict to successful matched controls
 data_successful_matchedcontrols <- data_matchstatus_allrounds %>% 

@@ -182,8 +182,10 @@ action_1matchround <- function(match_strategy, match_round) {
         if (match_round==1) {
           glue("process_controlpotential_none_{match_round}")
         } else {
-          c(glue("process_controlpotential_{match_strategy}_{match_round}"),
-            glue("match_controlactual_{match_strategy}_{match_round-1}"))
+          c(
+            glue("process_controlpotential_{match_strategy}_{match_round}"),
+            map_chr(1:(match_round-1), ~glue("match_controlactual_{match_strategy}_{.x}"))
+          )
         },
         needs_model_riskscore(match_strategy)
       ) %>% as.list,
@@ -250,9 +252,12 @@ action_1matchround <- function(match_strategy, match_round) {
         glue("match_controlpotential_{match_strategy}_{match_round}"),
         glue("process_controlactual_{match_strategy}_{match_round}")
       ) %>% as.list(),
+      moderately_sensitive = list(
+        csv = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/match/*.csv")
+      ),
       highly_sensitive = as.list(c(
         rds = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/match/*.rds"),
-        csv = if (match_round < n_match_rounds) {glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/match/*.csv.gz")} else NULL,
+        csvgz = if (match_round < n_match_rounds) {glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/match/*.csv.gz")} else NULL,
         final = if(match_round==n_match_rounds) {glue("output/incremental_{match_strategy}/match/*.csv.gz")} else NULL
       ))
     )

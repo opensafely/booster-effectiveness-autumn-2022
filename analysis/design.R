@@ -198,7 +198,7 @@ create_match_strategy <- function(
     riskscore_fup_vars,
     keep_vars = unique(
       c(
-        "age", "agegroup_match", "sex",
+        "age", "agegroup_match", "sex", "imd",
         exact_vars, names(caliper_vars), 
         riskscore_vars, riskscore_fup_vars
         )

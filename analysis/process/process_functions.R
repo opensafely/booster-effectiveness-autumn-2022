@@ -26,65 +26,64 @@ flow_stats_rounded <- function(.data, to) {
 }
 
 ################################################################################
-add_vars <- function(.data, vars, group) {
+process_extra_vars <- function(.data, extra_vars) {
   
-  stopifnot("`vars` must be \"covs\" or \"outcomes\"" = (vars == "covs" | vars == "outcomes"))
-  
-  if (all(c("treated", "control") %in% group)) {
+  if ("region" %in% extra_vars) {
     
-    by_vars <- c("patient_id", "trial_date")
-    remove_vars <- NULL
-    
-  } else if (all(group == "treated")) {
-    
-    # omit trial_id here as not needed and will slow down
-    by_vars <- "patient_id"
-    remove_vars <- "trial_date"
-    
-  } else {
-    
-    stop("`group` must be either c(\"treated\", \"control\") or \"treated\"")
-    
-  }
-  
-  # source(here::here("analysis", "process", "process_functions.R"))
-  
-  group[group=="treated"] <- "alltreated"
-  group[group=="control"] <- "matchcontrol"
-  
-  data_vars <- map_dfr(
-    group,
-    ~arrow::read_feather(here("output", "postmatch", vars, glue("input_{vars}_", .x, ".feather")))
-  ) %>%
-    process_input() 
-  
-  if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
-    
-    # if dummy data remove all dates before trial_date
-    data_vars <- data_vars %>% 
-      mutate(across(
-        ends_with("_date"), 
-        ~if_else(.x < trial_date, as.Date(NA_character_), .x)
-        ))
+    .data <- .data %>%
+      mutate(
+        region = fct_collapse(
+          region,
+          `East of England` = "East",
+          `London` = "London",
+          `Midlands` = c("West Midlands", "East Midlands"),
+          `North East and Yorkshire` = c("Yorkshire and The Humber", "North East"),
+          `North West` = "North West",
+          `South East` = "South East",
+          `South West` = "South West"
+        )
+      )
     
   }
   
-  .data %>%
-    # the next line is to move trial_date when arms=="treated"
-    select(-all_of(remove_vars)) %>%
-    left_join(data_vars, by = by_vars)
+  if ("imd_Q5" %in% extra_vars) {
+    
+    imd_levs <- c("Unknown", "1 (most deprived)", "2", "3", "4", "5 (least deprived)")
+    
+    .data <- .data %>%
+      mutate(
+        # define imd quintiles
+        imd_Q5 = cut(
+          x = imd,
+          breaks = seq(0,1,0.2)*32800,
+          labels = imd_levs[-1]
+        ),
+        # add labels (done here instead of in cut() so can define labels for NAs)
+        imd_Q5 = factor(
+          replace_na(as.character(imd_Q5), imd_levs[1]),
+          levels = imd_levs
+        )
+        
+      )
+    
+  }
   
-}
-
-################################################################################
-process_covs <- function(.data) {
-
-  .data %>%
-    mutate(
-
-      bmi = factor(bmi, levels = c("Not obese", "Obese I (30-34.9)", "Obese II (35-39.9)", "Obese III (40+)")),
-
-    )
+  if ("timesince_discharged" %in% extra_vars) {
+    
+    .data <- .data %>%
+      mutate(
+        # time since discharged from any unplanned admission
+        timesince_discharged = as.integer(study_dates$riskscore_i$start - unplanneddischarged_0_date)/365.25,
+        timesince_discharged = fct_case_when(
+          is.na(timesince_discharged) | (timesince_discharged > 5) ~ "Never or >5 years",
+          timesince_discharged > 2 ~ "2-5 years",
+          timesince_discharged > 1 ~ "1-2 years",
+          TRUE ~ "Past year"
+        )
+      )
+  }
+  
+  return(.data)
 
 }
 

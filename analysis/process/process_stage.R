@@ -252,61 +252,11 @@ data_processed <- data_extract %>%
       timesince_coviddischarged <= 30 ~ "1-30 days", # will be excluded
       timesince_coviddischarged <= 0 ~ "In hospital" # will be excluded
     )
-  ) 
+  ) %>%
+  # this function processes any extra vars that are listed in `keep_vars`
+  # it is defined in analysis/process/process_functions.R
+  process_extra_vars(extra_vars = keep_vars)
 
-if ("region" %in% keep_vars) {
-  
-  data_processed <- data_processed %>%
-    mutate(
-      region = fct_collapse(
-        region,
-        `East of England` = "East",
-        `London` = "London",
-        `Midlands` = c("West Midlands", "East Midlands"),
-        `North East and Yorkshire` = c("Yorkshire and The Humber", "North East"),
-        `North West` = "North West",
-        `South East` = "South East",
-        `South West` = "South West"
-      )
-    )
-  
-}
-
-if ("imd_Q5" %in% keep_vars) {
-  
-  imd_levs <- c("Unknown", "1 (most deprived)", "2", "3", "4", "5 (least deprived)")
-  
-  data_processed <- data_processed %>%
-    mutate(
-      # define imd quintiles
-      imd_Q5 = cut(
-        x = imd,
-        breaks = seq(0,1,0.2)*32800,
-        labels = imd_levs[-1]
-      ),
-      # add labels (done here instead of in cut() so can define labels for NAs)
-      imd_Q5 = factor(
-        replace_na(as.character(imd_Q5), imd_levs[1]),
-        levels = imd_levs
-      )
-      
-    )
-  
-}
-
-if ("timesince_discharged" %in% keep_vars) {
-  data_processed <- data_processed %>%
-    mutate(
-      # time since discharged from any unplanned admission
-      timesince_discharged = as.integer(study_dates$riskscore_i$start - unplanneddischarged_0_date)/365.25,
-      timesince_discharged = fct_case_when(
-        is.na(timesince_discharged) | (timesince_discharged > 5) ~ "Never or >5 years",
-        timesince_discharged > 2 ~ "2-5 years",
-        timesince_discharged > 1 ~ "1-2 years",
-        TRUE ~ "Past year"
-      )
-    )
-}
 
 if (stage %in% "riskscore_i") {
   data_processed <- data_processed %>%
@@ -639,7 +589,7 @@ if (stage == "treated") {
   
 } 
 
-# create flowchart (only when stage is "riskscore_i" or "treated") ----
+# create flowchart ----
 data_flowchart <- data_criteria %>%
   select(patient_id, matches("^c\\d+")) %>%
   rename_at(vars(matches("^c\\d+$")), ~str_c(., "_value")) %>%

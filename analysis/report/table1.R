@@ -33,7 +33,7 @@ args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
   # use for interactive testing
   effect <- "incremental"
-  match_strategy <- "riskscore_i"
+  match_strategy <- "a"
 } else {
   effect <- args[[1]]
   match_strategy <- args[[2]]
@@ -58,6 +58,8 @@ if (effect == "treated") {
     rename(trial_date = vax_boostautumn_date)
 } else {
   # derive data_matched
+  read_outcomes <- FALSE
+  read_adj_vars <- TRUE
   source(here("analysis", "process", "process_postmatch.R"))
   data_table1 <- data_matched
   rm(data_matched)

@@ -18,31 +18,38 @@ library('survival')
 source(here("analysis", "design.R"))
 source(here("lib", "functions", "utility.R"))
 source(here("lib", "functions", "survival.R"))
-# load process_functions for add_vars and process_outcomes
 source(here("analysis", "process", "process_functions.R"))
-
 
 # import command-line arguments
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
-  effect <- "comparative"
+  effect <- "incremental"
+  match_strategy <- "a"
   subgroup <- "all"
   outcome <- "covidadmitted"
   
 } else {
   effect <- args[[1]]
-  subgroup <- args[[2]]
-  outcome <- args[[3]]
+  match_strategy <- args[[2]]
+  subgroup <- args[[3]]
+  outcome <- args[[4]]
 }
+
+# save items in the match_strategy list to the global environment
+list2env(
+  x = get(glue("match_strategy_{match_strategy}")),
+  envir = environment()
+)
 
 # derive symbolic arguments for programming with
 subgroup_sym <- sym(subgroup)
 
 # create output directories
-output_dir <- ghere("output", effect, "model", "km", subgroup, outcome)
+output_dir <- ghere("output", glue("{effect}_{match_strategy}"), "model", "km", subgroup, outcome)
 fs::dir_create(output_dir)
 
 # read and process data_matched ----
+read_final <- TRUE
 source(here("analysis", "process", "process_postmatch.R"))
 
 # process the data for the model
@@ -147,7 +154,7 @@ cat("---- end data_surv_unrounded ----\n")
 
 cat("---- start data_surv_rounded ----\n")
 data_surv_rounded <- km_process(data_surv, threshold)
-write_csv(data_surv_rounded, file.path(output_dir, "km_estimates_rounded.csv"))
+write_csv(data_surv_rounded, file.path(output_dir, glue("km_estimates_midpoint{threshold}.csv")))
 cat("---- end data_surv_rounded ----\n")
 
 # define km_plot function ----
@@ -207,7 +214,7 @@ cat("---- end km_plot_unrounded ----\n")
 
 cat("---- start km_plot_rounded ----\n")
 km_plot_rounded <- km_plot(data_surv_rounded)
-ggsave(filename=file.path(output_dir, "km_plot_rounded.png"), km_plot_rounded, width=20, height=15, units="cm")
+ggsave(filename=file.path(output_dir, glue("km_plot_midpoint{threshold}.png")), km_plot_rounded, width=20, height=15, units="cm")
 cat("---- end km_plot_rounded ----\n")
 
 # define km contrast function ----
@@ -377,15 +384,15 @@ kmcontrasts <- function(data, cuts=NULL){
 # don't do daily as this can be applied to km_estimates_rounded.csv after release (save memory)
 # cat("---- start km_contrasts_rounded_daily ----\n")
 # km_contrasts_rounded_daily <- kmcontrasts(data_surv_rounded)
-# write_csv(km_contrasts_rounded_daily, file.path(output_dir, "km_contrasts_daily_rounded.csv"))
+# write_csv(km_contrasts_rounded_daily, file.path(output_dir, glue("km_contrasts_daily_midpoint{threshold}.csv")))
 # cat("---- end km_contrasts_rounded_daily ----\n")
 
 cat("---- start km_contrasts_rounded_cuts ----\n")
 km_contrasts_rounded_cuts <- kmcontrasts(data_surv_rounded, fup_params$postbaselinecuts)
-write_csv(km_contrasts_rounded_cuts, file.path(output_dir, "km_contrasts_cuts_rounded.csv"))
+write_csv(km_contrasts_rounded_cuts, file.path(output_dir, glue("km_contrasts_cuts_midpoint{threshold}.csv")))
 cat("---- end km_contrasts_rounded_cuts ----\n")
 
 cat("---- start km_contrasts_rounded_overall ----\n")
 km_contrasts_rounded_overall <- kmcontrasts(data_surv_rounded, c(0,fup_params$maxfup))
-write_csv(km_contrasts_rounded_overall, file.path(output_dir, "km_contrasts_overall_rounded.csv"))
+write_csv(km_contrasts_rounded_overall, file.path(output_dir, glue("km_contrasts_overall_midpoint{threshold}.csv")))
 cat("---- end km_contrasts_rounded_overall ----\n")

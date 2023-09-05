@@ -1,45 +1,40 @@
 # this script reads and processes data_matched
 # it is called in analysis/model/km.R and analysis/model/cox.R
-# and creates split data when variant_option="split"
 
 cat("---- start process_premodel\n")
 
 # define arms for the add_vars function
 group <- "treated"
-if (effect == "relative") group <- c(group, "control")
-
-# add outcomes data
-data_matched <- data_matched %>%
-  add_vars(vars = "outcomes", group = group) %>%
-  process_outcomes() 
+if (effect == "incremental") group <- c(group, "control")
 
 # because we only need the covariates for adjusted cox models
-if (model %in% c("km", "cox_unadj")) covariates_model <- NULL
+if (model %in% c("km", "cox_unadj")) adj_vars <- NULL
 if (model == "cox_adj") {
   
-  # relevel for models
-  data_matched <- data_matched %>%
-    mutate(
-      imd_Q5 = fct_relevel(imd_Q5, levels(data_matched$imd_Q5)[3]),
-      # relevelling done here to avoid rerunning actions that use process_stage
-      timesincecoviddischarged = factor(
-        if_else(
-          timesincecoviddischarged == "No prior COVID-19 admission",
-          as.character(timesincecoviddischarged),
-          "Prior COVID-19 admission"
-          ),
-        levels = c("No prior COVID-19 admission", "Prior COVID-19 admission")
-        )
-    )
+  if ("imd_Q5" %in% adj_vars) {
+    # relevel for models
+    data_matched <- data_matched %>%
+      mutate(imd_Q5 = fct_relevel(imd_Q5, levels(data_matched$imd_Q5)[3]))
+  }
   
-  # add covariates data
-  data_matched <- data_matched %>%
-    add_vars(vars = "covs", group = group) %>%
-    process_covs() 
+  if ("timesincecoviddischarged" %in% adj_vars) {
+    # relevel for models
+    data_matched <- data_matched %>%
+      mutate(
+        timesincecoviddischarged = factor(
+          if_else(
+            timesincecoviddischarged == "No prior COVID-19 admission",
+            as.character(timesincecoviddischarged),
+            "Prior COVID-19 admission"
+          ),
+          levels = c("No prior COVID-19 admission", "Prior COVID-19 admission")
+        )
+      )
+  }
   
 }
 
-if (effect == "relative") {
+if (effect == "incremental") {
   
   data_matched <- data_matched %>%
     # create a new id to account for the fact that some controls become treated (this is only needed for cox models)
@@ -87,7 +82,7 @@ data_surv <- data_matched %>%
     patient_id, new_id, treated, trial_date, censor_date,
     outcome_date = !! sym(glue("{outcome}_date")),
     all_of(strata_vars),
-    all_of(covariates_model),
+    all_of(adj_vars),
     all_of(subgroup)
   ) %>%
   mutate(

@@ -76,6 +76,7 @@ if (effect == "comparative") {
 if (effect == "incremental") {
   
   # derive data_matched
+  read_final <- FALSE
   source(here("analysis", "process", "process_postmatch.R"))
   
   # get data from all patients who meet initial eligibility criteria

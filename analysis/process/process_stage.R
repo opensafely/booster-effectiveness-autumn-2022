@@ -38,9 +38,9 @@ args <- commandArgs(trailingOnly = TRUE)
 if (length(args) == 0) {
   # use for interactive testing
   # uncomment 3 lines at a time
-  # stage <- "riskscore_i"
-  # match_strategy <- "riskscore_i"
-  # match_round <- as.integer("0")
+  stage <- "riskscore_i"
+  match_strategy <- "riskscore_i"
+  match_round <- as.integer("0")
   ##
   # stage <- "treated"
   # match_strategy <- "none"
@@ -50,9 +50,9 @@ if (length(args) == 0) {
   # match_strategy <- "none"
   # match_round <- as.integer("1")
   ##
-  stage <- "controlactual"
-  match_strategy <- "a"
-  match_round <- as.integer("1")
+  # stage <- "controlactual"
+  # match_strategy <- "a"
+  # match_round <- as.integer("1")
 } else {
   stage <- args[[1]]
   match_strategy <- args[[2]]
@@ -253,9 +253,9 @@ data_processed <- data_extract %>%
       timesince_coviddischarged <= 0 ~ "In hospital" # will be excluded
     )
   ) %>%
-  # this function processes any extra vars that are listed in `keep_vars`
+  # this function processes any extra vars that are listed in `match_vars`
   # it is defined in analysis/process/process_functions.R
-  process_extra_vars(extra_vars = keep_vars)
+  process_extra_vars(extra_vars = match_vars)
 
 
 if (stage %in% "riskscore_i") {
@@ -437,7 +437,11 @@ data_eligible <- data_criteria %>%
         patient_id,
         any_of(c("match_id", "trial_date", "trial_index")),
         starts_with("vax_"),
-        any_of(unique(keep_vars))
+        all_of(keep_vars),
+        # any of because riskscore_i_percentile not yet defined
+        any_of(match_vars),
+        # any of final_vars because some may already be extracted
+        any_of(final_vars)
         ), 
     by="patient_id"
     ) %>%

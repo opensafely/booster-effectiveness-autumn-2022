@@ -45,7 +45,11 @@ list2env(
   envir = environment()
 )
 
-effect_match_strategy <- str_c(effect, match_strategy, sep = "_")
+if (effect == "treated") {
+  effect_match_strategy <- "treated"
+} else {
+  effect_match_strategy <- str_c(effect, match_strategy, sep = "_")
+}
 
 # create output directories 
 output_dir <- here("output", effect_match_strategy, "table1")
@@ -57,9 +61,10 @@ if (effect == "treated") {
   data_table1 <- read_rds(here("output", "treated", "eligible", "data_treated.rds")) %>%
     rename(trial_date = vax_boostautumn_date)
 } else {
+  # if comparative, don't need to read final extract, as it only contains outcomes
+  if (effect == "comparative") read_final <- FALSE
+  if (effect == "incremental") read_final <- TRUE
   # derive data_matched
-  read_outcomes <- FALSE
-  read_adj_vars <- TRUE
   source(here("analysis", "process", "process_postmatch.R"))
   data_table1 <- data_matched
   rm(data_matched)

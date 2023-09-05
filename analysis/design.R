@@ -152,7 +152,8 @@ recoder <-
     )
   )
 
-subgroups <- c("all", "agegroup_match")
+subgroups <- "all"
+# subgroups <- c("all", "agegroup_match")
 
 # for the treated variables which are coded as 0 or 1
 for (i in c("comparative", "incremental")) {
@@ -196,17 +197,17 @@ create_match_strategy <- function(
     caliper_vars = caliper_vars,
     riskscore_vars = riskscore_vars,
     riskscore_fup_vars,
-    keep_vars = unique(
-      c(
-        "age", "agegroup_match", "sex", "imd",
-        exact_vars, names(caliper_vars), 
-        riskscore_vars, riskscore_fup_vars
-        )
-      ),
     # these variables only need to be extracted in controlfinal, although
     # they may have been extracted earlier
     adj_vars = adj_vars,
-    strata_vars = strata_vars
+    strata_vars = strata_vars,
+    # group the variables so that ...
+    match_vars = unique(c(
+      exact_vars, names(caliper_vars), riskscore_vars, riskscore_fup_vars
+    )),
+    final_vars = unique(c(adj_vars, strata_vars)),
+    # variables to keep in the dataset throughout stages
+    keep_vars = c("age", "agegroup_match", "sex", "imd")
   )
   
   out %>%
@@ -279,16 +280,12 @@ match_strategy_a <- create_match_strategy(
 
 # check if all variables from all matching strategies are in match_strategy_none$keep_vars
 local({
-  all_vars <- unique(
-    c(
-      match_strategy_a$keep_vars, match_strategy_a$adj_vars, 
-      match_strategy_a$strata_vars, 
-      match_strategy_riskscore_i$keep_vars, match_strategy_riskscore_i$adj_vars,
-      match_strategy_riskscore_i$strata_vars
-      )
-    )
+  all_vars <- unique(c(
+    match_strategy_a$match_vars, match_strategy_a$final_vars, 
+    match_strategy_riskscore_i$match_vars, match_strategy_riskscore_i$final_vars
+  ))
   all_vars <- all_vars[!(all_vars %in% c("trial_date"))]
-  check_all_present <- all_vars %in% match_strategy_none$keep_vars
+  check_all_present <- all_vars %in% unique(c(match_strategy_none$match_vars, match_strategy_none$final_vars))
   if (!all(check_all_present)) {
     stop(
       "The following variables are specified in a matching strategy but not in match_strategy_none:\n",

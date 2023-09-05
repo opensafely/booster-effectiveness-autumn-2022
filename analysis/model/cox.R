@@ -25,25 +25,34 @@ source(here("analysis", "process", "process_functions.R"))
 # import command-line arguments 
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
-  effect <- "comparative"
+  effect <- "incremental"
+  match_strategy <- "a"
   model <- "cox_adj"
   subgroup <- "all"
   outcome <- "covidadmitted"
 } else {
   effect <- args[[1]]
-  model <- args[[2]]
-  subgroup <- args[[3]]
-  outcome <- args[[4]]
+  match_strategy <- args[[2]]
+  model <- args[[3]]
+  subgroup <- args[[4]]
+  outcome <- args[[5]]
 }
 
+# save items in the match_strategy list to the global environment
+list2env(
+  x = get(glue("match_strategy_{match_strategy}")),
+  envir = environment()
+)
+
 # create output directories
-output_dir <- ghere("output", effect, "model", model, subgroup, outcome)
+output_dir <- ghere("output", glue("{effect}_{match_strategy}"), "model", model, subgroup, outcome)
 fs::dir_create(output_dir)
 
 # derive symbolic arguments for programming with
 subgroup_sym <- sym(subgroup)
 
 # read and process data_matched ----
+read_final <- TRUE
 source(here("analysis", "process", "process_postmatch.R"))
 # process data for models
 source(here("analysis", "process", "process_premodel.R"))
@@ -76,7 +85,7 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
     select(
       new_id, period_id, fupstart_time, fupend_time# fup_time
     ) %>%
-    mutate(across(period_id, factor, labels = fup_period_labels))
+    mutate(across(period_id, ~factor(.x, labels = fup_period_labels)))
   
   data_split <-
     tmerge(
@@ -139,10 +148,10 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
         # drop if not satisfied with >=2 levels
         data = map(data, ~{
           .x %>%
-            select(-all_of(covariates_model)) %>%
+            select(-all_of(adj_vars)) %>%
             bind_cols(
               lapply(
-                covariates_model,
+                adj_vars,
                 function(var)
                   merge_or_drop(
                     covariate_name = var,
@@ -157,7 +166,7 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
         
         # add the covariates to cox_formula 
         cox_formula = map(data, ~{
-          add_covariates <- names(.x)[names(.x) %in% covariates_model]
+          add_covariates <- names(.x)[names(.x) %in% adj_vars]
           str_c(c(cox_formula, add_covariates), collapse = " + ")
         })
         
@@ -210,7 +219,7 @@ cox_out <- coxcontrast(
   adj = model == "cox_adj",
   cuts = c(0, fup_params$maxfup)
 )
-write_csv(cox_out, file.path(output_dir, glue("{model}_contrasts_overall_rounded.csv")))
+write_csv(cox_out, file.path(output_dir, glue("{model}_contrasts_overall.csv")))
 cat(glue("---- overall Cox model complete! ----"), "\n")
 
 cat(glue("---- Start fitting cuts Cox model ----"), "\n")
@@ -219,5 +228,5 @@ cox_out <- coxcontrast(
   adj = model == "cox_adj",
   cuts = fup_params$postbaselinecuts
 )
-write_csv(cox_out, file.path(output_dir, glue("{model}_contrasts_cuts_rounded.csv")))
+write_csv(cox_out, file.path(output_dir, glue("{model}_contrasts_cuts.csv")))
 cat(glue("---- cuts Cox model complete! ----"), "\n")

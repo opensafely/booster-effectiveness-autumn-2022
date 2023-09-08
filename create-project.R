@@ -337,14 +337,15 @@ actions_list <- splice(
           "# # # # # # # # # # # # # # # # # # #"),
   
   expand_grid(
-    subgroup=subgroups,
-    outcome=outcomes,
+    match_strategy = c("a", "riskscore_i"),
+    subgroup = subgroups,
+    outcome = outcomes,
   ) %>%
     pmap(
-      function(subgroup, outcome) {
+      function(match_strategy, subgroup, outcome) {
         action_model(
           effect = "comparative",
-          match_strategy = "a",
+          match_strategy = match_strategy,
           subgroup = subgroup,
           outcome = outcome
         )
@@ -355,6 +356,11 @@ actions_list <- splice(
   action_combine_model_outputs(
     effect = "comparative",
     match_strategy = "a"
+  ),
+  
+  action_combine_model_outputs(
+    effect = "comparative",
+    match_strategy = "riskscore_i"
   ),
   
   ####################################################

@@ -242,6 +242,7 @@ match_strategy_none <- create_match_strategy(
 
 match_strategy_riskscore_i <- create_match_strategy(
   name = "riskscore_i",
+  n_match_rounds = 3,
   exact_vars = "riskscore_i_percentile",
   # caliper_vars = c("riskscore_i" = 0.1), 
   # riskscore_vars are the variables used in the model to predict the risk score

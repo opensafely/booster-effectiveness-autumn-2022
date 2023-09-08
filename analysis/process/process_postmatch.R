@@ -47,21 +47,40 @@ if (effect == "incremental") {
     )
     
     if (read_final) {
-      # read input_final
-      data_final <- arrow::read_feather(ghere("output", "incremental_{match_strategy}", "match", "input_final_{match_strategy}.feather")) %>%
+      
+      # read outcome and covariates for controls
+      data_final_control <- 
+        arrow::read_feather(ghere("output", "incremental_{match_strategy}", "match", "input_final_{match_strategy}.feather")) %>%
         mutate(across(ends_with("_date"), ~as.Date(.x)))
       
+      # read covariates for treated
+      data_treated <- 
+        read_rds(here("output", "treated", "eligible", "data_treated.rds")) %>%
+        select(any_of(names(data_final_control)))
+      
+      # read outcomes for treated
+      data_outcomes_treated <- 
+        arrow::read_feather(ghere("output", "treated", "extract", "input_final_treated.feather")) %>%
+        mutate(across(ends_with("_date"), ~as.Date(.x))) 
+      
+      # join covariates and outcomes for treated
+      data_final_treated <- data_treated %>% 
+        left_join(data_outcomes_treated, by = "patient_id")
+      
+      # bind covariates and outcomes for treated and controls
+      data_final <- bind_rows(data_final_control, data_final_treated)
+      
+      # join to matched data
       data_matched <- data_matched %>%
         left_join(
-          data_final %>% select(-trial_date), 
-          by = "patient_id"
+          data_final, 
+          by = c("patient_id", "trial_date")
         )
       
+      # process covariates and outcomes
       data_matched <- data_matched %>%
         process_extra_vars(extra_vars = adj_vars) %>%
         process_outcomes()
-      
-      rm(data_final)
       
     }
     

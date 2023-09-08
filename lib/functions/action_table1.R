@@ -12,7 +12,10 @@ action_table1 <- function(effect, match_strategy) {
   }
   
   
-  needs_list <- "process_treated"
+  needs_list <- c(
+    "process_treated",
+    "extract_final_treated"
+    )
   
   if (effect == "comparative") needs_list <- c(needs_list, glue("match_{effect_match_strategy}"))
   

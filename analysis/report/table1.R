@@ -70,10 +70,8 @@ if (effect == "treated") {
   rm(data_matched)
 }
 
-if ("vax_lastbeforeindex_date" %in% keep_vars) {
-  # derive extra variables / revel variables
+if ("vax_lastbeforeindex_date" %in% names(data_table1)) {
   data_table1 <- data_table1 %>%
-    # derive extra variables
     mutate(
       # vax_lastbeforeindex_date was a matching variable, but more meaningful 
       # to summarise as timesince_lastvax

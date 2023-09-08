@@ -253,31 +253,18 @@ local({
   # remove trial_index and trial_date counters created by the loop
   rm(trial_index, trial_date)
 
-  if (!is.null(data_matched)) {
-    data_matched <-
-      data_matched %>%
-      transmute(
-        patient_id, 
-        match_id, 
-        matched = TRUE, 
-        treated,
-        control = 1L - treated, 
-        trial_index, 
-        trial_date, 
-        controlistreated_date
-      )
-  } else {
-    data_matched <- tibble(
-      patient_id = integer(), 
-      match_id = integer(), 
-      matched = logical(), 
-      treated = integer(),
-      control = integer(), 
-      trial_index = integer(), 
-      trial_date = Date(), 
-      controlistreated_date = Date()
+  data_matched <-
+    data_matched %>%
+    transmute(
+      patient_id, 
+      match_id, 
+      matched = TRUE, 
+      treated,
+      control = 1L - treated, 
+      trial_index, 
+      trial_date, 
+      controlistreated_date
     )
-  }
 
   # match status for all treated people and their controls (if matched).
   # includes: unmatched treated; matched treated; matched control

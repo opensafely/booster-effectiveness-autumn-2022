@@ -152,8 +152,7 @@ recoder <-
     )
   )
 
-subgroups <- "all"
-# subgroups <- c("all", "agegroup_match")
+subgroups <- c("all", "agegroup_match")
 
 # for the treated variables which are coded as 0 or 1
 for (i in c("comparative", "incremental")) {
@@ -183,7 +182,7 @@ fup_params <- lst(
 # matching ----
 create_match_strategy <- function(
     name,
-    n_match_rounds = 2,
+    n_match_rounds = 4, # need to update, but use 4 for testing code
     exact_vars = NULL,
     caliper_vars = NULL,
     riskscore_vars = NULL, # variable to be included as covariates in risk score model
@@ -253,7 +252,13 @@ match_strategy_riskscore_i <- create_match_strategy(
     "ethnicity", "imd_Q5", "region", "flu_vaccine", "timesince_discharged",
     "vax_boostfirst_brand" # maybe edit this so any/none rather than pfizer/moderna/none
     ),
-  riskscore_fup_vars = c("death", "dereg")
+  riskscore_fup_vars = c("death", "dereg"),
+  adj_vars = c(
+    "sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental",
+    "immunosuppressed", "multimorb",  "timesince_coviddischarged",
+    "flu_vaccine"
+  ),
+  strata_vars = c("trial_date", "region")
 )
 
 match_strategy_a <- create_match_strategy(

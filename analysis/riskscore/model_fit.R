@@ -38,18 +38,33 @@ categorical_predictors <- c(
 )
 
 # pre model checks -------------------------------------------------------------
-# for each of the categorical predictors, make sure that all levels have at 
-# least one event, and merge if not (make note of merges)
+# for each of the categorical predictors:
+
+# make sure they are in the data and are encoded as logical or factors
+check_categorical_vars <- data_mod %>% 
+  select(all_of(categorical_predictors)) %>%
+  select(where(~!(is.factor(.x)|is.logical(.x))))
+if (length(check_categorical_vars) > 0) {
+  stop(
+    "All categorical variables must be factor or logical type, fix the following:\n",
+    map_chr(
+      names(check_categorical_vars), 
+      ~ str_c(.x, ": ", class(check_categorical_vars[[.x]]), "\n")
+    )
+    )
+}
+
+# make sure that all levels have at least one event, and merge if not 
+# (make note of merges)
 remove_vars <- character()
 for (x in categorical_predictors) {
   
   if (is.logical(data_mod[[x]])) {
     levs_all <- unique(data_mod[[x]])
-  } else if (is.factor(data_mod[[x]])) {
+  } 
+  if (is.factor(data_mod[[x]])) {
     levs_all <- levels(data_mod[[x]])
-  } else {
-    stop("Categorical variables should be logical of factors")
-  }
+  } 
   levs_all <- as.character(levs_all)
   
   levs_with_events <- data_mod %>%

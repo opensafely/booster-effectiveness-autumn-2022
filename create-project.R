@@ -7,6 +7,12 @@ library("glue")
 ## import local functions and parameters ---
 source(here("analysis", "design.R"))
 
+# source action_* functions
+action_functions <- list.files(here("lib", "functions"), pattern = "action_")
+for (a in action_functions) {
+  source(here("lib", "functions", a))
+}
+
 # create action functions ----
 
 ## create comment function ----
@@ -81,549 +87,6 @@ needs_model_riskscore <- function(match_strategy) {
     )
   }
   return(names_actions)
-}
-
-# action for controlpotential steps
-# keep these outside action_1matchround(), as they only need to be run once for 
-# round 1 as are independent of match_strategy
-action_controlpotential <- function(match_strategy, match_round) {
-  
-  control_extract_date <- study_dates[["control_extract"]][match_round]
-  
-  controlpotential_path <- "output/incremental_{match_strategy}/matchround{match_round}/controlpotential/extract/input_controlpotential.feather"
-  
-  riskscore_i_plots <- 
-    if(
-      (match_strategy == "controlpotential" & match_round ==1) | 
-      match_strategy == "riskscore_i"
-    ) {
-      glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/riskscore_i/plot_*.png")
-      } else NULL
-    
-  actions <- splice(
-    
-    action(
-      name = glue("extract_controlpotential_{match_strategy}_{match_round}"),
-      run = glue(
-        "cohortextractor:latest generate_cohort",
-        " --study-definition study_definition_controlpotential",
-        " --output-file ", controlpotential_path,
-        " --param match_strategy={match_strategy}",
-        " --param match_round={match_round}",
-        " --param index_date={control_extract_date}"
-      ),
-      needs = c(
-        "design",
-        if(match_round == 1) "process_initial",
-        if(match_round > 1) glue("match_controlactual_{match_strategy}_{match_round-1}")
-      ) %>% as.list,
-      highly_sensitive = lst(
-        cohort = glue(controlpotential_path)
-      )
-    ),
-    
-    action(
-      name = glue("process_controlpotential_{match_strategy}_{match_round}"),
-      run = "r:latest analysis/process/process_stage.R",
-      arguments = c("controlpotential", match_strategy, match_round),
-      needs = c(
-        "dummydata_stage",
-        "process_initial",
-        glue("extract_controlpotential_{match_strategy}_{match_round}"),
-        needs_model_riskscore(match_strategy)
-      ) %>% as.list(),
-      highly_sensitive = lst(
-        eligible_rds = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/eligible/*.rds")
-      ),
-      moderately_sensitive = c(
-        data_extract_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/extract/*.txt"),
-        data_processed_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/processed/*.txt"),
-        data_controlpotential_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/eligible/*.txt"),
-        flowchart = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/flowchart/*.csv"),
-        riskscore_i_plots = riskscore_i_plots
-      ) %>% as.list()
-    )
-  )
-  
-}
-
-## actions for a single match round ----
-action_1matchround <- function(match_strategy, match_round) {
-  
-  match_strategy_obj <- get(paste0("match_strategy_", match_strategy))
-  n_match_rounds <- match_strategy_obj$n_match_rounds
-  
-  control_extract_date <- study_dates[["control_extract"]][match_round]
-  
-  controlactual_path <- "output/incremental_{match_strategy}/matchround{match_round}/controlactual/extract/input_controlactual.feather"
-  
-  riskscore_i_plots <- 
-    if(match_strategy == "riskscore_i") {
-      glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/riskscore_i/plot_*.png")
-    } else NULL
-  
-  match_actions <- splice(
-    
-    comment(
-      "Extract, process and match controlpotential data.",
-      glue("Match_round = {match_round}")
-      ),
-    
-    if (match_round > 1) {
-      action_controlpotential(match_strategy, match_round)
-    },
-
-    action(
-      name = glue("match_controlpotential_{match_strategy}_{match_round}"),
-      run = glue("r:latest analysis/match/match_controlpotential.R"),
-      arguments = c(match_strategy, match_round),
-      needs = c(
-        "process_treated",
-        if (match_round==1) {
-          glue("process_controlpotential_none_{match_round}")
-        } else {
-          c(
-            glue("process_controlpotential_{match_strategy}_{match_round}"),
-            map_chr(1:(match_round-1), ~glue("match_controlactual_{match_strategy}_{.x}"))
-          )
-        },
-        needs_model_riskscore(match_strategy)
-      ) %>% as.list,
-      highly_sensitive = lst(
-        rds = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/match/*.rds"),
-        csv = glue("output/incremental_{match_strategy}/matchround{match_round}/controlpotential/match/*.csv.gz"),
-      )
-    ),
-    
-    comment(
-      "Extract and process controlactual data",
-      "(matches checked and rematched in the process action)."
-      ),
-
-    action(
-      name = glue("extract_controlactual_{match_strategy}_{match_round}"),
-      run = glue(
-        "cohortextractor:latest generate_cohort",
-        " --study-definition study_definition_controlactual",
-        " --output-file ", controlactual_path,
-        " --param match_strategy={match_strategy}",
-        " --param match_round={match_round}",
-      ),
-      needs = namelesslst(
-        "design",
-        glue("match_controlpotential_{match_strategy}_{match_round}"),
-      ),
-      highly_sensitive = lst(
-        cohort = glue(controlactual_path)
-      )
-    ),
-
-    action(
-      name = glue("process_controlactual_{match_strategy}_{match_round}"),
-      run = glue("r:latest analysis/process/process_stage.R"),
-      arguments = c("controlactual", match_strategy, match_round),
-      needs = c(
-        "process_initial",
-        "dummydata_stage",
-        glue("match_controlpotential_{match_strategy}_{match_round}"),
-        glue("extract_controlactual_{match_strategy}_{match_round}"),
-        needs_model_riskscore(match_strategy)
-      ) %>% as.list,
-      highly_sensitive = lst(
-        data_eligible = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/eligible/*.rds"),
-      ),
-      moderately_sensitive = c(
-        input_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/extract/*.txt"),
-        eligible_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/eligible/*.txt"),
-        process_skim = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/processed/*.txt"),
-        flowchart = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/flowchart/*.csv"),
-        riskscore_i_plots = riskscore_i_plots
-      ) %>% as.list()
-    ),
-    
-    action(
-      name = glue("match_controlactual_{match_strategy}_{match_round}"),
-      run = glue("r:latest analysis/match/match_controlactual.R"),
-      arguments = c(match_strategy, match_round),
-      needs = c(
-        "process_initial",
-        "process_treated",
-        if (match_round > 1) map_chr(1:(match_round-1), ~glue("match_controlactual_{match_strategy}_", .x)),
-        glue("match_controlpotential_{match_strategy}_{match_round}"),
-        glue("process_controlactual_{match_strategy}_{match_round}")
-      ) %>% as.list(),
-      moderately_sensitive = list(
-        csv = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/match/*.csv")
-      ),
-      highly_sensitive = as.list(c(
-        rds = glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/match/*.rds"),
-        csvgz = if (match_round < n_match_rounds) {glue("output/incremental_{match_strategy}/matchround{match_round}/controlactual/match/*.csv.gz")} else NULL,
-        final = if(match_round==n_match_rounds) {glue("output/incremental_{match_strategy}/match/*.csv.gz")} else NULL
-      ))
-    )
-
-  )
-
-  match_actions <- match_actions[sapply(match_actions, function(x) !is.null(x))]
-
-  return(match_actions)
-
-}
-
-
-extract_outcomes <- function(match_strategy) {
-  
-  match_strategy_obj <- get(paste0("match_strategy_", match_strategy))
-  n_match_rounds <- match_strategy_obj$n_match_rounds
-  
-  
-    if (match_strategy=="alltreated") {
-      needs <- "process_treated"
-      outpath <- glue("output/treated/outcomes/input_outcomes.feather")
-    } else {
-      needs <- glue("process_controlactual_{match_strategy}_{n_match_rounds}")
-      outpath <- glue("output/incremental_{match_strategy}/outcomes/input_outcomes.feather")
-    }
-  
-  action(
-    name = glue("extract_outcomes_{match_strategy}"),
-    run = glue(
-      "cohortextractor:latest generate_cohort",
-      glue(" --study-definition study_definition_outcomes"),
-      glue(" --output-file {outpath}"),
-      " --param match_strategy={match_strategy}"
-    ),
-    needs = as.list(c("design", needs)),
-    highly_sensitive = lst(
-      cohort = outpath
-    )
-  )
-  
-}
-
-
-actions_model <- function(effect, subgroup, outcome, match_strategy) {
-  
-  match_strategy_obj <- get(paste0("match_strategy_", match_strategy))
-  n_match_rounds <- match_strategy_obj$n_match_rounds
-  
-  needs_list <- list()
-  needs_list[["km"]] <- c("process_treated", "extract_outcomes_alltreated")
-  
-  if (effect == "comparative") {
-    needs_list[["km"]] <- c(needs_list[["km"]], "match_comparative")
-    needs_list[["cox_adj"]] <- c(needs_list[["km"]], "extract_covs_alltreated")
-  }
-  
-  if (effect == "incremental") {
-    needs_list[["km"]] <- c(
-      needs_list[["km"]], 
-      map_chr(1:n_match_rounds, ~glue("process_controlactual_{.x}")),
-      "extract_outcomes_matchcontrol"
-    )
-    needs_list[["cox_adj"]] <- c(
-      needs_list[["km"]], 
-      "extract_covs_alltreated", 
-      "extract_covs_matchcontrol")
-  }
-  
-  needs_list[["cox_unadj"]] <- needs_list[["km"]]
-  
-  actions <- splice(
-
-    comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
-            glue("subgroup={subgroup}; outcome={outcome};"),
-            "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
-
-    # km
-    action(
-      name = glue("km_{effect}_{subgroup}_{outcome}"),
-      run = glue("r:latest analysis/model/km.R"),
-      arguments = c(effect, subgroup, outcome, match_strategy),
-      needs = needs_list[["km"]],
-      moderately_sensitive= lst(
-        rds = glue("output/{effect}/model/km/{subgroup}/{outcome}/*.csv"),
-        png = glue("output/{effect}/model/km/{subgroup}/{outcome}/*.png")
-      )
-    )
-    
-  )
-  
-  # if (subgroup == "all") {
-    
-    actions <- splice(
-      
-      actions,
-      
-      # cox
-      expand_grid(
-        model=c("cox_unadj", "cox_adj"),
-      ) %>%
-        pmap(
-          function(model) {
-            
-            action(
-              name = glue("{model}_{effect}_{subgroup}_{outcome}"),
-              run = "r:latest analysis/model/cox.R",
-              arguments = c(effect, model, subgroup, outcome, match_strategy),
-              needs = needs_list[[model]],
-              moderately_sensitive= lst(
-                csv = glue("output/{effect}/model/{model}/{subgroup}/{outcome}/*.csv")
-              )
-            )
-            
-          }
-        ) %>%
-        unlist(recursive = FALSE)
-      
-    )
-      
-  # }
-  
-  return(actions)
-    
-}
-
-
-action_table1 <- function(effect, match_strategy) {
-  
-  if (!is.null(match_strategy)) {
-    match_strategy_obj <- get(paste0("match_strategy_", match_strategy))
-    n_match_rounds <- match_strategy_obj$n_match_rounds
-  }
-  
-  effect_match_strategy <- str_c(effect, match_strategy, sep = "_")
-  
-  needs_list <- "process_treated"
-  
-  if (effect == "comparative") needs_list <- c(needs_list, glue("match_{effect_match_strategy}"))
-  
-  if (effect == "incremental") {
-    needs_list <- c(
-      needs_list, 
-      map_chr(1:n_match_rounds, ~glue("match_controlactual_{match_strategy}_{.x}"))
-      )
-  }
-  
-  action(
-    name = glue("table1_{effect_match_strategy}"),
-    run = "r:latest analysis/report/table1.R",
-    arguments = c(effect, match_strategy),
-    needs = as.list(needs_list),
-    moderately_sensitive = lst(
-      csv = glue("output/{effect_match_strategy}/table1/*.csv")
-    )
-  )
-}
-
-actions_postmatch <- function(effect, match_strategy) {
-  
-  match_strategy_obj <- get(paste0("match_strategy_", match_strategy))
-  n_match_rounds <- match_strategy_obj$n_match_rounds
-  
-  effect_match_strategy <- str_c(effect, match_strategy, sep = "_")
-  
-  needs_list <- "process_treated"
-  
-  if (effect == "comparative") needs_list <- c(needs_list, glue("match_{effect_match_strategy}"))
-  
-  if (effect == "incremental") {
-    needs_list <- c(
-      needs_list, 
-      map_chr(1:n_match_rounds, ~glue("match_controlactual_{match_strategy}_{.x}"))
-      )
-  }
-  
-  out <- action(
-    name = glue("coverage_{effect_match_strategy}"),
-    run = "r:latest analysis/match/match_coverage.R",
-    arguments = c(effect, match_strategy),
-    needs = as.list(needs_list),
-    moderately_sensitive= lst(
-      csv= glue("output/{effect_match_strategy}/coverage/*.csv"),
-      png= glue("output/{effect_match_strategy}/coverage/*.png"),
-    )
-  )
-  
-  if (effect == "incremental") {
-    
-    needs_list <- c(needs_list, "process_initial")
-    
-  }
-  
-  out <- splice(
-    out,
-    action(
-      name = glue("flowchart_{effect_match_strategy}"),
-      run = "r:latest analysis/match/match_flowchart.R",
-      arguments = c(effect, match_strategy),
-      needs = as.list(needs_list),
-      moderately_sensitive= lst(
-        csv= glue("output/{effect_match_strategy}/flowchart/*.csv"),
-      )
-    )
-  )
-  
-  return(out)
-  
-}
-
-
-actions_match_strategy <- function(effect, match_strategy, include_models=FALSE) {
-  
-  match_strategy_obj <- get(paste0("match_strategy_", match_strategy))
-  n_match_rounds <- match_strategy_obj$n_match_rounds
-  
-  effect_match_strategy <- str_c(effect, match_strategy, sep = "_")
-  
-  if (effect == "comparative") {
-    
-    actions_match <- splice(
-      
-      action(
-        name = glue("match_{effect_match_strategy}"),
-        run = "r:latest analysis/match/match_comparative.R",
-        arguments = match_strategy,
-        needs = c(
-          # "process_initial",
-          "process_treated",
-          needs_model_riskscore(match_strategy)
-        ) %>% as.list(),
-        highly_sensitive = lst(
-          rds = glue("output/comparative_{match_strategy}/match/*.rds")
-        )
-      ),
-      
-      # table1 for matched data for comparative effectiveness, match variables
-      action_table1(
-        effect = "comparative",
-        match_strategy = match_strategy
-      ),
-      
-      # match coverage
-      actions_postmatch(
-        effect = "comparative",
-        match_strategy = match_strategy
-      )
-      
-    )
-    
-    
-  }
-  if (effect == "incremental") {
-    
-    actions_match <- splice(
-      
-      map(
-        seq_len(n_match_rounds), 
-        ~action_1matchround(match_round = .x, match_strategy = match_strategy)
-        ) %>% 
-        flatten(),
-      
-      # table1 for matched data for incremental effectiveness, match variables
-      action_table1(
-        effect = "incremental",
-        match_strategy = match_strategy
-      ),
-      
-      # match coverage
-      actions_postmatch(
-        effect = "incremental",
-        match_strategy = match_strategy
-        ),
-      
-      comment("# # # # # # # # # # # # # # # # # # #", 
-              "Extract adjustment variables for final matched controls",
-              "# # # # # # # # # # # # # # # # # # #"),
-      # extract adjustment variables for final matched controls
-      action(
-        name = glue("extract_controlfinal_{match_strategy}"),
-        run = glue(
-          "cohortextractor:latest generate_cohort",
-          glue(" --study-definition study_definition_controlfinal"),
-          glue(" --output-file output/incremental_{match_strategy}/match/input_controlfinal_{match_strategy}.feather"),
-          " --param match_strategy={match_strategy}"
-        ),
-        needs = as.list(c(
-          "design",
-          map_chr(1:n_match_rounds, ~glue("match_controlactual_{match_strategy}_", .x))
-        )),
-        highly_sensitive = lst(
-          cohort = glue("output/incremental_{match_strategy}/match/input_controlfinal_{match_strategy}.feather")
-        )
-      )#,
-      
-      # extract outcome variables for matched controls
-      # extract_outcomes(match_strategy)
-    )
-    
-  }
-  
-  actions <- splice(
-    
-    comment("# # # # # # # # # # # # # # # # # # #", 
-            glue("Match treated for {effect} effectiveness"), 
-            glue("match_strategy = {match_strategy}"),
-            "# # # # # # # # # # # # # # # # # # #"),
-    
-    actions_match
-    
-  )
-  
-  
-  if (include_models) {
-    
-    actions <- splice(
-      
-      actions,
-      
-      comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
-              glue("Fit models to estimate {effect} effectiveness"),
-              "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
-      expand_grid(
-        subgroup=subgroups,
-        outcome=outcomes,
-      ) %>%
-        pmap(
-          function(subgroup, outcome) {
-            actions_model(
-              effect = effect,
-              subgroup = subgroup,
-              outcome = outcome,
-              match_strategy = match_strategy
-            )
-          }
-        ) %>%
-        unlist(recursive = FALSE),
-      
-      comment("# # # # # # # # # # # # # # # # # # # # # # # # # # # ",
-              "Combine all model outputs",
-              "# # # # # # # # # # # # # # # # # # # # # # # # # # # "),
-      action(
-        name = "combine_model",
-        run = glue("r:latest analysis/report/combine_model.R"),
-        arguments = c(effect, match_strategy),
-        needs = splice(
-          as.list(
-            glue_data(
-              .x=model_args,
-              "{model}_{effect}_{subgroup}_{outcome}"
-            )
-          )
-        ),
-        moderately_sensitive = lst(
-          # update paths for effect and matching strategy!!
-          rds = glue("output/report/model/*.csv"),
-          png = glue("output/report/model/*.png"),
-        )
-      )
-      
-    )
-    
-  }
-    
- return(actions) 
-  
 }
 
 # specify project ----
@@ -834,45 +297,96 @@ actions_list <- splice(
     match_strategy = "none"
   ),
   
-  # extract outcome data for all treated people
-  # (not incorporated into study_definition_treated so that it can be updated when more outcome data available)
-  # extract_outcomes("alltreated"),
-  
-  comment("# # # # # # # # # # # # # # # # # # #", 
-          "Extract and process controlpotential1 data.", 
-          "This can be done once for all matching strategies.",
-          "# # # # # # # # # # # # # # # # # # #"),
-  action_controlpotential(match_strategy = "none", match_round = 1),
-  
   ####################################################
-  # all actions for comparative effectiveness analysis
+  # COMPARATIVE
   ####################################################
-  actions_match_strategy(
+  
+  action_match_strategy(
     effect = "comparative",
     match_strategy = "a",
     include_models = FALSE
     ),
   
-  actions_match_strategy(
+  action_match_strategy(
     effect = "comparative",
     match_strategy = "riskscore_i",
     include_models = FALSE
   ),
   
+  comment("# # # # # # # # # # # # # # # # # # #", 
+          "Extract adjustment and outcome variables for all treated people",
+          "# # # # # # # # # # # # # # # # # # #"),
+  # extract adjustment variables for final matched controls
+  action(
+    name = glue("extract_final_treated"),
+    run = glue(
+      "cohortextractor:latest generate_cohort",
+      glue(" --study-definition study_definition_final"),
+      glue(" --output-file output/treated/extract/input_final_treated.feather"),
+      " --param effect=comparative",
+      " --param match_strategy=none"
+    ),
+    needs = namelesslst("design", "process_treated"),
+    highly_sensitive = lst(
+      cohort = glue("output/treated/extract/input_final_treated.feather")
+    )
+  ),
+  
+  comment("# # # # # # # # # # # # # # # # # # #", 
+          glue("Fit models for comparative effectiveness match_strategy = a"),
+          "# # # # # # # # # # # # # # # # # # #"),
+  
+  expand_grid(
+    match_strategy = c("a", "riskscore_i"),
+    subgroup = subgroups,
+    outcome = outcomes,
+  ) %>%
+    pmap(
+      function(match_strategy, subgroup, outcome) {
+        action_model(
+          effect = "comparative",
+          match_strategy = match_strategy,
+          subgroup = subgroup,
+          outcome = outcome
+        )
+      }
+    ) %>%
+    unlist(recursive = FALSE),
+  
+  action_combine_model_outputs(
+    effect = "comparative",
+    match_strategy = "a"
+  ),
+  
+  action_combine_model_outputs(
+    effect = "comparative",
+    match_strategy = "riskscore_i"
+  ),
+  
   ####################################################
-  # all actions for incremental effectiveness analysis
+  # INCREMENTAL
   ####################################################
   
-  actions_match_strategy(
-    effect = "incremental",
-    match_strategy = "a",
-    include_models = FALSE
+  comment("# # # # # # # # # # # # # # # # # # #", 
+          "Extract and process controlpotential1 data.", 
+          "This can be done once for all matching strategies.",
+          "# # # # # # # # # # # # # # # # # # #"),
+  
+  action_controlpotential(
+    match_strategy = "none",
+    match_round = 1
     ),
   
-  actions_match_strategy(
+  action_match_strategy(
+    effect = "incremental",
+    match_strategy = "a",
+    include_models = TRUE
+    ),
+  
+  action_match_strategy(
     effect = "incremental",
     match_strategy = "riskscore_i",
-    include_models = FALSE
+    include_models = TRUE
   ),
   
   comment("#### End ####")

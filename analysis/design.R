@@ -182,7 +182,7 @@ fup_params <- lst(
 # matching ----
 create_match_strategy <- function(
     name,
-    n_match_rounds = 2,
+    n_match_rounds = 4, # need to update, but use 4 for testing code
     exact_vars = NULL,
     caliper_vars = NULL,
     riskscore_vars = NULL, # variable to be included as covariates in risk score model
@@ -196,17 +196,17 @@ create_match_strategy <- function(
     caliper_vars = caliper_vars,
     riskscore_vars = riskscore_vars,
     riskscore_fup_vars,
-    keep_vars = unique(
-      c(
-        "age", "agegroup_match", "sex",
-        exact_vars, names(caliper_vars), 
-        riskscore_vars, riskscore_fup_vars
-        )
-      ),
     # these variables only need to be extracted in controlfinal, although
     # they may have been extracted earlier
     adj_vars = adj_vars,
-    strata_vars = strata_vars
+    strata_vars = strata_vars,
+    # group the variables so that ...
+    match_vars = unique(c(
+      exact_vars, names(caliper_vars), riskscore_vars, riskscore_fup_vars
+    )),
+    final_vars = unique(c(adj_vars, strata_vars)),
+    # variables to keep in the dataset throughout stages
+    keep_vars = c("age", "agegroup_match", "sex", "imd")
   )
   
   out %>%
@@ -242,6 +242,7 @@ match_strategy_none <- create_match_strategy(
 
 match_strategy_riskscore_i <- create_match_strategy(
   name = "riskscore_i",
+  n_match_rounds = 3,
   exact_vars = "riskscore_i_percentile",
   # caliper_vars = c("riskscore_i" = 0.1), 
   # riskscore_vars are the variables used in the model to predict the risk score
@@ -252,7 +253,13 @@ match_strategy_riskscore_i <- create_match_strategy(
     "ethnicity", "imd_Q5", "region", "flu_vaccine", "timesince_discharged",
     "vax_boostfirst_brand" # maybe edit this so any/none rather than pfizer/moderna/none
     ),
-  riskscore_fup_vars = c("death", "dereg")
+  riskscore_fup_vars = c("death", "dereg"),
+  adj_vars = c(
+    "sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental",
+    "immunosuppressed", "multimorb",  "timesince_coviddischarged",
+    "flu_vaccine"
+  ),
+  strata_vars = c("trial_date", "region")
 )
 
 match_strategy_a <- create_match_strategy(
@@ -279,16 +286,12 @@ match_strategy_a <- create_match_strategy(
 
 # check if all variables from all matching strategies are in match_strategy_none$keep_vars
 local({
-  all_vars <- unique(
-    c(
-      match_strategy_a$keep_vars, match_strategy_a$adj_vars, 
-      match_strategy_a$strata_vars, 
-      match_strategy_riskscore_i$keep_vars, match_strategy_riskscore_i$adj_vars,
-      match_strategy_riskscore_i$strata_vars
-      )
-    )
+  all_vars <- unique(c(
+    match_strategy_a$match_vars, match_strategy_a$final_vars, 
+    match_strategy_riskscore_i$match_vars, match_strategy_riskscore_i$final_vars
+  ))
   all_vars <- all_vars[!(all_vars %in% c("trial_date"))]
-  check_all_present <- all_vars %in% match_strategy_none$keep_vars
+  check_all_present <- all_vars %in% unique(c(match_strategy_none$match_vars, match_strategy_none$final_vars))
   if (!all(check_all_present)) {
     stop(
       "The following variables are specified in a matching strategy but not in match_strategy_none:\n",

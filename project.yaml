@@ -175,47 +175,14 @@ actions:
         data_processed_skim: output/treated/processed/*.txt
         data_eligible_skim: output/treated/eligible/*.txt
 
-  table1_treated_none:
+  table1_treated:
     run: r:latest analysis/report/table1.R treated none
     needs:
     - process_treated
+    - extract_final_treated
     outputs:
       moderately_sensitive:
-        csv: output/treated_none/table1/*.csv
-
-  ## # # # # # # # # # # # # # # # # # # # 
-  ## Extract and process controlpotential1 data. 
-  ## This can be done once for all matching strategies. 
-  ## # # # # # # # # # # # # # # # # # # # 
-
-  extract_controlpotential_none_1:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
-      --output-file output/incremental_none/matchround1/controlpotential/extract/input_controlpotential.feather
-      --param match_strategy=none --param match_round=1 --param index_date=2022-09-12
-    needs:
-    - design
-    - process_initial
-    outputs:
-      highly_sensitive:
-        cohort: output/incremental_none/matchround1/controlpotential/extract/input_controlpotential.feather
-
-  process_controlpotential_none_1:
-    run: r:latest analysis/process/process_stage.R controlpotential none 1
-    needs:
-    - dummydata_stage
-    - process_initial
-    - extract_controlpotential_none_1
-    - fit_model_riskscore_i_1
-    - fit_model_riskscore_i_2
-    - fit_model_riskscore_i_3
-    outputs:
-      highly_sensitive:
-        eligible_rds: output/incremental_none/matchround1/controlpotential/eligible/*.rds
-      moderately_sensitive:
-        data_extract_skim: output/incremental_none/matchround1/controlpotential/extract/*.txt
-        data_processed_skim: output/incremental_none/matchround1/controlpotential/processed/*.txt
-        data_controlpotential_skim: output/incremental_none/matchround1/controlpotential/eligible/*.txt
-        flowchart: output/incremental_none/matchround1/controlpotential/flowchart/*.csv
+        csv: output/treated/table1/*.csv
 
   ## # # # # # # # # # # # # # # # # # # # 
   ## Match treated for comparative effectiveness 
@@ -234,6 +201,7 @@ actions:
     run: r:latest analysis/report/table1.R comparative a
     needs:
     - process_treated
+    - extract_final_treated
     - match_comparative_a
     outputs:
       moderately_sensitive:
@@ -278,6 +246,7 @@ actions:
     run: r:latest analysis/report/table1.R comparative riskscore_i
     needs:
     - process_treated
+    - extract_final_treated
     - match_comparative_riskscore_i
     outputs:
       moderately_sensitive:
@@ -301,6 +270,698 @@ actions:
     outputs:
       moderately_sensitive:
         csv: output/comparative_riskscore_i/flowchart/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## Extract adjustment and outcome variables for all treated people 
+  ## # # # # # # # # # # # # # # # # # # # 
+
+  extract_final_treated:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_final
+      --output-file output/treated/extract/input_final_treated.feather --param effect=comparative
+      --param match_strategy=none
+    needs:
+    - design
+    - process_treated
+    outputs:
+      highly_sensitive:
+        cohort: output/treated/extract/input_final_treated.feather
+
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## Fit models for comparative effectiveness match_strategy = a 
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=all; outcome=covidadmitted; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_comparative_a_all_covidadmitted:
+    run: r:latest analysis/model/km.R comparative a all covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        rds: output/comparative_a/model/km/all/covidadmitted/*.csv
+        png: output/comparative_a/model/km/all/covidadmitted/*.png
+
+  cox_unadj_comparative_a_all_covidadmitted:
+    run: r:latest analysis/model/cox.R comparative a cox_unadj all covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_a/model/cox_unadj/all/covidadmitted/*.csv
+
+  cox_adj_comparative_a_all_covidadmitted:
+    run: r:latest analysis/model/cox.R comparative a cox_adj all covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_a/model/cox_adj/all/covidadmitted/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=all; outcome=coviddeath; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_comparative_a_all_coviddeath:
+    run: r:latest analysis/model/km.R comparative a all coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        rds: output/comparative_a/model/km/all/coviddeath/*.csv
+        png: output/comparative_a/model/km/all/coviddeath/*.png
+
+  cox_unadj_comparative_a_all_coviddeath:
+    run: r:latest analysis/model/cox.R comparative a cox_unadj all coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_a/model/cox_unadj/all/coviddeath/*.csv
+
+  cox_adj_comparative_a_all_coviddeath:
+    run: r:latest analysis/model/cox.R comparative a cox_adj all coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_a/model/cox_adj/all/coviddeath/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=all; outcome=noncoviddeath; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_comparative_a_all_noncoviddeath:
+    run: r:latest analysis/model/km.R comparative a all noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        rds: output/comparative_a/model/km/all/noncoviddeath/*.csv
+        png: output/comparative_a/model/km/all/noncoviddeath/*.png
+
+  cox_unadj_comparative_a_all_noncoviddeath:
+    run: r:latest analysis/model/cox.R comparative a cox_unadj all noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_a/model/cox_unadj/all/noncoviddeath/*.csv
+
+  cox_adj_comparative_a_all_noncoviddeath:
+    run: r:latest analysis/model/cox.R comparative a cox_adj all noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_a/model/cox_adj/all/noncoviddeath/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=all; outcome=fracture; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_comparative_a_all_fracture:
+    run: r:latest analysis/model/km.R comparative a all fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        rds: output/comparative_a/model/km/all/fracture/*.csv
+        png: output/comparative_a/model/km/all/fracture/*.png
+
+  cox_unadj_comparative_a_all_fracture:
+    run: r:latest analysis/model/cox.R comparative a cox_unadj all fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_a/model/cox_unadj/all/fracture/*.csv
+
+  cox_adj_comparative_a_all_fracture:
+    run: r:latest analysis/model/cox.R comparative a cox_adj all fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_a/model/cox_adj/all/fracture/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=agegroup_match; outcome=covidadmitted; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_comparative_a_agegroup_match_covidadmitted:
+    run: r:latest analysis/model/km.R comparative a agegroup_match covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        rds: output/comparative_a/model/km/agegroup_match/covidadmitted/*.csv
+        png: output/comparative_a/model/km/agegroup_match/covidadmitted/*.png
+
+  cox_unadj_comparative_a_agegroup_match_covidadmitted:
+    run: r:latest analysis/model/cox.R comparative a cox_unadj agegroup_match covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_a/model/cox_unadj/agegroup_match/covidadmitted/*.csv
+
+  cox_adj_comparative_a_agegroup_match_covidadmitted:
+    run: r:latest analysis/model/cox.R comparative a cox_adj agegroup_match covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_a/model/cox_adj/agegroup_match/covidadmitted/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=agegroup_match; outcome=coviddeath; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_comparative_a_agegroup_match_coviddeath:
+    run: r:latest analysis/model/km.R comparative a agegroup_match coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        rds: output/comparative_a/model/km/agegroup_match/coviddeath/*.csv
+        png: output/comparative_a/model/km/agegroup_match/coviddeath/*.png
+
+  cox_unadj_comparative_a_agegroup_match_coviddeath:
+    run: r:latest analysis/model/cox.R comparative a cox_unadj agegroup_match coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_a/model/cox_unadj/agegroup_match/coviddeath/*.csv
+
+  cox_adj_comparative_a_agegroup_match_coviddeath:
+    run: r:latest analysis/model/cox.R comparative a cox_adj agegroup_match coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_a/model/cox_adj/agegroup_match/coviddeath/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=agegroup_match; outcome=noncoviddeath; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_comparative_a_agegroup_match_noncoviddeath:
+    run: r:latest analysis/model/km.R comparative a agegroup_match noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        rds: output/comparative_a/model/km/agegroup_match/noncoviddeath/*.csv
+        png: output/comparative_a/model/km/agegroup_match/noncoviddeath/*.png
+
+  cox_unadj_comparative_a_agegroup_match_noncoviddeath:
+    run: r:latest analysis/model/cox.R comparative a cox_unadj agegroup_match noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_a/model/cox_unadj/agegroup_match/noncoviddeath/*.csv
+
+  cox_adj_comparative_a_agegroup_match_noncoviddeath:
+    run: r:latest analysis/model/cox.R comparative a cox_adj agegroup_match noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_a/model/cox_adj/agegroup_match/noncoviddeath/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=agegroup_match; outcome=fracture; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_comparative_a_agegroup_match_fracture:
+    run: r:latest analysis/model/km.R comparative a agegroup_match fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        rds: output/comparative_a/model/km/agegroup_match/fracture/*.csv
+        png: output/comparative_a/model/km/agegroup_match/fracture/*.png
+
+  cox_unadj_comparative_a_agegroup_match_fracture:
+    run: r:latest analysis/model/cox.R comparative a cox_unadj agegroup_match fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_a/model/cox_unadj/agegroup_match/fracture/*.csv
+
+  cox_adj_comparative_a_agegroup_match_fracture:
+    run: r:latest analysis/model/cox.R comparative a cox_adj agegroup_match fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_a
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_a/model/cox_adj/agegroup_match/fracture/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=all; outcome=covidadmitted; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_comparative_riskscore_i_all_covidadmitted:
+    run: r:latest analysis/model/km.R comparative riskscore_i all covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        rds: output/comparative_riskscore_i/model/km/all/covidadmitted/*.csv
+        png: output/comparative_riskscore_i/model/km/all/covidadmitted/*.png
+
+  cox_unadj_comparative_riskscore_i_all_covidadmitted:
+    run: r:latest analysis/model/cox.R comparative riskscore_i cox_unadj all covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/model/cox_unadj/all/covidadmitted/*.csv
+
+  cox_adj_comparative_riskscore_i_all_covidadmitted:
+    run: r:latest analysis/model/cox.R comparative riskscore_i cox_adj all covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/model/cox_adj/all/covidadmitted/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=all; outcome=coviddeath; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_comparative_riskscore_i_all_coviddeath:
+    run: r:latest analysis/model/km.R comparative riskscore_i all coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        rds: output/comparative_riskscore_i/model/km/all/coviddeath/*.csv
+        png: output/comparative_riskscore_i/model/km/all/coviddeath/*.png
+
+  cox_unadj_comparative_riskscore_i_all_coviddeath:
+    run: r:latest analysis/model/cox.R comparative riskscore_i cox_unadj all coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/model/cox_unadj/all/coviddeath/*.csv
+
+  cox_adj_comparative_riskscore_i_all_coviddeath:
+    run: r:latest analysis/model/cox.R comparative riskscore_i cox_adj all coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/model/cox_adj/all/coviddeath/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=all; outcome=noncoviddeath; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_comparative_riskscore_i_all_noncoviddeath:
+    run: r:latest analysis/model/km.R comparative riskscore_i all noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        rds: output/comparative_riskscore_i/model/km/all/noncoviddeath/*.csv
+        png: output/comparative_riskscore_i/model/km/all/noncoviddeath/*.png
+
+  cox_unadj_comparative_riskscore_i_all_noncoviddeath:
+    run: r:latest analysis/model/cox.R comparative riskscore_i cox_unadj all noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/model/cox_unadj/all/noncoviddeath/*.csv
+
+  cox_adj_comparative_riskscore_i_all_noncoviddeath:
+    run: r:latest analysis/model/cox.R comparative riskscore_i cox_adj all noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/model/cox_adj/all/noncoviddeath/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=all; outcome=fracture; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_comparative_riskscore_i_all_fracture:
+    run: r:latest analysis/model/km.R comparative riskscore_i all fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        rds: output/comparative_riskscore_i/model/km/all/fracture/*.csv
+        png: output/comparative_riskscore_i/model/km/all/fracture/*.png
+
+  cox_unadj_comparative_riskscore_i_all_fracture:
+    run: r:latest analysis/model/cox.R comparative riskscore_i cox_unadj all fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/model/cox_unadj/all/fracture/*.csv
+
+  cox_adj_comparative_riskscore_i_all_fracture:
+    run: r:latest analysis/model/cox.R comparative riskscore_i cox_adj all fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/model/cox_adj/all/fracture/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=agegroup_match; outcome=covidadmitted; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_comparative_riskscore_i_agegroup_match_covidadmitted:
+    run: r:latest analysis/model/km.R comparative riskscore_i agegroup_match covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        rds: output/comparative_riskscore_i/model/km/agegroup_match/covidadmitted/*.csv
+        png: output/comparative_riskscore_i/model/km/agegroup_match/covidadmitted/*.png
+
+  cox_unadj_comparative_riskscore_i_agegroup_match_covidadmitted:
+    run: r:latest analysis/model/cox.R comparative riskscore_i cox_unadj agegroup_match
+      covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/model/cox_unadj/agegroup_match/covidadmitted/*.csv
+
+  cox_adj_comparative_riskscore_i_agegroup_match_covidadmitted:
+    run: r:latest analysis/model/cox.R comparative riskscore_i cox_adj agegroup_match
+      covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/model/cox_adj/agegroup_match/covidadmitted/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=agegroup_match; outcome=coviddeath; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_comparative_riskscore_i_agegroup_match_coviddeath:
+    run: r:latest analysis/model/km.R comparative riskscore_i agegroup_match coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        rds: output/comparative_riskscore_i/model/km/agegroup_match/coviddeath/*.csv
+        png: output/comparative_riskscore_i/model/km/agegroup_match/coviddeath/*.png
+
+  cox_unadj_comparative_riskscore_i_agegroup_match_coviddeath:
+    run: r:latest analysis/model/cox.R comparative riskscore_i cox_unadj agegroup_match
+      coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/model/cox_unadj/agegroup_match/coviddeath/*.csv
+
+  cox_adj_comparative_riskscore_i_agegroup_match_coviddeath:
+    run: r:latest analysis/model/cox.R comparative riskscore_i cox_adj agegroup_match
+      coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/model/cox_adj/agegroup_match/coviddeath/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=agegroup_match; outcome=noncoviddeath; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_comparative_riskscore_i_agegroup_match_noncoviddeath:
+    run: r:latest analysis/model/km.R comparative riskscore_i agegroup_match noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        rds: output/comparative_riskscore_i/model/km/agegroup_match/noncoviddeath/*.csv
+        png: output/comparative_riskscore_i/model/km/agegroup_match/noncoviddeath/*.png
+
+  cox_unadj_comparative_riskscore_i_agegroup_match_noncoviddeath:
+    run: r:latest analysis/model/cox.R comparative riskscore_i cox_unadj agegroup_match
+      noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/model/cox_unadj/agegroup_match/noncoviddeath/*.csv
+
+  cox_adj_comparative_riskscore_i_agegroup_match_noncoviddeath:
+    run: r:latest analysis/model/cox.R comparative riskscore_i cox_adj agegroup_match
+      noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/model/cox_adj/agegroup_match/noncoviddeath/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=agegroup_match; outcome=fracture; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_comparative_riskscore_i_agegroup_match_fracture:
+    run: r:latest analysis/model/km.R comparative riskscore_i agegroup_match fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        rds: output/comparative_riskscore_i/model/km/agegroup_match/fracture/*.csv
+        png: output/comparative_riskscore_i/model/km/agegroup_match/fracture/*.png
+
+  cox_unadj_comparative_riskscore_i_agegroup_match_fracture:
+    run: r:latest analysis/model/cox.R comparative riskscore_i cox_unadj agegroup_match
+      fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/model/cox_unadj/agegroup_match/fracture/*.csv
+
+  cox_adj_comparative_riskscore_i_agegroup_match_fracture:
+    run: r:latest analysis/model/cox.R comparative riskscore_i cox_adj agegroup_match
+      fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_comparative_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/comparative_riskscore_i/model/cox_adj/agegroup_match/fracture/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## Combine comparative model outputs for match_strategy = a 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  combine_model_comparative_a:
+    run: r:latest analysis/model/combine_model.R comparative a
+    needs:
+    - km_comparative_a_all_covidadmitted
+    - km_comparative_a_all_coviddeath
+    - km_comparative_a_all_noncoviddeath
+    - km_comparative_a_all_fracture
+    - km_comparative_a_agegroup_match_covidadmitted
+    - km_comparative_a_agegroup_match_coviddeath
+    - km_comparative_a_agegroup_match_noncoviddeath
+    - km_comparative_a_agegroup_match_fracture
+    - cox_unadj_comparative_a_all_covidadmitted
+    - cox_unadj_comparative_a_all_coviddeath
+    - cox_unadj_comparative_a_all_noncoviddeath
+    - cox_unadj_comparative_a_all_fracture
+    - cox_unadj_comparative_a_agegroup_match_covidadmitted
+    - cox_unadj_comparative_a_agegroup_match_coviddeath
+    - cox_unadj_comparative_a_agegroup_match_noncoviddeath
+    - cox_unadj_comparative_a_agegroup_match_fracture
+    - cox_adj_comparative_a_all_covidadmitted
+    - cox_adj_comparative_a_all_coviddeath
+    - cox_adj_comparative_a_all_noncoviddeath
+    - cox_adj_comparative_a_all_fracture
+    - cox_adj_comparative_a_agegroup_match_covidadmitted
+    - cox_adj_comparative_a_agegroup_match_coviddeath
+    - cox_adj_comparative_a_agegroup_match_noncoviddeath
+    - cox_adj_comparative_a_agegroup_match_fracture
+    outputs:
+      moderately_sensitive:
+        rds: output/comparative_a/model/*.csv
+        png: output/comparative_a/model/*.png
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## Combine comparative model outputs for match_strategy = riskscore_i 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  combine_model_comparative_riskscore_i:
+    run: r:latest analysis/model/combine_model.R comparative riskscore_i
+    needs:
+    - km_comparative_riskscore_i_all_covidadmitted
+    - km_comparative_riskscore_i_all_coviddeath
+    - km_comparative_riskscore_i_all_noncoviddeath
+    - km_comparative_riskscore_i_all_fracture
+    - km_comparative_riskscore_i_agegroup_match_covidadmitted
+    - km_comparative_riskscore_i_agegroup_match_coviddeath
+    - km_comparative_riskscore_i_agegroup_match_noncoviddeath
+    - km_comparative_riskscore_i_agegroup_match_fracture
+    - cox_unadj_comparative_riskscore_i_all_covidadmitted
+    - cox_unadj_comparative_riskscore_i_all_coviddeath
+    - cox_unadj_comparative_riskscore_i_all_noncoviddeath
+    - cox_unadj_comparative_riskscore_i_all_fracture
+    - cox_unadj_comparative_riskscore_i_agegroup_match_covidadmitted
+    - cox_unadj_comparative_riskscore_i_agegroup_match_coviddeath
+    - cox_unadj_comparative_riskscore_i_agegroup_match_noncoviddeath
+    - cox_unadj_comparative_riskscore_i_agegroup_match_fracture
+    - cox_adj_comparative_riskscore_i_all_covidadmitted
+    - cox_adj_comparative_riskscore_i_all_coviddeath
+    - cox_adj_comparative_riskscore_i_all_noncoviddeath
+    - cox_adj_comparative_riskscore_i_all_fracture
+    - cox_adj_comparative_riskscore_i_agegroup_match_covidadmitted
+    - cox_adj_comparative_riskscore_i_agegroup_match_coviddeath
+    - cox_adj_comparative_riskscore_i_agegroup_match_noncoviddeath
+    - cox_adj_comparative_riskscore_i_agegroup_match_fracture
+    outputs:
+      moderately_sensitive:
+        rds: output/comparative_riskscore_i/model/*.csv
+        png: output/comparative_riskscore_i/model/*.png
+
+  ## # # # # # # # # # # # # # # # # # # # 
+  ## Extract and process controlpotential1 data. 
+  ## This can be done once for all matching strategies. 
+  ## # # # # # # # # # # # # # # # # # # # 
+
+  extract_controlpotential_none_1:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
+      --output-file output/incremental_none/matchround1/controlpotential/extract/input_controlpotential.feather
+      --param match_strategy=none --param match_round=1 --param index_date=2022-09-12
+    needs:
+    - design
+    - process_initial
+    outputs:
+      highly_sensitive:
+        cohort: output/incremental_none/matchround1/controlpotential/extract/input_controlpotential.feather
+
+  process_controlpotential_none_1:
+    run: r:latest analysis/process/process_stage.R controlpotential none 1
+    needs:
+    - dummydata_stage
+    - process_initial
+    - extract_controlpotential_none_1
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
+    outputs:
+      highly_sensitive:
+        eligible_rds: output/incremental_none/matchround1/controlpotential/eligible/*.rds
+      moderately_sensitive:
+        data_extract_skim: output/incremental_none/matchround1/controlpotential/extract/*.txt
+        data_processed_skim: output/incremental_none/matchround1/controlpotential/processed/*.txt
+        data_controlpotential_skim: output/incremental_none/matchround1/controlpotential/eligible/*.txt
+        flowchart: output/incremental_none/matchround1/controlpotential/flowchart/*.csv
 
   ## # # # # # # # # # # # # # # # # # # # 
   ## Match treated for incremental effectiveness 
@@ -624,18 +1285,6 @@ actions:
       moderately_sensitive:
         csv: output/incremental_a/matchround4/controlactual/match/*.csv
 
-  table1_incremental_a:
-    run: r:latest analysis/report/table1.R incremental a
-    needs:
-    - process_treated
-    - match_controlactual_a_1
-    - match_controlactual_a_2
-    - match_controlactual_a_3
-    - match_controlactual_a_4
-    outputs:
-      moderately_sensitive:
-        csv: output/incremental_a/table1/*.csv
-
   coverage_incremental_a:
     run: r:latest analysis/match/match_coverage.R incremental a
     needs:
@@ -663,13 +1312,13 @@ actions:
         csv: output/incremental_a/flowchart/*.csv
 
   ## # # # # # # # # # # # # # # # # # # # 
-  ## Extract adjustment variables for final matched controls 
+  ## Extract adjustment and outcome variables for final matched controls 
   ## # # # # # # # # # # # # # # # # # # # 
 
-  extract_controlfinal_a:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlfinal
-      --output-file output/incremental_a/match/input_controlfinal_a.feather --param
-      match_strategy=a
+  extract_final_incremental_a:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_final
+      --output-file output/incremental_a/match/input_final_a.feather --param effect=incremental
+      --param match_strategy=a
     needs:
     - design
     - match_controlactual_a_1
@@ -678,7 +1327,436 @@ actions:
     - match_controlactual_a_4
     outputs:
       highly_sensitive:
-        cohort: output/incremental_a/match/input_controlfinal_a.feather
+        cohort: output/incremental_a/match/input_final_a.feather
+
+  table1_incremental_a:
+    run: r:latest analysis/report/table1.R incremental a
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_a/table1/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## Fit models to estimate incremental effectiveness 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=all; outcome=covidadmitted; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_incremental_a_all_covidadmitted:
+    run: r:latest analysis/model/km.R incremental a all covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        rds: output/incremental_a/model/km/all/covidadmitted/*.csv
+        png: output/incremental_a/model/km/all/covidadmitted/*.png
+
+  cox_unadj_incremental_a_all_covidadmitted:
+    run: r:latest analysis/model/cox.R incremental a cox_unadj all covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_a/model/cox_unadj/all/covidadmitted/*.csv
+
+  cox_adj_incremental_a_all_covidadmitted:
+    run: r:latest analysis/model/cox.R incremental a cox_adj all covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_a/model/cox_adj/all/covidadmitted/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=all; outcome=coviddeath; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_incremental_a_all_coviddeath:
+    run: r:latest analysis/model/km.R incremental a all coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        rds: output/incremental_a/model/km/all/coviddeath/*.csv
+        png: output/incremental_a/model/km/all/coviddeath/*.png
+
+  cox_unadj_incremental_a_all_coviddeath:
+    run: r:latest analysis/model/cox.R incremental a cox_unadj all coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_a/model/cox_unadj/all/coviddeath/*.csv
+
+  cox_adj_incremental_a_all_coviddeath:
+    run: r:latest analysis/model/cox.R incremental a cox_adj all coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_a/model/cox_adj/all/coviddeath/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=all; outcome=noncoviddeath; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_incremental_a_all_noncoviddeath:
+    run: r:latest analysis/model/km.R incremental a all noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        rds: output/incremental_a/model/km/all/noncoviddeath/*.csv
+        png: output/incremental_a/model/km/all/noncoviddeath/*.png
+
+  cox_unadj_incremental_a_all_noncoviddeath:
+    run: r:latest analysis/model/cox.R incremental a cox_unadj all noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_a/model/cox_unadj/all/noncoviddeath/*.csv
+
+  cox_adj_incremental_a_all_noncoviddeath:
+    run: r:latest analysis/model/cox.R incremental a cox_adj all noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_a/model/cox_adj/all/noncoviddeath/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=all; outcome=fracture; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_incremental_a_all_fracture:
+    run: r:latest analysis/model/km.R incremental a all fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        rds: output/incremental_a/model/km/all/fracture/*.csv
+        png: output/incremental_a/model/km/all/fracture/*.png
+
+  cox_unadj_incremental_a_all_fracture:
+    run: r:latest analysis/model/cox.R incremental a cox_unadj all fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_a/model/cox_unadj/all/fracture/*.csv
+
+  cox_adj_incremental_a_all_fracture:
+    run: r:latest analysis/model/cox.R incremental a cox_adj all fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_a/model/cox_adj/all/fracture/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=agegroup_match; outcome=covidadmitted; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_incremental_a_agegroup_match_covidadmitted:
+    run: r:latest analysis/model/km.R incremental a agegroup_match covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        rds: output/incremental_a/model/km/agegroup_match/covidadmitted/*.csv
+        png: output/incremental_a/model/km/agegroup_match/covidadmitted/*.png
+
+  cox_unadj_incremental_a_agegroup_match_covidadmitted:
+    run: r:latest analysis/model/cox.R incremental a cox_unadj agegroup_match covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_a/model/cox_unadj/agegroup_match/covidadmitted/*.csv
+
+  cox_adj_incremental_a_agegroup_match_covidadmitted:
+    run: r:latest analysis/model/cox.R incremental a cox_adj agegroup_match covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_a/model/cox_adj/agegroup_match/covidadmitted/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=agegroup_match; outcome=coviddeath; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_incremental_a_agegroup_match_coviddeath:
+    run: r:latest analysis/model/km.R incremental a agegroup_match coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        rds: output/incremental_a/model/km/agegroup_match/coviddeath/*.csv
+        png: output/incremental_a/model/km/agegroup_match/coviddeath/*.png
+
+  cox_unadj_incremental_a_agegroup_match_coviddeath:
+    run: r:latest analysis/model/cox.R incremental a cox_unadj agegroup_match coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_a/model/cox_unadj/agegroup_match/coviddeath/*.csv
+
+  cox_adj_incremental_a_agegroup_match_coviddeath:
+    run: r:latest analysis/model/cox.R incremental a cox_adj agegroup_match coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_a/model/cox_adj/agegroup_match/coviddeath/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=agegroup_match; outcome=noncoviddeath; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_incremental_a_agegroup_match_noncoviddeath:
+    run: r:latest analysis/model/km.R incremental a agegroup_match noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        rds: output/incremental_a/model/km/agegroup_match/noncoviddeath/*.csv
+        png: output/incremental_a/model/km/agegroup_match/noncoviddeath/*.png
+
+  cox_unadj_incremental_a_agegroup_match_noncoviddeath:
+    run: r:latest analysis/model/cox.R incremental a cox_unadj agegroup_match noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_a/model/cox_unadj/agegroup_match/noncoviddeath/*.csv
+
+  cox_adj_incremental_a_agegroup_match_noncoviddeath:
+    run: r:latest analysis/model/cox.R incremental a cox_adj agegroup_match noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_a/model/cox_adj/agegroup_match/noncoviddeath/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=agegroup_match; outcome=fracture; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_incremental_a_agegroup_match_fracture:
+    run: r:latest analysis/model/km.R incremental a agegroup_match fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        rds: output/incremental_a/model/km/agegroup_match/fracture/*.csv
+        png: output/incremental_a/model/km/agegroup_match/fracture/*.png
+
+  cox_unadj_incremental_a_agegroup_match_fracture:
+    run: r:latest analysis/model/cox.R incremental a cox_unadj agegroup_match fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_a/model/cox_unadj/agegroup_match/fracture/*.csv
+
+  cox_adj_incremental_a_agegroup_match_fracture:
+    run: r:latest analysis/model/cox.R incremental a cox_adj agegroup_match fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_a_1
+    - match_controlactual_a_2
+    - match_controlactual_a_3
+    - match_controlactual_a_4
+    - extract_final_incremental_a
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_a/model/cox_adj/agegroup_match/fracture/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## Combine incremental model outputs for match_strategy = a 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  combine_model_incremental_a:
+    run: r:latest analysis/model/combine_model.R incremental a
+    needs:
+    - km_incremental_a_all_covidadmitted
+    - km_incremental_a_all_coviddeath
+    - km_incremental_a_all_noncoviddeath
+    - km_incremental_a_all_fracture
+    - km_incremental_a_agegroup_match_covidadmitted
+    - km_incremental_a_agegroup_match_coviddeath
+    - km_incremental_a_agegroup_match_noncoviddeath
+    - km_incremental_a_agegroup_match_fracture
+    - cox_unadj_incremental_a_all_covidadmitted
+    - cox_unadj_incremental_a_all_coviddeath
+    - cox_unadj_incremental_a_all_noncoviddeath
+    - cox_unadj_incremental_a_all_fracture
+    - cox_unadj_incremental_a_agegroup_match_covidadmitted
+    - cox_unadj_incremental_a_agegroup_match_coviddeath
+    - cox_unadj_incremental_a_agegroup_match_noncoviddeath
+    - cox_unadj_incremental_a_agegroup_match_fracture
+    - cox_adj_incremental_a_all_covidadmitted
+    - cox_adj_incremental_a_all_coviddeath
+    - cox_adj_incremental_a_all_noncoviddeath
+    - cox_adj_incremental_a_all_fracture
+    - cox_adj_incremental_a_agegroup_match_covidadmitted
+    - cox_adj_incremental_a_agegroup_match_coviddeath
+    - cox_adj_incremental_a_agegroup_match_noncoviddeath
+    - cox_adj_incremental_a_agegroup_match_fracture
+    outputs:
+      moderately_sensitive:
+        rds: output/incremental_a/model/*.csv
+        png: output/incremental_a/model/*.png
 
   ## # # # # # # # # # # # # # # # # # # # 
   ## Match treated for incremental effectiveness 
@@ -840,19 +1918,107 @@ actions:
     outputs:
       highly_sensitive:
         rds: output/incremental_riskscore_i/matchround2/controlactual/match/*.rds
-        final: output/incremental_riskscore_i/match/*.csv.gz
+        csvgz: output/incremental_riskscore_i/matchround2/controlactual/match/*.csv.gz
       moderately_sensitive:
         csv: output/incremental_riskscore_i/matchround2/controlactual/match/*.csv
 
-  table1_incremental_riskscore_i:
-    run: r:latest analysis/report/table1.R incremental riskscore_i
+  ## Extract, process and match controlpotential data. 
+  ## Match_round = 3 
+
+  extract_controlpotential_riskscore_i_3:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
+      --output-file output/incremental_riskscore_i/matchround3/controlpotential/extract/input_controlpotential.feather
+      --param match_strategy=riskscore_i --param match_round=3 --param index_date=2022-10-10
     needs:
+    - design
+    - match_controlactual_riskscore_i_2
+    outputs:
+      highly_sensitive:
+        cohort: output/incremental_riskscore_i/matchround3/controlpotential/extract/input_controlpotential.feather
+
+  process_controlpotential_riskscore_i_3:
+    run: r:latest analysis/process/process_stage.R controlpotential riskscore_i 3
+    needs:
+    - dummydata_stage
+    - process_initial
+    - extract_controlpotential_riskscore_i_3
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
+    outputs:
+      highly_sensitive:
+        eligible_rds: output/incremental_riskscore_i/matchround3/controlpotential/eligible/*.rds
+      moderately_sensitive:
+        data_extract_skim: output/incremental_riskscore_i/matchround3/controlpotential/extract/*.txt
+        data_processed_skim: output/incremental_riskscore_i/matchround3/controlpotential/processed/*.txt
+        data_controlpotential_skim: output/incremental_riskscore_i/matchround3/controlpotential/eligible/*.txt
+        flowchart: output/incremental_riskscore_i/matchround3/controlpotential/flowchart/*.csv
+        riskscore_i_plots: output/incremental_riskscore_i/matchround3/controlpotential/riskscore_i/plot_*.png
+
+  match_controlpotential_riskscore_i_3:
+    run: r:latest analysis/match/match_controlpotential.R riskscore_i 3
+    needs:
+    - process_treated
+    - process_controlpotential_riskscore_i_3
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
+    outputs:
+      highly_sensitive:
+        rds: output/incremental_riskscore_i/matchround3/controlpotential/match/*.rds
+        csv: output/incremental_riskscore_i/matchround3/controlpotential/match/*.csv.gz
+
+  ## Extract and process controlactual data 
+  ## (matches checked and rematched in the process action). 
+
+  extract_controlactual_riskscore_i_3:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
+      --output-file output/incremental_riskscore_i/matchround3/controlactual/extract/input_controlactual.feather
+      --param match_strategy=riskscore_i --param match_round=3
+    needs:
+    - design
+    - match_controlpotential_riskscore_i_3
+    outputs:
+      highly_sensitive:
+        cohort: output/incremental_riskscore_i/matchround3/controlactual/extract/input_controlactual.feather
+
+  process_controlactual_riskscore_i_3:
+    run: r:latest analysis/process/process_stage.R controlactual riskscore_i 3
+    needs:
+    - process_initial
+    - dummydata_stage
+    - match_controlpotential_riskscore_i_3
+    - extract_controlactual_riskscore_i_3
+    - fit_model_riskscore_i_1
+    - fit_model_riskscore_i_2
+    - fit_model_riskscore_i_3
+    outputs:
+      highly_sensitive:
+        data_eligible: output/incremental_riskscore_i/matchround3/controlactual/eligible/*.rds
+      moderately_sensitive:
+        input_skim: output/incremental_riskscore_i/matchround3/controlactual/extract/*.txt
+        eligible_skim: output/incremental_riskscore_i/matchround3/controlactual/eligible/*.txt
+        process_skim: output/incremental_riskscore_i/matchround3/controlactual/processed/*.txt
+        flowchart: output/incremental_riskscore_i/matchround3/controlactual/flowchart/*.csv
+        riskscore_i_plots: output/incremental_riskscore_i/matchround3/controlactual/riskscore_i/plot_*.png
+
+  match_controlactual_riskscore_i_3:
+    run: r:latest analysis/match/match_controlactual.R riskscore_i 3
+    needs:
+    - process_initial
     - process_treated
     - match_controlactual_riskscore_i_1
     - match_controlactual_riskscore_i_2
+    - match_controlpotential_riskscore_i_3
+    - process_controlactual_riskscore_i_3
     outputs:
+      highly_sensitive:
+        rds: output/incremental_riskscore_i/matchround3/controlactual/match/*.rds
+        final: output/incremental_riskscore_i/match/*.csv.gz
       moderately_sensitive:
-        csv: output/incremental_riskscore_i/table1/*.csv
+        csv: output/incremental_riskscore_i/matchround3/controlactual/match/*.csv
 
   coverage_incremental_riskscore_i:
     run: r:latest analysis/match/match_coverage.R incremental riskscore_i
@@ -860,6 +2026,7 @@ actions:
     - process_treated
     - match_controlactual_riskscore_i_1
     - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
     outputs:
       moderately_sensitive:
         csv: output/incremental_riskscore_i/coverage/*.csv
@@ -871,26 +2038,440 @@ actions:
     - process_treated
     - match_controlactual_riskscore_i_1
     - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
     - process_initial
     outputs:
       moderately_sensitive:
         csv: output/incremental_riskscore_i/flowchart/*.csv
 
   ## # # # # # # # # # # # # # # # # # # # 
-  ## Extract adjustment variables for final matched controls 
+  ## Extract adjustment and outcome variables for final matched controls 
   ## # # # # # # # # # # # # # # # # # # # 
 
-  extract_controlfinal_riskscore_i:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlfinal
-      --output-file output/incremental_riskscore_i/match/input_controlfinal_riskscore_i.feather
-      --param match_strategy=riskscore_i
+  extract_final_incremental_riskscore_i:
+    run: cohortextractor:latest generate_cohort --study-definition study_definition_final
+      --output-file output/incremental_riskscore_i/match/input_final_riskscore_i.feather
+      --param effect=incremental --param match_strategy=riskscore_i
     needs:
     - design
     - match_controlactual_riskscore_i_1
     - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
     outputs:
       highly_sensitive:
-        cohort: output/incremental_riskscore_i/match/input_controlfinal_riskscore_i.feather
+        cohort: output/incremental_riskscore_i/match/input_final_riskscore_i.feather
+
+  table1_incremental_riskscore_i:
+    run: r:latest analysis/report/table1.R incremental riskscore_i
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/table1/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## Fit models to estimate incremental effectiveness 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=all; outcome=covidadmitted; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_incremental_riskscore_i_all_covidadmitted:
+    run: r:latest analysis/model/km.R incremental riskscore_i all covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        rds: output/incremental_riskscore_i/model/km/all/covidadmitted/*.csv
+        png: output/incremental_riskscore_i/model/km/all/covidadmitted/*.png
+
+  cox_unadj_incremental_riskscore_i_all_covidadmitted:
+    run: r:latest analysis/model/cox.R incremental riskscore_i cox_unadj all covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/model/cox_unadj/all/covidadmitted/*.csv
+
+  cox_adj_incremental_riskscore_i_all_covidadmitted:
+    run: r:latest analysis/model/cox.R incremental riskscore_i cox_adj all covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/model/cox_adj/all/covidadmitted/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=all; outcome=coviddeath; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_incremental_riskscore_i_all_coviddeath:
+    run: r:latest analysis/model/km.R incremental riskscore_i all coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        rds: output/incremental_riskscore_i/model/km/all/coviddeath/*.csv
+        png: output/incremental_riskscore_i/model/km/all/coviddeath/*.png
+
+  cox_unadj_incremental_riskscore_i_all_coviddeath:
+    run: r:latest analysis/model/cox.R incremental riskscore_i cox_unadj all coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/model/cox_unadj/all/coviddeath/*.csv
+
+  cox_adj_incremental_riskscore_i_all_coviddeath:
+    run: r:latest analysis/model/cox.R incremental riskscore_i cox_adj all coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/model/cox_adj/all/coviddeath/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=all; outcome=noncoviddeath; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_incremental_riskscore_i_all_noncoviddeath:
+    run: r:latest analysis/model/km.R incremental riskscore_i all noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        rds: output/incremental_riskscore_i/model/km/all/noncoviddeath/*.csv
+        png: output/incremental_riskscore_i/model/km/all/noncoviddeath/*.png
+
+  cox_unadj_incremental_riskscore_i_all_noncoviddeath:
+    run: r:latest analysis/model/cox.R incremental riskscore_i cox_unadj all noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/model/cox_unadj/all/noncoviddeath/*.csv
+
+  cox_adj_incremental_riskscore_i_all_noncoviddeath:
+    run: r:latest analysis/model/cox.R incremental riskscore_i cox_adj all noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/model/cox_adj/all/noncoviddeath/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=all; outcome=fracture; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_incremental_riskscore_i_all_fracture:
+    run: r:latest analysis/model/km.R incremental riskscore_i all fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        rds: output/incremental_riskscore_i/model/km/all/fracture/*.csv
+        png: output/incremental_riskscore_i/model/km/all/fracture/*.png
+
+  cox_unadj_incremental_riskscore_i_all_fracture:
+    run: r:latest analysis/model/cox.R incremental riskscore_i cox_unadj all fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/model/cox_unadj/all/fracture/*.csv
+
+  cox_adj_incremental_riskscore_i_all_fracture:
+    run: r:latest analysis/model/cox.R incremental riskscore_i cox_adj all fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/model/cox_adj/all/fracture/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=agegroup_match; outcome=covidadmitted; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_incremental_riskscore_i_agegroup_match_covidadmitted:
+    run: r:latest analysis/model/km.R incremental riskscore_i agegroup_match covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        rds: output/incremental_riskscore_i/model/km/agegroup_match/covidadmitted/*.csv
+        png: output/incremental_riskscore_i/model/km/agegroup_match/covidadmitted/*.png
+
+  cox_unadj_incremental_riskscore_i_agegroup_match_covidadmitted:
+    run: r:latest analysis/model/cox.R incremental riskscore_i cox_unadj agegroup_match
+      covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/model/cox_unadj/agegroup_match/covidadmitted/*.csv
+
+  cox_adj_incremental_riskscore_i_agegroup_match_covidadmitted:
+    run: r:latest analysis/model/cox.R incremental riskscore_i cox_adj agegroup_match
+      covidadmitted
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/model/cox_adj/agegroup_match/covidadmitted/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=agegroup_match; outcome=coviddeath; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_incremental_riskscore_i_agegroup_match_coviddeath:
+    run: r:latest analysis/model/km.R incremental riskscore_i agegroup_match coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        rds: output/incremental_riskscore_i/model/km/agegroup_match/coviddeath/*.csv
+        png: output/incremental_riskscore_i/model/km/agegroup_match/coviddeath/*.png
+
+  cox_unadj_incremental_riskscore_i_agegroup_match_coviddeath:
+    run: r:latest analysis/model/cox.R incremental riskscore_i cox_unadj agegroup_match
+      coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/model/cox_unadj/agegroup_match/coviddeath/*.csv
+
+  cox_adj_incremental_riskscore_i_agegroup_match_coviddeath:
+    run: r:latest analysis/model/cox.R incremental riskscore_i cox_adj agegroup_match
+      coviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/model/cox_adj/agegroup_match/coviddeath/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=agegroup_match; outcome=noncoviddeath; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_incremental_riskscore_i_agegroup_match_noncoviddeath:
+    run: r:latest analysis/model/km.R incremental riskscore_i agegroup_match noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        rds: output/incremental_riskscore_i/model/km/agegroup_match/noncoviddeath/*.csv
+        png: output/incremental_riskscore_i/model/km/agegroup_match/noncoviddeath/*.png
+
+  cox_unadj_incremental_riskscore_i_agegroup_match_noncoviddeath:
+    run: r:latest analysis/model/cox.R incremental riskscore_i cox_unadj agegroup_match
+      noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/model/cox_unadj/agegroup_match/noncoviddeath/*.csv
+
+  cox_adj_incremental_riskscore_i_agegroup_match_noncoviddeath:
+    run: r:latest analysis/model/cox.R incremental riskscore_i cox_adj agegroup_match
+      noncoviddeath
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/model/cox_adj/agegroup_match/noncoviddeath/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## subgroup=agegroup_match; outcome=fracture; 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  km_incremental_riskscore_i_agegroup_match_fracture:
+    run: r:latest analysis/model/km.R incremental riskscore_i agegroup_match fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        rds: output/incremental_riskscore_i/model/km/agegroup_match/fracture/*.csv
+        png: output/incremental_riskscore_i/model/km/agegroup_match/fracture/*.png
+
+  cox_unadj_incremental_riskscore_i_agegroup_match_fracture:
+    run: r:latest analysis/model/cox.R incremental riskscore_i cox_unadj agegroup_match
+      fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/model/cox_unadj/agegroup_match/fracture/*.csv
+
+  cox_adj_incremental_riskscore_i_agegroup_match_fracture:
+    run: r:latest analysis/model/cox.R incremental riskscore_i cox_adj agegroup_match
+      fracture
+    needs:
+    - process_treated
+    - extract_final_treated
+    - match_controlactual_riskscore_i_1
+    - match_controlactual_riskscore_i_2
+    - match_controlactual_riskscore_i_3
+    - extract_final_incremental_riskscore_i
+    outputs:
+      moderately_sensitive:
+        csv: output/incremental_riskscore_i/model/cox_adj/agegroup_match/fracture/*.csv
+
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+  ## Combine incremental model outputs for match_strategy = riskscore_i 
+  ## # # # # # # # # # # # # # # # # # # # # # # # # # # #  
+
+  combine_model_incremental_riskscore_i:
+    run: r:latest analysis/model/combine_model.R incremental riskscore_i
+    needs:
+    - km_incremental_riskscore_i_all_covidadmitted
+    - km_incremental_riskscore_i_all_coviddeath
+    - km_incremental_riskscore_i_all_noncoviddeath
+    - km_incremental_riskscore_i_all_fracture
+    - km_incremental_riskscore_i_agegroup_match_covidadmitted
+    - km_incremental_riskscore_i_agegroup_match_coviddeath
+    - km_incremental_riskscore_i_agegroup_match_noncoviddeath
+    - km_incremental_riskscore_i_agegroup_match_fracture
+    - cox_unadj_incremental_riskscore_i_all_covidadmitted
+    - cox_unadj_incremental_riskscore_i_all_coviddeath
+    - cox_unadj_incremental_riskscore_i_all_noncoviddeath
+    - cox_unadj_incremental_riskscore_i_all_fracture
+    - cox_unadj_incremental_riskscore_i_agegroup_match_covidadmitted
+    - cox_unadj_incremental_riskscore_i_agegroup_match_coviddeath
+    - cox_unadj_incremental_riskscore_i_agegroup_match_noncoviddeath
+    - cox_unadj_incremental_riskscore_i_agegroup_match_fracture
+    - cox_adj_incremental_riskscore_i_all_covidadmitted
+    - cox_adj_incremental_riskscore_i_all_coviddeath
+    - cox_adj_incremental_riskscore_i_all_noncoviddeath
+    - cox_adj_incremental_riskscore_i_all_fracture
+    - cox_adj_incremental_riskscore_i_agegroup_match_covidadmitted
+    - cox_adj_incremental_riskscore_i_agegroup_match_coviddeath
+    - cox_adj_incremental_riskscore_i_agegroup_match_noncoviddeath
+    - cox_adj_incremental_riskscore_i_agegroup_match_fracture
+    outputs:
+      moderately_sensitive:
+        rds: output/incremental_riskscore_i/model/*.csv
+        png: output/incremental_riskscore_i/model/*.png
 
   ## #### End #### 
 

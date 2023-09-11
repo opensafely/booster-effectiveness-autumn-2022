@@ -33,7 +33,7 @@ args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
   # use for interactive testing
   effect <- "incremental"
-  match_strategy <- "riskscore_i"
+  match_strategy <- "a"
 } else {
   effect <- args[[1]]
   match_strategy <- args[[2]]
@@ -45,7 +45,11 @@ list2env(
   envir = environment()
 )
 
-effect_match_strategy <- str_c(effect, match_strategy, sep = "_")
+if (effect == "treated") {
+  effect_match_strategy <- "treated"
+} else {
+  effect_match_strategy <- str_c(effect, match_strategy, sep = "_")
+}
 
 # create output directories 
 output_dir <- here("output", effect_match_strategy, "table1")
@@ -57,16 +61,17 @@ if (effect == "treated") {
   data_table1 <- read_rds(here("output", "treated", "eligible", "data_treated.rds")) %>%
     rename(trial_date = vax_boostautumn_date)
 } else {
+  # if comparative, don't need to read final extract, as it only contains outcomes
+  if (effect == "comparative") read_final <- FALSE
+  if (effect == "incremental") read_final <- TRUE
   # derive data_matched
   source(here("analysis", "process", "process_postmatch.R"))
   data_table1 <- data_matched
   rm(data_matched)
 }
 
-if ("vax_lastbeforeindex_date" %in% keep_vars) {
-  # derive extra variables / revel variables
+if ("vax_lastbeforeindex_date" %in% names(data_table1)) {
   data_table1 <- data_table1 %>%
-    # derive extra variables
     mutate(
       # vax_lastbeforeindex_date was a matching variable, but more meaningful 
       # to summarise as timesince_lastvax

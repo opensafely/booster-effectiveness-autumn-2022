@@ -9,29 +9,62 @@ library(tidyverse)
 library(glue)
 library(here)
 
+# import command-line arguments
+args <- commandArgs(trailingOnly=TRUE)
+if(length(args)==0){
+  effect <- "incremental"
+  match_strategy <- "a"
+} else {
+  effect <- args[[1]]
+  match_strategy <- args[[2]]
+}
+
 # load functions and parameters
 source(here("analysis", "design.R"))
 source(here("lib", "functions", "utility.R"))
 
 # define output directory
-output_dir <- ghere("output", "report", "model")
+output_dir <- ghere("output", "{effect}_{match_strategy}", "model")
 fs::dir_create(output_dir)
 
-# metaparams for all models that have been run
-model_args
+# metaparams for all models that have been run for the given effect
+model_args <- model_args[model_args$effect == effect,]
 
 # get all subgroups
 subgroups <- model_args %>% distinct(subgroup) %>% pull()
 
 # combine and save outputs ----
-combine_and_save_contrasts <- function(model_type, filenames, metaparams = model_args) {
+combine_and_save_contrasts <- function(
+    filenames,
+    new_filename = NULL,
+    metaparams = model_args
+    ) {
+  
+  model_type <- unique(str_extract(filenames, "km|cox"))
   
   metaparams <- metaparams %>%
     filter(str_detect(model, model_type)) %>%
     uncount(length(filenames), .id="filename") %>% 
-    mutate(across(filename, ~filenames[.x]))
+    mutate(across(filename, ~filenames[.x])) %>%
+    filter(str_detect(filename, model))
   
-  filename_stem <- unique(str_remove(metaparams$filename, "_.+"))
+  rounding_info <- unique(str_extract(filenames, "midpoint\\d+"))
+  stopifnot(
+    "Do not combine files with different rounding" = 
+      length(rounding_info) <= 1
+  )
+  
+  if (length(filenames) > 1) {
+    stopifnot(
+      "Must specify new_filename when length(filenames) > 1" =
+        !is.null(new_filename)
+      )
+    if (!is.na(rounding_info)) {
+      new_filename <- str_c(new_filename, rounding_info, sep = "_")
+    }
+  } else {
+    new_filename <- filenames
+  }
   
   metaparams %>%
     mutate(
@@ -40,9 +73,9 @@ combine_and_save_contrasts <- function(model_type, filenames, metaparams = model
         function(effect, model, subgroup, outcome, filename)  {
           dat <- try(
             read_csv(
-              here("output", effect, "model", model, subgroup, outcome, glue("{model}_{filename}_rounded.csv"))
+              here("output", glue(effect, "_", match_strategy), "model", model, subgroup, outcome, glue(filename, ".csv"))
               )
-            ) 
+            )
           if (inherits(dat, "try-error")) {
             dat <- tibble()
           } else {
@@ -61,24 +94,40 @@ combine_and_save_contrasts <- function(model_type, filenames, metaparams = model
     select(-any_of(subgroups)) %>%
     mutate(across(
       starts_with(c("surv", "risk", "inc", "cml.rate", "irr", "cmlirr", "sr", "rd", "rr", "cox")),
-      round, digits=5
+      ~round(.x, digits = 5)
     )) %>%
-    write_csv(fs::path(output_dir, glue("{model_type}_{filename_stem}_rounded.csv")))
+    write_csv(fs::path(output_dir, glue("{new_filename}.csv")))
   
 }
 
 
 # km outputs
-combine_and_save_contrasts(model_type="km", filenames = c("estimates")) 
-combine_and_save_contrasts(model_type="km", filenames = c("contrasts_cuts", "contrasts_overall")) 
+combine_and_save_contrasts(
+  filenames = glue("km_estimates_midpoint{threshold}")
+  ) 
+combine_and_save_contrasts(
+  filenames = c(
+    glue("km_contrasts_cuts_midpoint{threshold}"),
+    glue("km_contrasts_overall_midpoint{threshold}")
+    ),
+  new_filename = "km_contrasts"
+  ) 
 # cox outputs
-combine_and_save_contrasts(model_type="cox", filenames = c("contrasts_cuts", "contrasts_overall"))
+combine_and_save_contrasts(
+  filenames = c(
+    "cox_unadj_contrasts_cuts",
+    "cox_adj_contrasts_cuts",
+    "cox_unadj_contrasts_overall",
+    "cox_adj_contrasts_overall"
+    ),
+  new_filename = "cox_contrasts"
+  )
 
 ## plot overall estimates for inspection ----
 
 plot_estimates <- function(.data, estimate, estimate.ll, estimate.ul, name){
   
-  colour_labs <- c("comparative", "relative")
+  colour_labs <- c("comparative", "incremental")
   colour_palette <- RColorBrewer::brewer.pal(n=length(colour_labs), name="Dark2")
   names(colour_palette) <- colour_labs
   
@@ -131,7 +180,7 @@ plot_estimates <- function(.data, estimate, estimate.ll, estimate.ul, name){
     )
   
   ggsave(
-    filename=glue("output", "report", "model", "overall_plot_rounded_{name}.png", .sep="/"),
+    filename=file.path(output_dir, glue("overall_plot_rounded_{name}.png")),
     plot_temp,
     width=30, height=20, units="cm"
   )
@@ -141,21 +190,22 @@ plot_estimates <- function(.data, estimate, estimate.ll, estimate.ul, name){
 }
 
 # read data and create plots ----
+# km
 km_contrasts_overall <- 
-  read_csv(fs::path(output_dir, glue("km_contrasts_rounded.csv"))) %>%
-  filter(filename == "contrasts_overall")
+  read_csv(fs::path(output_dir, glue("km_contrasts_midpoint{threshold}.csv"))) %>%
+  filter(str_detect(filename, "overall"))
 km_contrasts_overall %>% plot_estimates(rd, rd.ll, rd.ul, "km_rd")
 km_contrasts_overall %>% plot_estimates(rr, rr.ll, rr.ul, "km_rr")
 
-
-cox_contrasts_rounded <- read_csv(fs::path(output_dir, glue("cox_contrasts_rounded.csv"))) %>%
-  filter(filename == "contrasts_overall") %>%
+# cox
+cox_contrasts_rounded <- read_csv(fs::path(output_dir, glue("cox_contrasts.csv"))) %>%
+  filter(str_detect(filename, "overall")) %>%
   filter(str_detect(term, "^treated")) 
-
+# unadjusted
 cox_contrasts_rounded %>% 
   filter(model == "cox_unadj") %>%
   plot_estimates(coxhr, coxhr.ll, coxhr.ul, "cox_unadj")
-
+# adjusted
 cox_contrasts_rounded %>% 
   filter(model == "cox_adj") %>%
   plot_estimates(coxhr, coxhr.ll, coxhr.ul, "cox_adj")

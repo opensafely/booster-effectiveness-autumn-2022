@@ -21,14 +21,30 @@ with open("./lib/design/study-dates.json") as f:
 studystart_date = study_dates["studystart"]
 
 # define params
+effect = params["effect"]
 match_strategy = params["match_strategy"]
 
-if match_strategy == "alltreated":
+# match_strategy_obj
+with open(f"lib/design/match-strategy-{match_strategy}.json") as f:
+   match_strategy_obj = json.load(f)
+
+# specify path for patient_id and trial_date
+if effect == "comparative":
   file_path = "output/treated/eligible/data_treated.csv.gz"
   return_var = "vax_boostautumn_date"
-else:
+if effect == "incremental":
   file_path = f"output/incremental_{match_strategy}/match/data_matchcontrol.csv.gz"
   return_var = "trial_date"
+
+############################################################
+# variables for adjustment
+from variables_vars import generate_vars_variables 
+adj_variables = generate_vars_variables(
+    index_date="trial_date", 
+    elig=False,
+    vars=match_strategy_obj["adj_vars"]
+    )
+############################################################
 
 # Specify study defeinition
 study = StudyDefinition(
@@ -37,23 +53,26 @@ study = StudyDefinition(
   default_expectations={
     "date": {"earliest": studystart_date, "latest": "today"},
     "rate": "uniform",
-    "incidence": 0.1,
+    "incidence": 0.2,
     "int": {"distribution": "normal", "mean": 1000, "stddev": 100},
     "float": {"distribution": "normal", "mean": 25, "stddev": 5},
   },
   
-    # This line defines the study population
-  population = patients.which_exist_in_file(
-    f_path=file_path
-    ),
+  # This line defines the study population
+  population = patients.which_exist_in_file(f_path=file_path),
 
   trial_date = patients.with_value_from_file(
-    f_path=file_path, 
-    returning=return_var, 
-    returning_type="date", 
-    date_format="YYYY-MM-DD"
+    f_path = file_path, 
+    returning = return_var, 
+    returning_type = "date", 
+    date_format = "YYYY-MM-DD"
     ),
 
+  ###############################################################################
+  # adjustment variables
+  ##############################################################################
+  **adj_variables,
+  
   ###############################################################################
   # outcome variables
   ##############################################################################
@@ -147,6 +166,5 @@ study = StudyDefinition(
       returning="date_of_death",
       date_format="YYYY-MM-DD",
     ),
-  
-  
+
 )

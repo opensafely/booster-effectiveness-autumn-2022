@@ -320,7 +320,7 @@ if (match_round > 2) {
 
 # save all successful matches
 data_matched <- data_successful_matchstatus %>%
-  select(any_of(c(matchstatus_vars, keep_vars))) 
+  select(any_of(unique(c(matchstatus_vars, match_vars, final_vars, keep_vars))))
 
 write_rds(
   data_matched,

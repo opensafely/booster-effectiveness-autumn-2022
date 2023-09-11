@@ -62,6 +62,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("")) {
   if (effect == "incremental") {
     
     # get the matched data from all matching rounds
+    read_final <- FALSE
     source(here("analysis", "process", "process_postmatch.R"))
     
     data_matchstatus <- data_matched %>%

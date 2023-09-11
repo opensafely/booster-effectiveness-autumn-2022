@@ -70,8 +70,13 @@ if (effect == "incremental") {
       # bind covariates and outcomes for treated and controls
       data_final <- bind_rows(data_final_control, data_final_treated)
       
+      # identify variables that are in data_matched and data_final
+      names_intersect <- base::intersect(names(data_matched), names(data_final))
+      
       # join to matched data
       data_matched <- data_matched %>%
+        # remove variables in names_intersect apart from those used to join
+        select(-setdiff(names_intersect, c("patient_id", "trial_date"))) %>%
         left_join(
           data_final, 
           by = c("patient_id", "trial_date")

@@ -18,6 +18,13 @@ if(length(args)==0){
 source(here("analysis", "design.R"))
 source(here("lib", "functions", "utility.R"))
 
+# save items in the match_strategy list to the global environment
+match_strategy <- "riskscore_i"
+list2env(
+  x = get(glue("match_strategy_{match_strategy}")),
+  envir = environment()
+)
+
 outdir <- ghere("output", "riskscore_i", "agegroup_{agegroup_index}")
 fs::dir_create(outdir)
 
@@ -31,11 +38,8 @@ data_mod <- data_riskscore %>%
   filter(agegroup_match %in% agegroup_levels[agegroup_index])
 rm(data_riskscore)
 
-categorical_predictors <- c(
-  "asthma", "bmi", "chronic_heart_disease", "chronic_kidney_disease",
-  "chronic_liver_disease", "chronic_neuro_disease", "chronic_resp_disease",
-  "diabetes", "immunosuppressed", "learndis", "sev_mental", "timesince_discharged"
-)
+# age currently the only continuous predictor, need to update this if that changes
+categorical_predictors <- riskscore_vars[!(riskscore_vars %in% "age")]
 
 # pre model checks -------------------------------------------------------------
 # for each of the categorical predictors:
@@ -130,9 +134,15 @@ if (length(remove_vars) > 0) {
 # fit model --------------------------------------------------------------------
 mod_formula <- as.formula(
   str_c(
-    "death ~ poly(age, degree = 2) + ", str_c(categorical_predictors, collapse = " + ")
+    "death ~ ", str_c(categorical_predictors, collapse = " + ")
   )
 )
+
+# need to update this if any more continuous predictors added
+if ("age" %in% riskscore_vars) {
+  mod_formula <- mod_formula %>% update.formula(. ~ . + poly(age, degree = 2)) 
+}
+
 mod <- glm(
   formula = mod_formula,
   data = data_mod,

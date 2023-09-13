@@ -102,7 +102,7 @@ for (x in categorical_predictors) {
     data_mod <- data_mod %>%
       mutate(
         across(
-          x, 
+          all_of(x), 
           ~factor(
             if_else(
               .x %in% levs_all[c(i, i+shift)], 

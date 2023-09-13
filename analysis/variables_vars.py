@@ -106,5 +106,26 @@ def generate_vars_variables(
          ), 
 
     )
+
+  if any(x in vars for x in {"everything", "cancer"}):
+    variables.update(
+      cancer = patients.satisfying(
+        "cancer_hospitalisation OR cancer_primarycare",
+        cancer_hospitalisation = patients.admitted_to_hospital(
+          returning = "binary_flag",
+          with_these_diagnoses = codelists.cancer,
+          between = [f"{index_date} - {3*365} days", f"{index_date} - 1 day"],
+          ),
+        cancer_primarycare = patients.with_these_clinical_events(
+          combine_codelists(
+            codelists.cancer_haem_snomed, 
+            codelists.cancer_nonhaem_nonlung_snomed, 
+            codelists.cancer_lung_snomed
+            ),
+            returning = "binary_flag",
+            between = [f"{index_date} - {3*365} days", f"{index_date} - 1 day"],
+          )
+      )
+    )
   
   return variables

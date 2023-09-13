@@ -141,6 +141,9 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
     
     source(here("analysis", "model", "merge_or_drop.R"))
     
+    # need to update this id continuous covars other than age are added
+    cat_vars <- adj_vars[!(adj_vars %in% "age")]
+    
     data_cox <- data_cox %>%
       mutate(
         
@@ -148,10 +151,10 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
         # drop if not satisfied with >=2 levels
         data = map(data, ~{
           .x %>%
-            select(-all_of(adj_vars)) %>%
+            select(-all_of(cat_vars)) %>%
             bind_cols(
               lapply(
-                adj_vars,
+                cat_vars,
                 function(var)
                   merge_or_drop(
                     covariate_name = var,
@@ -166,8 +169,12 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
         
         # add the covariates to cox_formula 
         cox_formula = map(data, ~{
-          add_covariates <- names(.x)[names(.x) %in% adj_vars]
-          str_c(c(cox_formula, add_covariates), collapse = " + ")
+          add_covariates <- names(.x)[names(.x) %in% cat_vars]
+          formula_string <- str_c(c(cox_formula, add_covariates), collapse = " + ")
+          if ("age" %in% adj_vars) {
+            formula_string <- str_c(formula_string, " + poly(age, degree = 2)")
+          }
+          return(formula_string)
         })
         
       ) %>%

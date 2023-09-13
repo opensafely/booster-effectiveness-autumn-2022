@@ -232,6 +232,7 @@ match_strategy_none <- create_match_strategy(
     "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",
     "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease",
     "chronic_liver_disease", "immunosuppressed", "learndis", "multimorb", "cv",
+    "cancer",
     # "asplenia", "bmi_value", "sev_obesity",
     # optional variables in analysis/variables_vars.py
     "region", "flu_vaccine", "timesince_discharged", 
@@ -247,9 +248,9 @@ match_strategy_riskscore_i <- create_match_strategy(
   # caliper_vars = c("riskscore_i" = 0.1), 
   # riskscore_vars are the variables used in the model to predict the risk score
   riskscore_vars = c(
-    "age", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",
+    "age", "sex", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",
     "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease",
-    "chronic_liver_disease", "immunosuppressed", "learndis",
+    "chronic_liver_disease", "immunosuppressed", "learndis", "cancer",
     "ethnicity", "imd_Q5", "region", "flu_vaccine", "timesince_discharged",
     "vax_boostfirst_brand" # maybe edit this so any/none rather than pfizer/moderna/none
     ),
@@ -257,7 +258,7 @@ match_strategy_riskscore_i <- create_match_strategy(
   adj_vars = c(
     "sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental",
     "immunosuppressed", "multimorb",  "timesince_coviddischarged",
-    "flu_vaccine"
+    "flu_vaccine", "cancer"
   ),
   strata_vars = c("trial_date", "region")
 )
@@ -279,7 +280,7 @@ match_strategy_a <- create_match_strategy(
   adj_vars = c(
     "sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental",
     "immunosuppressed", "multimorb",  "timesince_coviddischarged",
-    "flu_vaccine"
+    "flu_vaccine", "cancer"
   ),
   strata_vars = c("trial_date", "region")
 )

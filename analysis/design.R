@@ -256,7 +256,7 @@ match_strategy_riskscore_i <- create_match_strategy(
     ),
   riskscore_fup_vars = c("death", "dereg"),
   adj_vars = c(
-    "sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental",
+    "age", "sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental",
     "immunosuppressed", "multimorb",  "timesince_coviddischarged",
     "flu_vaccine", "cancer"
   ),
@@ -278,7 +278,7 @@ match_strategy_a <- create_match_strategy(
     NULL
   ),
   adj_vars = c(
-    "sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental",
+    "age", "sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental",
     "immunosuppressed", "multimorb",  "timesince_coviddischarged",
     "flu_vaccine", "cancer"
   ),

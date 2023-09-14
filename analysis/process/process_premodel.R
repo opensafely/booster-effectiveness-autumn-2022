@@ -17,14 +17,14 @@ if (model == "cox_adj") {
       mutate(imd_Q5 = fct_relevel(imd_Q5, levels(data_matched$imd_Q5)[3]))
   }
   
-  if ("timesincecoviddischarged" %in% adj_vars) {
+  if ("timesince_coviddischarged" %in% adj_vars) {
     # relevel for models
     data_matched <- data_matched %>%
       mutate(
-        timesincecoviddischarged = factor(
+        timesince_coviddischarged = factor(
           if_else(
-            timesincecoviddischarged == "No prior COVID-19 admission",
-            as.character(timesincecoviddischarged),
+            timesince_coviddischarged == "No prior COVID-19 admission",
+            as.character(timesince_coviddischarged),
             "Prior COVID-19 admission"
           ),
           levels = c("No prior COVID-19 admission", "Prior COVID-19 admission")

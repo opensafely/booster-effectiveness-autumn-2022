@@ -18,6 +18,13 @@ if(length(args)==0){
 source(here("analysis", "design.R"))
 source(here("lib", "functions", "utility.R"))
 
+# save items in the match_strategy list to the global environment
+match_strategy <- "riskscore_i"
+list2env(
+  x = get(glue("match_strategy_{match_strategy}")),
+  envir = environment()
+)
+
 outdir <- ghere("output", "riskscore_i", "agegroup_{agegroup_index}")
 fs::dir_create(outdir)
 
@@ -31,11 +38,8 @@ data_mod <- data_riskscore %>%
   filter(agegroup_match %in% agegroup_levels[agegroup_index])
 rm(data_riskscore)
 
-categorical_predictors <- c(
-  "asthma", "bmi", "chronic_heart_disease", "chronic_kidney_disease",
-  "chronic_liver_disease", "chronic_neuro_disease", "chronic_resp_disease",
-  "diabetes", "immunosuppressed", "learndis", "sev_mental", "timesince_discharged"
-)
+# age currently the only continuous predictor, need to update this if that changes
+categorical_predictors <- riskscore_vars[!(riskscore_vars %in% "age")]
 
 # pre model checks -------------------------------------------------------------
 # for each of the categorical predictors:
@@ -78,47 +82,54 @@ for (x in categorical_predictors) {
   
   # if all true for to the next value of x
   if (check_levs) next
-  
-  if (length(levs_with_events) == 1) {
-    # if only one level with events, flag to remove variable
-    remove_vars <- c(remove_vars, x)
-    next
-  } 
-  
-  print(glue("Variable: {x}"))
-  print(glue("   Original levels: ", str_c(levs_all, collapse = "; ")))
-  while(length(levs_with_events) < length(levs_all)) {
-    
-    # merge up, unless top level, in which case merge down
-    i <- which(!(levs_all %in% levs_with_events))
-    shift <- if_else(i < length(levs_all), 1, -1)
-    new_levs <- levs_all
-    new_levs[i+shift] <- str_c(new_levs[sort(c(i, i+shift))], collapse = " & ")
-    # do merging
-    data_mod <- data_mod %>%
-      mutate(
-        across(
-          x, 
-          ~factor(
-            if_else(
-              .x %in% levs_all[c(i, i+shift)], 
-              new_levs[i+shift], 
-              as.character(.x)
-            ),
-            levels = new_levs[-i]
-          )
-        )
-      )  
-    levs_all <- new_levs[-i]
-    levs_with_events <- data_mod %>%
-      group_by(!!sym(x)) %>%
-      summarise(events = sum(death), .groups = "drop") %>%
-      filter(events > 0) %>%
-      pull(!!sym(x)) %>%
-      as.character()
-    
-  }
-  print(glue("   New levels: ", str_c(levs_all, collapse = "; ")))
+  # if not, remove the vairable
+  if (!check_levs) remove_vars <- c(remove_vars, x)
+  # NOTE: the code below merges levels, but this was too complicated when
+  # using the model to make predictions in other cohorts, so for now I've 
+  # commented it out. If anyone has time/can be bothered they could save the
+  # new levels and derive them in process_stage.R when they get the model
+  # predictions for matching.
+  # 
+  # if (length(levs_with_events) == 1) {
+  #   # if only one level with events, flag to remove variable
+  #   remove_vars <- c(remove_vars, x)
+  #   next
+  # } 
+  # 
+  # print(glue("Variable: {x}"))
+  # print(glue("   Original levels: ", str_c(levs_all, collapse = "; ")))
+  # while(length(levs_with_events) < length(levs_all)) {
+  #   
+  #   # merge up, unless top level, in which case merge down
+  #   i <- which(!(levs_all %in% levs_with_events))
+  #   shift <- if_else(i < length(levs_all), 1, -1)
+  #   new_levs <- levs_all
+  #   new_levs[i+shift] <- str_c(new_levs[sort(c(i, i+shift))], collapse = " & ")
+  #   # do merging
+  #   data_mod <- data_mod %>%
+  #     mutate(
+  #       across(
+  #         all_of(x), 
+  #         ~factor(
+  #           if_else(
+  #             .x %in% levs_all[c(i, i+shift)], 
+  #             new_levs[i+shift], 
+  #             as.character(.x)
+  #           ),
+  #           levels = new_levs[-i]
+  #         )
+  #       )
+  #     )  
+  #   levs_all <- new_levs[-i]
+  #   levs_with_events <- data_mod %>%
+  #     group_by(!!sym(x)) %>%
+  #     summarise(events = sum(death), .groups = "drop") %>%
+  #     filter(events > 0) %>%
+  #     pull(!!sym(x)) %>%
+  #     as.character()
+  #   
+  # }
+  # print(glue("   New levels: ", str_c(levs_all, collapse = "; ")))
   
 }
 
@@ -130,9 +141,15 @@ if (length(remove_vars) > 0) {
 # fit model --------------------------------------------------------------------
 mod_formula <- as.formula(
   str_c(
-    "death ~ poly(age, degree = 2) + ", str_c(categorical_predictors, collapse = " + ")
+    "death ~ ", str_c(categorical_predictors, collapse = " + ")
   )
 )
+
+# need to update this if any more continuous predictors added
+if ("age" %in% riskscore_vars) {
+  mod_formula <- mod_formula %>% update.formula(. ~ . + poly(age, degree = 2)) 
+}
+
 mod <- glm(
   formula = mod_formula,
   data = data_mod,

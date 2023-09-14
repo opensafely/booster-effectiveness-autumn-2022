@@ -59,7 +59,7 @@ def generate_vars_variables(
       ),
     )
 
-  # flu vaccine in flu seasons 18-19, 19-20 or 20-21
+  # flu vaccine in 2021-2022 season
   if any(x in vars for x in {"everything", "flu_vaccine"}):
     variables.update(
       flu_vaccine=patients.satisfying(
@@ -70,18 +70,18 @@ def generate_vars_variables(
         """,
         flu_vaccine_tpp_table=patients.with_tpp_vaccination_record(
             target_disease_matches="INFLUENZA",
-            between=["2018-07-01", "2021-06-30"], 
+            between=["2021-07-01", "2022-03-31"], 
             returning="binary_flag",
         ),
         flu_vaccine_med=patients.with_these_medications(
             codelists.flu_med_codes,
-            between=["2018-07-01", "2021-06-30"], 
+            between=["2021-07-01", "2022-03-31"], 
             returning="binary_flag",
         ),
         flu_vaccine_clinical=patients.with_these_clinical_events(
             codelists.flu_clinical_given_codes,
             ignore_days_where_these_codes_occur=codelists.flu_clinical_not_given_codes,
-            between=["2018-07-01", "2021-06-30"], 
+            between=["2021-07-01", "2022-03-31"], 
             returning="binary_flag",
         ),
         return_expectations={"incidence": 0.5, },
@@ -105,6 +105,27 @@ def generate_vars_variables(
                 return_expectations={"date": {"earliest": "2000-01-01", "latest": "today"},},
          ), 
 
+    )
+
+  if any(x in vars for x in {"everything", "cancer"}):
+    variables.update(
+      cancer = patients.satisfying(
+        "cancer_hospitalisation OR cancer_primarycare",
+        cancer_hospitalisation = patients.admitted_to_hospital(
+          returning = "binary_flag",
+          with_these_diagnoses = codelists.cancer,
+          between = [f"{index_date} - {3*365} days", f"{index_date} - 1 day"],
+          ),
+        cancer_primarycare = patients.with_these_clinical_events(
+          combine_codelists(
+            codelists.cancer_haem_snomed, 
+            codelists.cancer_nonhaem_nonlung_snomed, 
+            codelists.cancer_lung_snomed
+            ),
+            returning = "binary_flag",
+            between = [f"{index_date} - {3*365} days", f"{index_date} - 1 day"],
+          )
+      )
     )
   
   return variables

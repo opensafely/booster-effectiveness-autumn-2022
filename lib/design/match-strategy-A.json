@@ -4,9 +4,9 @@
   "caliper_vars": [3, 14],
   "riskscore_vars": {},
   "riskscore_fup_vars": {},
-  "adj_vars": ["sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental", "immunosuppressed", "multimorb", "timesince_coviddischarged", "flu_vaccine"],
+  "adj_vars": ["age", "sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental", "immunosuppressed", "multimorb", "timesince_coviddischarged", "flu_vaccine", "cancer"],
   "strata_vars": ["trial_date", "region"],
   "match_vars": ["agegroup_match", "vax_primary_brand", "vax_boostfirst_brand", "vax_boostspring_brand", "cv", "region", "age", "vax_lastbeforeindex_date"],
-  "final_vars": ["sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental", "immunosuppressed", "multimorb", "timesince_coviddischarged", "flu_vaccine", "trial_date", "region"],
+  "final_vars": ["age", "sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental", "immunosuppressed", "multimorb", "timesince_coviddischarged", "flu_vaccine", "cancer", "trial_date", "region"],
   "keep_vars": ["age", "agegroup_match", "sex", "imd"]
 }

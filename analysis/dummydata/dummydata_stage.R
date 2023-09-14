@@ -38,7 +38,7 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   vars_jcvi <- c( 
     "asthma", "chronic_neuro_disease", "chronic_resp_disease", "sev_obesity",
     "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease",
-    "chronic_liver_disease", "immunosuppressed", "asplenia", "learndis"
+    "chronic_liver_disease", "immunosuppressed", "asplenia", "learndis", "cancer"
   )
   names(vars_jcvi) <- vars_jcvi
   

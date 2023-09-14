@@ -4,7 +4,7 @@
 # - effect=comparative: include all boosted individuals, plot coverage 
 #   split by brand, matches for comparative effectiveness analysis
 # - effect=incremental include all boosted individuals, don't split by brand,
-#   matches for relative effectiveness analysis
+#   matches for incremental effectiveness analysis
 # # # # # # # # # # # # # # # # # # # # #
 
 # Preliminaries ----

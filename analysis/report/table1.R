@@ -3,8 +3,7 @@
 # creates "table 1"
 # this file takes the following arguments:
 # - effect: 
-#   - effect="treated":
-#       (match_strategy defaults to NULL)
+#   - effect="treated", match_strategy must be "none"
 #       table1 for all individuals boosted during the recruitment period
 #   - effect="comparative", match_strategy="a": 
 #       table1 for the matched pfizer and moderna arms using match_strategy "a"

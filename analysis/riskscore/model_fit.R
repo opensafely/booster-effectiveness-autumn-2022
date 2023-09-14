@@ -1,4 +1,9 @@
-# code for risk score
+######################################
+# This script:
+# - fits a model to predict the risk score one of the three age groups 
+#   (specified by the agegroup_index argument)
+# - runs some model diagnostics
+# - saves the models
 
 # setup ------------------------------------------------------------------------
 library(tidyverse)

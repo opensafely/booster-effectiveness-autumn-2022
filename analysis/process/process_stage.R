@@ -1,11 +1,11 @@
 ######################################
-
 # This script:
 # processes data and applies eligibility criteria  
 # arguments: stage, match_round
 # - stage:
 #   - "riskscore_i", "treated", "controlpotential", "controlactual"
 # - match_strategy:
+#   - name of match strategy (e.g. "a" or "riskscore_i")
 #   - must be "riskscore_i" when stage = "riskscore_i"
 #   - must be "none" when stage = "treated"
 #   - must be "none" when stage = "controlpotential" and match_round = 1

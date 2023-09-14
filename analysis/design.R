@@ -73,16 +73,10 @@ study_dates <- rapply(
   )
 
 # the gap between incremental matching rounds
+# TODO I think the extract_increment could be increased to 28
 extract_increment <- 14
 
 study_dates$control_extract = seq(study_dates$studystart, study_dates$recruitmentend, extract_increment)
-
-# reduce the match rounds for testing
-# study_dates$control_extract <- study_dates$control_extract[1:2]
-# 
-# # number of match rounds to perform for each cohort
-# 
-# n_match_rounds <- length(study_dates[["control_extract"]])
 
 jsonlite::write_json(study_dates, path = here("lib", "design", "study-dates.json"), auto_unbox=TRUE, pretty =TRUE)
 
@@ -182,7 +176,7 @@ fup_params <- lst(
 # matching ----
 create_match_strategy <- function(
     name,
-    n_match_rounds = 4, # need to update, but use 4 for testing code
+    n_match_rounds = 4, # Need to update, but use 4 for testing code. We've typically used length(study_dates$control_extract)
     exact_vars = NULL,
     caliper_vars = NULL,
     riskscore_vars = NULL, # variable to be included as covariates in risk score model
@@ -192,6 +186,7 @@ create_match_strategy <- function(
 ) {
   out <- lst(
     n_match_rounds = n_match_rounds,
+    # these are the variables that have to be extracted in every match_round
     exact_vars = exact_vars,
     caliper_vars = caliper_vars,
     riskscore_vars = riskscore_vars,
@@ -301,62 +296,6 @@ local({
   }
 })
 
-# match_strategy_C <- lst(
-#   score_vars = xxx,
-#   model_vars = xxx,
-#   strata_vars = xxx
-# )
-
-# list2env
-
-# match variables ----
-
-# # exact variables
-# exact_variables_incremental <- c(
-#   "agegroup_match",
-#   "vax_primary_brand",
-#   "vax_boostfirst_brand",
-#   "vax_boostspring_brand",
-#   "cv",
-#   "region",
-#   NULL
-# )
-# 
-# exact_variables_comparative <- c(
-#   exact_variables_incremental,
-#   "vax_boostautumn_date", 
-#   NULL
-# )
-# 
-# # caliper variables
-# caliper_variables <- c(
-#   age = 3,
-#   # match on `lastvaxbeforeindex_day` rather than `timesincelastvax` as the 
-#   # potential matches are less likely to fail in the actual stage
-#   vax_lastbeforeindex_date = 14,
-#   NULL
-# )
-# 
-# match_variables_incremental <- c(exact_variables_incremental, names(caliper_variables))
-# match_variables_comparative <- c(exact_variables_comparative, names(caliper_variables))
-# 
-# # covariates ----
-# 
-# covariates_model <- c(
-#   "sex",
-#   "ethnicity",
-#   "imd_Q5",
-#   "bmi",
-#   "learndis",
-#   "sev_mental",
-#   "immunosuppressed",
-#   "multimorb", 
-#   "timesince_coviddischarged",
-#   "flu_vaccine"
-# )
-# 
-# strata_vars <- c("trial_date", "region")
-
 censor_vars <- list(
   comparative = c(
     "death_date",
@@ -365,11 +304,6 @@ censor_vars <- list(
 )
 censor_vars[["incremental"]] <- c(censor_vars[["comparative"]], "controlistreated_date")
 
-#
-# # other variables -----
-# # keep all variables starting with these strings
-# other_variables <- c("trial", "treated", "control", "match", "vax", "jcvi")
-# 
 # analysis table
 model_args <- expand_grid(
   effect=c("comparative", "incremental"),

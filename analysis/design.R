@@ -55,9 +55,9 @@ study_dates <- lst(
     as.Date(boosterautumn$ages50to64)
     ),
   
-  recruitmentend = "2022-12-24", # based on plot of weekly vaccinations in England
-  hospitalisationend = "2023-01-31", # end of available hospitalization data
-  deathend = "2023-02-28", # end of available death data
+  recruitmentend = "2022-12-31", # based on plot of weekly vaccinations in England
+  hospitalisationend = "2023-06-31", # end of available hospitalization data
+  deathend = "2023-06-31", # end of available death data
   
   riskscore_i = lst(
     start = "2022-04-01",
@@ -176,7 +176,7 @@ fup_params <- lst(
 # matching ----
 create_match_strategy <- function(
     name,
-    n_match_rounds = 4, # Need to update, but use 4 for testing code. We've typically used length(study_dates$control_extract)
+    n_match_rounds = 4, # TODO Need to update, but use 4 for testing code. We've typically used length(study_dates$control_extract)
     exact_vars = NULL,
     caliper_vars = NULL,
     riskscore_vars = NULL, # variable to be included as covariates in risk score model

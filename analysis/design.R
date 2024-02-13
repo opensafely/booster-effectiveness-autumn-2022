@@ -56,8 +56,8 @@ study_dates <- lst(
     ),
   
   recruitmentend = "2022-12-31", # based on plot of weekly vaccinations in England
-  hospitalisationend = "2023-06-31", # end of available hospitalization data
-  deathend = "2023-06-31", # end of available death data
+  hospitalisationend = "2023-06-30", # end of available hospitalization data
+  deathend = "2023-06-30", # end of available death data
   
   riskscore_i = lst(
     start = "2022-04-01",

@@ -56,8 +56,8 @@ study_dates <- lst(
     ),
   
   recruitmentend = "2022-12-31", # based on plot of weekly vaccinations in England
-  hospitalisationend = "2023-06-30", # end of available hospitalization data
-  deathend = "2023-06-30", # end of available death data
+  hospitalisationend = "2023-09-11", # end of hospitalization data follow up - start of autumn booster 2023
+  deathend = "2023-09-11", # end of death data follow up - start of autumn booster 2023
   
   riskscore_i = lst(
     start = "2022-04-01",
@@ -90,15 +90,15 @@ events_lookup <- tribble(
 
   # effectiveness
   "covidadmitted", "covidadmitted_date", "COVID-19 hospitalisation",
-  # "covidcritcare", "covidcritcare_date", "COVID-19 critical care",
+  "covidcritcare", "covidcritcare_date", "COVID-19 critical care",
   "coviddeath", "coviddeath_date", "COVID-19 death",
   # "covidcritcareordeath", "covidcritcareordeath_date", "COVID-19 critical care or death",
 
   # other
   "noncoviddeath", "noncoviddeath_date", "Non-COVID-19 death",
-  # "cvdnoncoviddeath", "cvdnoncoviddeath_date", "CVD-related non-COVID-19 death",
-  # "cancernoncoviddeath", "cancernoncoviddeath_date", "Cancer-related non-COVID-19 death",
-  # "death", "death_date", "Any death",
+  "cvdnoncoviddeath", "cvdnoncoviddeath_date", "CVD-related non-COVID-19 death",
+  "cancernoncoviddeath", "cancernoncoviddeath_date", "Cancer-related non-COVID-19 death",
+  "death", "death_date", "Any death",
   "fracture", "fracture_date", "Fracture"
 
 )

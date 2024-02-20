@@ -24,11 +24,11 @@ from cohortextractor import (
 ## functions
 from variables_functions import *
 ############################################################
-## inclusion variables
+## vax variables
 from variables_vax import generate_vax_variables 
 vax_variables = generate_vax_variables(index_date="1900-01-01")
 ############################################################
-# vax variables
+# inclusion variables
 from variables_inclusion import generate_inclusion_variables 
 inclusion_variables = generate_inclusion_variables(index_date=study_dates["studystart"])
 ############################################################

@@ -103,6 +103,12 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
         size = nrow(.),
         replace = TRUE
       ),
+      # stp (an NHS administration region based on geography)
+      stp = sample(
+        x = c("STP1", "STP2", "STP3", "STP4", "STP5", "STP6", "STP7", "STP8", "STP9", "STP10"),
+        size = nrow(.),
+        replace = TRUE
+      ),
       # define imd rank
       imd = sample(
         x = 1:32800, 
@@ -162,3 +168,4 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   )
   
 }
+

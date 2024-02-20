@@ -22,8 +22,8 @@
   },
   "studystart": "2022-09-12",
   "recruitmentend": "2022-12-31",
-  "hospitalisationend": "2023-06-30",
-  "deathend": "2023-06-30",
+  "hospitalisationend": "2023-09-11",
+  "deathend": "2023-09-11",
   "riskscore_i": {
     "start": "2022-04-01",
     "end": "2022-09-11"

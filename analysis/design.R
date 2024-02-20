@@ -127,6 +127,7 @@ comparison_definition <- tribble(
 )
 
 # lookups to convert coded variables to full, descriptive variables ----
+# ToDo update to include clinically vulnerable as subgroup
 recoder <-
   lst(
     subgroups = c(
@@ -251,11 +252,11 @@ match_strategy_riskscore_i <- create_match_strategy(
     ),
   riskscore_fup_vars = c("death", "dereg"),
   adj_vars = c(
-    "age", "sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental",
+    "age", "sex", "ethnicity", "imd_Q5", "bmi", "asthma", "learndis", "sev_mental",
     "immunosuppressed", "multimorb",  "timesince_coviddischarged",
     "flu_vaccine", "cancer"
   ),
-  strata_vars = c("trial_date", "region")
+  strata_vars = c("trial_date", "agegroup_match") # double check - previously contained region but removed
 )
 
 match_strategy_a <- create_match_strategy(
@@ -273,17 +274,39 @@ match_strategy_a <- create_match_strategy(
     NULL
   ),
   adj_vars = c(
-    "age", "sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental",
+    "age", "sex", "ethnicity", "imd_Q5", "bmi", "asthma", "learndis", "sev_mental",
     "immunosuppressed", "multimorb",  "timesince_coviddischarged",
     "flu_vaccine", "cancer"
   ),
-  strata_vars = c("trial_date", "region")
+  strata_vars = c("trial_date")
+)
+
+match_strategy_b <- create_match_strategy(
+  name = "b",
+  n_match_rounds = 4,
+  exact_vars = c(
+    "agegroup_match", "vax_primary_brand", "vax_boostfirst_brand",
+    "vax_boostspring_brand", "region", "asthma", "learndis", "sev_mental",
+    "immunosuppressed", "cancer"
+  ),
+  caliper_vars = c(
+    age = 3,
+    # match on `lastvaxbeforeindex_day` rather than `timesincelastvax` as the 
+    # potential matches are less likely to fail in the actual stage
+    vax_lastbeforeindex_date = 14,
+    NULL
+  ),
+  adj_vars = c(
+    "age", "sex", "ethnicity", "bmi", "timesince_coviddischarged", "flu_vaccine"
+  ),
+  strata_vars = c("trial_date")
 )
 
 # check if all variables from all matching strategies are in match_strategy_none$keep_vars
 local({
   all_vars <- unique(c(
     match_strategy_a$match_vars, match_strategy_a$final_vars, 
+    match_strategy_b$match_vars, match_strategy_b$final_vars,    
     match_strategy_riskscore_i$match_vars, match_strategy_riskscore_i$final_vars
   ))
   all_vars <- all_vars[!(all_vars %in% c("trial_date"))]

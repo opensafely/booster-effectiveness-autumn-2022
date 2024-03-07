@@ -96,7 +96,7 @@ var_labels <- list(
   sex ~ "Sex",
   ethnicity ~ "Ethnicity",
   imd_Q5 ~ "Deprivation",
-  region ~ "Region",
+  stp ~ "STP",
   
   learndis ~ "Learning disability",
   sev_mental ~ "Severe mental illness",

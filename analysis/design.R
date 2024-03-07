@@ -231,7 +231,7 @@ match_strategy_none <- create_match_strategy(
     "cancer",
     # "asplenia", "bmi_value", "sev_obesity",
     # optional variables in analysis/variables_vars.py
-    "region", "flu_vaccine", "timesince_discharged", 
+    "stp", "flu_vaccine", "timesince_discharged", 
     # defined in or derived from analysis/study_definitionriskscore_i.py
     "death", "dereg", "riskscore_i", "riskscore_i_percentile"
   )
@@ -247,7 +247,7 @@ match_strategy_riskscore_i <- create_match_strategy(
     "age", "sex", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",
     "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease",
     "chronic_liver_disease", "immunosuppressed", "learndis", "cancer",
-    "ethnicity", "imd_Q5", "region", "flu_vaccine", "timesince_discharged",
+    "ethnicity", "imd_Q5", "stp", "flu_vaccine", "timesince_discharged",
     "vax_boostfirst_brand" # maybe edit this so any/none rather than pfizer/moderna/none
     ),
   riskscore_fup_vars = c("death", "dereg"),
@@ -264,7 +264,7 @@ match_strategy_a <- create_match_strategy(
   n_match_rounds = 4,
   exact_vars = c(
     "agegroup_match", "vax_primary_brand", "vax_boostfirst_brand",
-    "vax_boostspring_brand", "cv", "region"
+    "vax_boostspring_brand", "cv", "stp"
     ),
   caliper_vars = c(
     age = 3,
@@ -286,7 +286,7 @@ match_strategy_b <- create_match_strategy(
   n_match_rounds = 4,
   exact_vars = c(
     "agegroup_match", "vax_primary_brand", "vax_boostfirst_brand",
-    "vax_boostspring_brand", "region", "asthma", "learndis", "sev_mental",
+    "vax_boostspring_brand", "stp", "asthma", "learndis", "sev_mental",
     "immunosuppressed", "cancer"
   ),
   caliper_vars = c(

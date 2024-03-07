@@ -2,11 +2,11 @@
   "n_match_rounds": 3,
   "exact_vars": "riskscore_i_percentile",
   "caliper_vars": {},
-  "riskscore_vars": ["age", "sex", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi", "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease", "chronic_liver_disease", "immunosuppressed", "learndis", "cancer", "ethnicity", "imd_Q5", "region", "flu_vaccine", "timesince_discharged", "vax_boostfirst_brand"],
+  "riskscore_vars": ["age", "sex", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi", "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease", "chronic_liver_disease", "immunosuppressed", "learndis", "cancer", "ethnicity", "imd_Q5", "stp", "flu_vaccine", "timesince_discharged", "vax_boostfirst_brand"],
   "riskscore_fup_vars": ["death", "dereg"],
   "adj_vars": ["age", "sex", "ethnicity", "imd_Q5", "bmi", "asthma", "learndis", "sev_mental", "immunosuppressed", "multimorb", "timesince_coviddischarged", "flu_vaccine", "cancer"],
   "strata_vars": ["trial_date", "agegroup_match"],
-  "match_vars": ["riskscore_i_percentile", "age", "sex", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi", "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease", "chronic_liver_disease", "immunosuppressed", "learndis", "cancer", "ethnicity", "imd_Q5", "region", "flu_vaccine", "timesince_discharged", "vax_boostfirst_brand", "death", "dereg"],
+  "match_vars": ["riskscore_i_percentile", "age", "sex", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi", "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease", "chronic_liver_disease", "immunosuppressed", "learndis", "cancer", "ethnicity", "imd_Q5", "stp", "flu_vaccine", "timesince_discharged", "vax_boostfirst_brand", "death", "dereg"],
   "final_vars": ["age", "sex", "ethnicity", "imd_Q5", "bmi", "asthma", "learndis", "sev_mental", "immunosuppressed", "multimorb", "timesince_coviddischarged", "flu_vaccine", "cancer", "trial_date", "agegroup_match"],
   "keep_vars": ["age", "agegroup_match", "sex", "imd"]
 }

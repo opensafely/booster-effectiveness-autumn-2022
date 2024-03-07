@@ -93,19 +93,13 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
       #   size = nrow(.),
       #   replace = TRUE
       # ),
-      # stp = sample(
-      #   x = str_c("STP", 1:10),
-      #   size = nrow(.),
-      #   replace = TRUE
-      # ),
+      stp = sample(
+         x = str_c("STP", 1:10),
+         size = nrow(.),
+         replace = TRUE
+      ),
       region = sample(
         x = c("North East", "North West", "Yorkshire and The Humber", "East Midlands", "West Midlands", "East", "London", "South East", "South West"),
-        size = nrow(.),
-        replace = TRUE
-      ),
-      # stp (an NHS administration region based on geography)
-      stp = sample(
-        x = c("STP1", "STP2", "STP3", "STP4", "STP5", "STP6", "STP7", "STP8", "STP9", "STP10"),
         size = nrow(.),
         replace = TRUE
       ),

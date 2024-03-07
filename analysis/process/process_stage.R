@@ -135,10 +135,10 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")) {
       ) %>%
       # change a few variables so some matches fail
       mutate(
-        region = if_else(
+        stp = if_else(
           runif(n())<0.05,
-          sample(x=unique(region), size=n(), replace=TRUE), 
-          region
+          sample(x=unique(stp), size=n(), replace=TRUE), 
+          stp
           ),
         bmi = if_else(
           runif(n())<0.05, 
@@ -210,7 +210,8 @@ data_processed <- data_extract %>%
       labels=c("50-64", "65-74", "75+"),
       right=FALSE
     ),
-    imd = as.integer(imd)
+    imd = as.integer(imd), 
+    stp = as.factor(stp)
   ) %>%
   # process jcvi variables
   mutate(
@@ -369,7 +370,7 @@ data_criteria <- data_processed %>%
     has_sex = !is.na(sex),
     has_imd = !is.na(imd),
     has_ethnicity = !is.na(ethnicity),
-    has_region = !is.na(region),
+    has_stp = !is.na(stp),
     isnot_carehomeresident = !carehome,
     isnot_hscworker = !hscworker,
     isnot_endoflife = !endoflife,
@@ -399,8 +400,8 @@ data_criteria <- data_processed %>%
     c06_descr = factor("  Less than 3 months (91 days) since most recent vaccine dose"),
     c06 = c05 & lastdoseinterval,
     
-    c07_descr = factor("  Missing sex, IMD, ethnicity, geographical region"),
-    c07 = c06 & has_sex & has_imd & has_ethnicity & has_region,
+    c07_descr = factor("  Missing sex, IMD, ethnicity, geographical stp"),
+    c07 = c06 & has_sex & has_imd & has_ethnicity & has_stp,
     
     # c08_descr = factor("  Care home residents, where known"),
     # c08 = c07 & isnot_carehomeresident,

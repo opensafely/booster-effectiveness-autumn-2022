@@ -1,12 +1,12 @@
 {
   "n_match_rounds": {},
-  "exact_vars": ["vax_primary_brand", "vax_boostfirst_brand", "vax_boostspring_brand", "vax_lastbeforeindex_date", "sex", "ethnicity", "hscworker", "age", "agegroup_match", "timesince_coviddischarged", "imd_Q5", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi", "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease", "chronic_liver_disease", "immunosuppressed", "learndis", "multimorb", "cv", "cancer", "region", "flu_vaccine", "timesince_discharged", "death", "dereg", "riskscore_i", "riskscore_i_percentile"],
+  "exact_vars": ["vax_primary_brand", "vax_boostfirst_brand", "vax_boostspring_brand", "vax_lastbeforeindex_date", "sex", "ethnicity", "hscworker", "age", "agegroup_match", "timesince_coviddischarged", "imd_Q5", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi", "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease", "chronic_liver_disease", "immunosuppressed", "learndis", "multimorb", "cv", "cancer", "stp", "flu_vaccine", "timesince_discharged", "death", "dereg", "riskscore_i", "riskscore_i_percentile"],
   "caliper_vars": {},
   "riskscore_vars": {},
   "riskscore_fup_vars": {},
   "adj_vars": {},
   "strata_vars": {},
-  "match_vars": ["vax_primary_brand", "vax_boostfirst_brand", "vax_boostspring_brand", "vax_lastbeforeindex_date", "sex", "ethnicity", "hscworker", "age", "agegroup_match", "timesince_coviddischarged", "imd_Q5", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi", "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease", "chronic_liver_disease", "immunosuppressed", "learndis", "multimorb", "cv", "cancer", "region", "flu_vaccine", "timesince_discharged", "death", "dereg", "riskscore_i", "riskscore_i_percentile"],
+  "match_vars": ["vax_primary_brand", "vax_boostfirst_brand", "vax_boostspring_brand", "vax_lastbeforeindex_date", "sex", "ethnicity", "hscworker", "age", "agegroup_match", "timesince_coviddischarged", "imd_Q5", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi", "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease", "chronic_liver_disease", "immunosuppressed", "learndis", "multimorb", "cv", "cancer", "stp", "flu_vaccine", "timesince_discharged", "death", "dereg", "riskscore_i", "riskscore_i_percentile"],
   "final_vars": {},
   "keep_vars": ["age", "agegroup_match", "sex", "imd"]
 }

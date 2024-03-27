@@ -116,7 +116,8 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
         NA_integer_
       ),
       imd = as.character(imd),
-      flu_vaccine = rbern(n = nrow(.), p=0.3),
+      flu_vaccine_2122 = rbern(n = nrow(.), p=0.3),
+      flu_vaccine_1821 = rbern(n = nrow(.), p=0.3),
       unplanneddischarged_0_date = if_else(
         rbern(n = nrow(.), p = 0.1),
         study_dates$riskscore$start - ceiling(runif(n = nrow(.), min = 1, max = 6*365)),

@@ -32,33 +32,6 @@ def generate_vars_variables(
 
   # only extract the following variables if specified:
 
-  # region
-  if any(x in vars for x in {"everything", "region"}):
-    variables.update(
-      # NHS administrative region
-      region=patients.registered_practice_as_of(
-          f"{index_date} - 1 day",
-          returning="nuts1_region_name",
-          return_expectations={
-            "rate": "universal",
-            "category": {
-              "ratios": {
-                "North East": 0.1,
-                "North West": 0.1,
-                "Yorkshire and The Humber": 0.2,
-                "East Midlands": 0.1,
-                "West Midlands": 0.1,
-                "East": 0.1,
-                "London": 0.1,
-                "South East": 0.1,
-                "South West": 0.1
-                #"" : 0.01
-                },
-              },
-          },
-      ),
-    )
-
   # stp
   if any(x in vars for x in {"everything", "stp"}):
     variables.update(
@@ -87,25 +60,25 @@ def generate_vars_variables(
     )
 
   # flu vaccine in 2021-2022 season
-  if any(x in vars for x in {"everything", "flu_vaccine"}):
+  if any(x in vars for x in {"everything", "flu_vaccine_2122"}):
     variables.update(
-      flu_vaccine=patients.satisfying(
+      flu_vaccine_2122=patients.satisfying(
         """
-        flu_vaccine_tpp_table>0 OR
-        flu_vaccine_med>0 OR
-        flu_vaccine_clinical>0
+        flu_vaccine_tpp_table_2122>0 OR
+        flu_vaccine_med_2122>0 OR
+        flu_vaccine_clinical_2122>0
         """,
-        flu_vaccine_tpp_table=patients.with_tpp_vaccination_record(
+        flu_vaccine_tpp_table_2122=patients.with_tpp_vaccination_record(
             target_disease_matches="INFLUENZA",
             between=["2021-07-01", "2022-03-31"], 
             returning="binary_flag",
         ),
-        flu_vaccine_med=patients.with_these_medications(
+        flu_vaccine_med_2122=patients.with_these_medications(
             codelists.flu_med_codes,
             between=["2021-07-01", "2022-03-31"], 
             returning="binary_flag",
         ),
-        flu_vaccine_clinical=patients.with_these_clinical_events(
+        flu_vaccine_clinical_2122=patients.with_these_clinical_events(
             codelists.flu_clinical_given_codes,
             ignore_days_where_these_codes_occur=codelists.flu_clinical_not_given_codes,
             between=["2021-07-01", "2022-03-31"], 
@@ -114,6 +87,73 @@ def generate_vars_variables(
         return_expectations={"incidence": 0.5, },
       ),
     )
+
+  # flu vaccine in any of 2018-19, 2019-20, 2020-2021 season
+  if any(x in vars for x in {"everything", "flu_vaccine_1821"}):
+    variables.update(
+      flu_vaccine_1821=patients.satisfying(
+        """
+        flu_vaccine_tpp_table_2021>0 OR
+        flu_vaccine_med_2021>0 OR
+        flu_vaccine_clinical_2021>0 OR
+        flu_vaccine_tpp_table_1920>0 OR
+        flu_vaccine_med_1920>0 OR
+        flu_vaccine_clinical_1920>0 OR
+        flu_vaccine_tpp_table_1819>0 OR
+        flu_vaccine_med_1819>0 OR
+        flu_vaccine_clinical_1819>0
+        """,
+        flu_vaccine_tpp_table_2021=patients.with_tpp_vaccination_record(
+            target_disease_matches="INFLUENZA",
+            between=["2020-07-01", "2021-03-31"], 
+            returning="binary_flag",
+        ),
+        flu_vaccine_med_2021=patients.with_these_medications(
+            codelists.flu_med_codes,
+            between=["2020-07-01", "2021-03-31"], 
+            returning="binary_flag",
+        ),
+        flu_vaccine_clinical_2021=patients.with_these_clinical_events(
+            codelists.flu_clinical_given_codes,
+            ignore_days_where_these_codes_occur=codelists.flu_clinical_not_given_codes,
+            between=["2020-07-01", "2021-03-31"], 
+            returning="binary_flag",
+        ),
+        flu_vaccine_tpp_table_1920=patients.with_tpp_vaccination_record(
+            target_disease_matches="INFLUENZA",
+            between=["2019-07-01", "2020-03-31"], 
+            returning="binary_flag",
+        ),
+        flu_vaccine_med_1920=patients.with_these_medications(
+            codelists.flu_med_codes,
+            between=["2019-07-01", "2020-03-31"], 
+            returning="binary_flag",
+        ),
+        flu_vaccine_clinical_1920=patients.with_these_clinical_events(
+            codelists.flu_clinical_given_codes,
+            ignore_days_where_these_codes_occur=codelists.flu_clinical_not_given_codes,
+            between=["2019-07-01", "2020-03-31"], 
+            returning="binary_flag",
+        ),
+        flu_vaccine_tpp_table_1819=patients.with_tpp_vaccination_record(
+            target_disease_matches="INFLUENZA",
+            between=["2018-07-01", "2019-03-31"], 
+            returning="binary_flag",
+        ),
+        flu_vaccine_med_1819=patients.with_these_medications(
+            codelists.flu_med_codes,
+            between=["2018-07-01", "2019-03-31"], 
+            returning="binary_flag",
+        ),
+        flu_vaccine_clinical_1819=patients.with_these_clinical_events(
+            codelists.flu_clinical_given_codes,
+            ignore_days_where_these_codes_occur=codelists.flu_clinical_not_given_codes,
+            between=["2018-07-01", "2019-03-31"], 
+            returning="binary_flag",
+        ),
+        return_expectations={"incidence": 0.5, },
+      ),
+    )    
 
   # date of last discharged from unplanned hospital admission
   # don't need to worry about people who were discharged after riskscore_start_date, 

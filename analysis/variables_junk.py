@@ -107,3 +107,4 @@ def generate_demo_variables(index_date):
   )
   return demo_variables
 
+

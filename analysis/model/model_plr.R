@@ -5,45 +5,15 @@
 # fits some pooled logistic regression models, with different adjustment sets
 #
 # The script should be run via an action in the project.yaml
-# The script must be accompanied by four arguments,
+# The script must be accompanied by five arguments,
+# `effect`: comparative, relative
+# `match_strategy`: a, b, riskscore_i
+# `subgroup`: all, age groups
 # `outcome` - the dependent variable in the regression model
 # `timescale` - either "timesincevax" or "calendar"
-# `censor_seconddose` - second at second dose (1) or not (0)
-# `samplesize_nonoutcomes_n` - how many people to sample from those who did not experience the outcome (all those who experienced the outcome are included)
 # # # # # # # # # # # # # # # # # # # # #
 
 # Preliminaries ----
-
-
-# import command-line arguments ----
-
-args <- commandArgs(trailingOnly=TRUE)
-
-
-if(length(args)==0){
-  # use for interactive testing
-  removeobs <- FALSE
-  outcome <- "postest"
-  timescale <- "timesincevax"
-  censor_seconddose <- as.integer("0")
-  samplesize_nonoutcomes_n <- 5000
-  exclude_prior_infection <- as.integer("1")
-} else {
-  removeobs <- TRUE
-  outcome <- args[[1]]
-  timescale <- args[[2]]
-  censor_seconddose <- as.integer(args[[3]])
-  samplesize_nonoutcomes_n <- as.integer(args[[4]])
-  if (length(args)<5) {exclude_prior_infection <- 0L} else {exclude_prior_infection <- as.integer(args[[5]])}
-}
-
-if(exclude_prior_infection==1L){
-  sens_path <- paste0(censor_seconddose,"/","1")
-} else {
-  sens_path <- censor_seconddose
-}
-
-
 ## Import libraries ----
 library('tidyverse')
 library('here')
@@ -53,24 +23,53 @@ library('splines')
 library('parglm')
 library('sandwich')
 ## Import custom user functions from lib
+source(here("analysis", "design.R"))
+source(here("analysis", "process", "process_functions.R"))
+source(here("lib", "functions", "utility.R"))
+source(here("lib", "functions", "redaction.R"))
+source(here("lib", "functions", "survival.R"))
 
-source(here("analysis", "lib", "utility_functions.R"))
-source(here("analysis", "lib", "redaction_functions.R"))
-source(here("analysis", "lib", "survival_functions.R"))
+# import command-line arguments ----
+args <- commandArgs(trailingOnly=TRUE)
+if(length(args)==0){
+  # use for interactive testing
+  removeobs <- FALSE
+  effect <- "comparative"
+  match_strategy <- "a" 
+  subgroup <- "all" 
+  outcome <- "covidadmitted"
+  timescale <- "timesincevax"
+} else {
+  removeobs <- TRUE
+  effect <- args[[1]]
+  match_strategy <- args[[2]]
+  subgroup <- args[[3]]
+  outcome <- args[[4]]
+  timescale <- args[[5]]
+}
 
+# save items in the match_strategy list to the global environment
+list2env(
+  x = get(glue("match_strategy_{match_strategy}")),
+  envir = environment()
+)
 
-
+if (effect == "treated") {
+  effect_match_strategy <- "treated"
+} else {
+  effect_match_strategy <- str_c(effect, match_strategy, sep = "_")
+}
 
 
 # create output directories ----
-fs::dir_create(here("output", "models", outcome, timescale, sens_path))
+fs::dir_create(here("output", "model", outcome, timescale, sens_path))
 
 ## create special log file ----
-cat(glue("## script info for {outcome} ##"), "  \n", file = here("output", "models", outcome, timescale, sens_path, glue("modelplr_log_{outcome}.txt")), append = FALSE)
+cat(glue("## script info for {outcome} ##"), "  \n", file = here("output", "model", outcome, timescale, sens_path, glue("modelplr_log_{outcome}.txt")), append = FALSE)
 ## function to pass additional log text
 logoutput <- function(...){
-  cat(..., file = here("output", "models", outcome, timescale, sens_path, glue("modelplr_log_{outcome}.txt")), sep = "\n  ", append = TRUE)
-  cat("\n", file = here("output", "models", outcome, timescale, sens_path, glue("modelplr_log_{outcome}.txt")), sep = "\n  ", append = TRUE)
+  cat(..., file = here("output", "model", outcome, timescale, sens_path, glue("modelplr_log_{outcome}.txt")), sep = "\n  ", append = TRUE)
+  cat("\n", file = here("output", "model", outcome, timescale, sens_path, glue("modelplr_log_{outcome}.txt")), sep = "\n  ", append = TRUE)
 }
 
 ## import metadata ----
@@ -172,7 +171,7 @@ logoutput(
   glue("data_pt memory usage = ", format(object.size(data_plr), units="GB", standard="SI", digits=3L))
 )
 
-write_rds(data_plr, here("output", "models", outcome, timescale, sens_path, "modelplr_data.rds"), compress="gz")
+write_rds(data_plr, here("output", "model", outcome, timescale, sens_path, "modelplr_data.rds"), compress="gz")
 
 ## make formulas ----
 
@@ -289,7 +288,7 @@ plr_process <- function(plrmod, number, cluster, splinetype){
       ram = format(object.size(plrmod), units="GB", standard="SI", digits=3L),
       .before=1
     )
-  #write_rds(glance, here("output", "models", outcome, timescale, glue("modelplr_glance{number}{splinetype}.rds")), compress="gz")
+  #write_rds(glance, here("output", "model", outcome, timescale, glue("modelplr_glance{number}{splinetype}.rds")), compress="gz")
 
   tidy <- broom.helpers::tidy_plus_plus(
     plrmod,
@@ -301,13 +300,13 @@ plr_process <- function(plrmod, number, cluster, splinetype){
     model=number,
     .before=1
   )
-  #write_rds(tidy, here("output", "models", outcome, timescale, glue("modelplr_tidy{number}{splinetype}.rds")), compress="gz")
+  #write_rds(tidy, here("output", "model", outcome, timescale, glue("modelplr_tidy{number}{splinetype}.rds")), compress="gz")
 
   vcov <- vcovCL(plrmod, cluster = cluster, type = "HC0")
-  write_rds(vcov, here("output", "models", outcome, timescale, sens_path, glue("modelplr_vcov{number}{splinetype}.rds")), compress="gz")
+  write_rds(vcov, here("output", "model", outcome, timescale, sens_path, glue("modelplr_vcov{number}{splinetype}.rds")), compress="gz")
 
   plrmod$data <- NULL
-  write_rds(plrmod, here("output", "models", outcome, timescale, sens_path, glue("modelplr_model{number}{splinetype}.rds")), compress="gz")
+  write_rds(plrmod, here("output", "model", outcome, timescale, sens_path, glue("modelplr_model{number}{splinetype}.rds")), compress="gz")
 
   lst(glance, tidy)
 }
@@ -390,15 +389,15 @@ model_glance <- bind_rows(summary0$glance, summary1$glance, summary2$glance, sum
     model_name = fct_recode(as.character(model), !!!model_names),
     outcome = outcome
   )
-write_csv(model_glance, here::here("output", "models", outcome, timescale, sens_path, glue("modelplr_glance_pw.csv")))
+write_csv(model_glance, here::here("output", "model", outcome, timescale, sens_path, glue("modelplr_glance_pw.csv")))
 
 model_tidy <- bind_rows(summary0$tidy, summary1$tidy, summary2$tidy, summary3$tidy) %>%
   mutate(
     model_name = fct_recode(as.character(model), !!!model_names),
     outcome = outcome
   )
-write_csv(model_tidy, here::here("output", "models", outcome, timescale, sens_path, glue("modelplr_tidy_pw.csv")))
-write_rds(model_tidy, here::here("output", "models", outcome, timescale, sens_path, glue("modelplr_tidy_pw.rds")))
+write_csv(model_tidy, here::here("output", "model", outcome, timescale, sens_path, glue("modelplr_tidy_pw.csv")))
+write_rds(model_tidy, here::here("output", "model", outcome, timescale, sens_path, glue("modelplr_tidy_pw.rds")))
 
 ## continuous estimands ----
 
@@ -470,15 +469,15 @@ model_glance <- bind_rows(summary0$glance, summary1$glance, summary2$glance, sum
     model_name = fct_recode(as.character(model), !!!model_names),
     outcome = outcome
   )
-write_csv(model_glance, here::here("output", "models", outcome, timescale, sens_path, glue("modelplr_glance_ns.csv")))
+write_csv(model_glance, here::here("output", "model", outcome, timescale, sens_path, glue("modelplr_glance_ns.csv")))
 
 model_tidy <- bind_rows(summary0$tidy, summary1$tidy, summary2$tidy, summary3$tidy) %>%
   mutate(
     model_name = fct_recode(as.character(model), !!!model_names),
     outcome = outcome
   )
-write_csv(model_tidy, here::here("output", "models", outcome, timescale, sens_path, glue("modelplr_tidy_ns.csv")))
-write_rds(model_tidy, here::here("output", "models", outcome, timescale, sens_path, glue("modelplr_tidy_ns.rds")))
+write_csv(model_tidy, here::here("output", "model", outcome, timescale, sens_path, glue("modelplr_tidy_ns.csv")))
+write_rds(model_tidy, here::here("output", "model", outcome, timescale, sens_path, glue("modelplr_tidy_ns.rds")))
 
 ## print warnings ----
 print(warnings())

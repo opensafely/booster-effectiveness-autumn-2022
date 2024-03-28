@@ -309,6 +309,12 @@ actions_list <- splice(
   
   action_match_strategy(
     effect = "comparative",
+    match_strategy = "b",
+    include_models = FALSE
+  ),  
+  
+  action_match_strategy(
+    effect = "comparative",
     match_strategy = "riskscore_i",
     include_models = FALSE
   ),
@@ -337,7 +343,7 @@ actions_list <- splice(
           "# # # # # # # # # # # # # # # # # # #"),
   
   expand_grid(
-    match_strategy = c("a", "riskscore_i"),
+    match_strategy = c("a", "b", "riskscore_i"),
     subgroup = subgroups,
     outcome = outcomes,
   ) %>%
@@ -357,6 +363,11 @@ actions_list <- splice(
     effect = "comparative",
     match_strategy = "a"
   ),
+  
+  action_combine_model_outputs(
+    effect = "comparative",
+    match_strategy = "b"
+  ),  
   
   action_combine_model_outputs(
     effect = "comparative",
@@ -382,6 +393,12 @@ actions_list <- splice(
     match_strategy = "a",
     include_models = TRUE
     ),
+  
+  action_match_strategy(
+    effect = "incremental",
+    match_strategy = "b",
+    include_models = TRUE
+  ),  
   
   action_match_strategy(
     effect = "incremental",

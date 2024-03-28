@@ -223,7 +223,7 @@ match_strategy_none <- create_match_strategy(
     "vax_primary_brand", "vax_boostfirst_brand", "vax_boostspring_brand",
     "vax_lastbeforeindex_date", "sex", "ethnicity", "hscworker",
     # defined in or derived from analysis/variables_elig.py
-    "age", "agegroup_match", "timesince_coviddischarged", "imd_200", "imd_Q5",
+    "age", "agegroup_match", "timesince_coviddischarged", "imd", "imd_Q5",
     # defined in or derived from analysis/variables_jcvi.py
     "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",
     "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease",
@@ -256,7 +256,7 @@ match_strategy_riskscore_i <- create_match_strategy(
     "immunosuppressed", "multimorb",  "timesince_coviddischarged",
     "flu_vaccine_2122", "cancer"
   ),
-  strata_vars = c("trial_date", "agegroup_match") # double check - previously contained region but removed
+  strata_vars = c("trial_date") 
 )
 
 match_strategy_a <- create_match_strategy(
@@ -293,7 +293,8 @@ match_strategy_b <- create_match_strategy(
     age = 3,
     # match on `lastvaxbeforeindex_day` rather than `timesincelastvax` as the 
     # potential matches are less likely to fail in the actual stage
-    vax_lastbeforeindex_date = 14,
+    vax_lastbeforeindex_date = 14, 
+    imd = 200,
     NULL
   ),
   adj_vars = c(

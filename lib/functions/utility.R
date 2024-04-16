@@ -353,7 +353,7 @@ tidy_plr <- function(model, conf.int=TRUE, conf.level=0.95, exponentiate=FALSE, 
 
   # create tidy dataframe for coefficients of pooled logistic regression
   # using robust standard errors
-  robustSEs <- lmtest::coeftest(model, vcov. = sandwich::vcovCL(model, cluster = cluster, type = "HC0")) %>% broom::tidy(conf.int=FALSE, exponentiate=exponentiate)
+  robustSEs <- lmtest::coeftest(model, vcov. = sandwich::vcovCL(model, cluster = cluster, type = "HC0")) %>% broom::tidy(conf.int=FALSE) #, exponentiate=exponentiate)
   robustCIs <- lmtest::coefci(model, vcov. = sandwich::vcovCL(model, cluster = cluster, type = "HC0"), level = conf.level) %>% tibble::as_tibble(rownames="term")
   robust <- dplyr::inner_join(robustSEs, robustCIs, by="term")
 

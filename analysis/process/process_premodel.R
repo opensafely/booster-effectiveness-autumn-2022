@@ -32,7 +32,7 @@ if ("timesince_coviddischarged" %in% adj_vars) {
 if (effect == "incremental") {
   
   data_matched <- data_matched %>%
-    # create a new id to account for the fact that some controls become treated (this is only needed for cox models)
+    # create a new id to account for the fact that some controls become treated (this is only needed for parametric models)
     group_by(patient_id, match_id, match_round, treated) %>% 
     mutate(new_id = cur_group_id()) %>% 
     ungroup()
@@ -88,6 +88,9 @@ data_tte <- data_matched %>%
     ind_outcome = censor_indicator(outcome_date, censor_date),
     
     tte_stop = pmin(tte_censor, tte_outcome, na.rm=TRUE),
+    
+    reltrial_date = as.numeric(trial_date - study_dates[["studystart"]])
+
   ) %>%
   select(
     # select only variables needed for models to save space
@@ -96,7 +99,7 @@ data_tte <- data_matched %>%
     all_of(strata_vars),
     all_of(adj_vars),
     all_of(subgroup), 
-    stp
+    stp, reltrial_date
   ) 
 
 
@@ -110,8 +113,7 @@ cat("check for non-positive tte_outcome:\n")
 check_pos_tte <- data_tte %>% group_by(tte_stop>0) %>% count() %>% print()
 stopifnot("tte_outcome has non-positive event times" = all(check_pos_tte[[1]]))
 
-
-# one row per day
+## convert data from wide to long form 
 alltimes <- expand(data_tte, patient_id, times=as.integer(full_seq(c(1, tte_stop),1)))
 data_plr <-
   tmerge(
@@ -134,6 +136,5 @@ data_plr <-
     id = patient_id,
     alltimes = event(times, times)
   ) 
-
 
 cat("---- end process_premodel ---- \n")

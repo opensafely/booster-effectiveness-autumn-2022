@@ -94,7 +94,16 @@ parglmparams <- parglm.control(
 )
 
 # make formulas ----
-## TODO - define knots based on event times, not on all follow-up time
+  ## make formulas ----
+  ### model 1 - minimally adjusted vaccination effect model, age and sex 
+  ### model 2 - fully adjusted vaccination effect model, baseline demographics + clinical characteristics
+
+model_names = c(
+  "Adjusting for time, age and sex" = "1",
+  "Adjusting for time + demographics and clinical characteristics" = "2"
+) 
+
+  # function for splines on event times
 nsevents <- function(x, events, df){
   # this is the same as the `ns` function,
   # except the knot locations are chosen
@@ -104,43 +113,35 @@ nsevents <- function(x, events, df){
   ns(x, knots=q[-c(1, df+1)], Boundary.knots = q[c(1, df+1)])
 }
 
-
-# base formula to be built on 
+  # base formula to be built on 
 formula_outcome <- outcome_event ~ 1
 
-## TODO update for models based on protocol
-if(match_strategy == "a") formula_demog <- . ~ . + poly(age, degree=2, raw=TRUE) + sex + ethnicity + imd_Q5 + bmi + asthma + learndis + sev_mental + immunosuppressed + multimorb + timesince_coviddischarged + flu_vaccine_2122 + cancer
-if(match_strategy == "b") formula_demog <- . ~ . + poly(age, degree=2, raw=TRUE) 
-if(match_strategy == "riskscore_i") formula_demog <- . ~ . + poly(age, degree=2, raw=TRUE) 
+  # minimal adjustment set
+formula_minadj <- . ~ . + poly(age, degree=2, raw=TRUE) + sex
 
+  # full adjustment sets for each matching strategy 
+if(match_strategy == "a") formula_demog <- . ~ . + poly(age, degree=2, raw=TRUE) + sex + ethnicity + imd_Q5 + bmi + asthma + learndis + sev_mental + immunosuppressed + multimorb + timesince_coviddischarged + flu_vaccine_2122 + cancer
+if(match_strategy == "b") formula_demog <- . ~ . + poly(age, degree=2, raw=TRUE) + sex + ethnicity + bmi + timesince_coviddischarged + flu_vaccine_2122
+if(match_strategy == "riskscore_i") formula_demog <- . ~ . + poly(age, degree=2, raw=TRUE)  + sex + ethnicity + imd_Q5 + bmi + asthma + learndis + sev_mental + immunosuppressed + multimorb + timesince_coviddischarged + flu_vaccine_2122 + cancer
 
 # mimicking timescale / stratification in simple cox models
 formula_timescale_ns <- . ~ . + nsevents(tstop, outcome_event, 4) # spline for timescale only
-formula_spacetime <- . ~ . + ns(trial_date, 3)*stp # spline for space-time adjustment - check with Will if the right time variable has been used
+formula_spacetime <- . ~ . + ns(trial_date, 3)#*stp # spline for space-time adjustment 
 formula_timesincevax_ns <- . ~ . + treated + treated:nsevents(tstop, outcome_event, 4)
 
 ### natural cubic spline formulae ----
 ### estimands
-formula_vaxonly_ns <- formula_outcome  %>% update(formula_timesincevax_ns) %>% update(formula_timescale_ns)
+formula_vaxonly_ns <- formula_outcome %>% update(formula_timesincevax_ns) %>% update(formula_timescale_ns) %>% update(formula_spacetime)
 
-formula0_ns <- formula_vaxonly_ns
-formula1_ns <- formula_vaxonly_ns %>% update(formula_spacetime)
+formula1_ns <- formula_vaxonly_ns %>% update(formula_minadj)
 formula2_ns <- formula_vaxonly_ns %>% update(formula_spacetime) %>% update(formula_demog)
-
-
-## UPDATE THIS section to be defined earlier in script to allow flexibility 
-plr_formula <- outcome_event ~ 1 + treated +
-  reltrial_date + tstart + I(tstart*tstart) + I(treated*tstart) + I(treated*tstart*tstart) +
-  poly(age, degree=2, raw=TRUE) + sex + ethnicity + imd_Q5 + bmi + asthma + learndis + sev_mental + immunosuppressed + multimorb + timesince_coviddischarged + flu_vaccine_2122 + cancer
-
-
 
 # Define program for model fitting and bootstrapping
   # NOTE that in CausaLab code the bootstrap separately for each group 
   # this will mean running bootstrap twice for all the comparisons we need to make which may be unfeasible - have run bootstrap only once
   # may need to update if decided that we should bootstrap separately for comparison groups 
 
-risk.boot <- function(data, indices, boot=FALSE) {
+risk.boot <- function(data, indices, formula, boot=FALSE) {
 
   # Select individuals into each bootstrapped sample
     # NOTE - selecting on match IDs so for incremental comparisons individuals who are untreated may not contribute for both their untreated and treated trials
@@ -153,7 +154,7 @@ risk.boot <- function(data, indices, boot=FALSE) {
   
   ## Fit pooled logistic regression model 
   plr.mod <- parglm(
-    formula = plr_formula, 
+    formula = formula, 
     data = d,
     family = binomial(link="logit"),
     control = parglmparams,
@@ -175,7 +176,17 @@ risk.boot <- function(data, indices, boot=FALSE) {
       boot.newid = row_number()  # new id number for expanding dataset
     )
   surv.results0 <- uncount(boot_data_tte, weights=fup_params$maxfup, .remove=F)
-  surv.results0 <- surv.results0 %>% group_by(boot.newid) %>% mutate(tstart=row_number()-1) 
+  surv.results0 <- surv.results0 %>% group_by(boot.newid) %>% 
+    mutate(
+      tstart=row_number()-1, 
+      tstop = row_number(), 
+      outcome_event = case_when(
+        is.na(tte_outcome) ~ 0, 
+        tstop < tte_outcome ~ 0, 
+        tstop == tte_outcome ~ 1, 
+        tstop > tte_outcome ~ 0 # does not make a difference to predicted values whether this value (times after event occurred) is set to 0 or 1 
+      )
+    ) 
   surv.results0$treated <- 0
   
     # Had everyone been treated
@@ -183,7 +194,6 @@ risk.boot <- function(data, indices, boot=FALSE) {
   surv.results1$treated <- 1
  
   ## Calculating risks from hazards
-  
     # Hazards based on predicted probabilities from PLR
   surv.results0$hazard0 <- predict(plr.mod, newdata=surv.results0, type="response")  
   surv.results1$hazard1 <- predict(plr.mod, newdata=surv.results1, type="response")  
@@ -224,75 +234,101 @@ risk.boot <- function(data, indices, boot=FALSE) {
   }
 } 
 
+# create function to fit model and run manual bootstrapping 
+  # Manually running bootstrapping - function above does not work within boot command - possibly due to conflicting methods for parallelisation
+modfit <- function(model_num, nboot){
   
-# Obtain model estimates 
-holder <- risk.boot(data = data_matchids, indices = seq(1:length(unique(data_matchids$match_id))), boot = FALSE) 
-ests <- as.data.frame(holder["surv.results"])
-colnames(ests) <- names(holder$surv.results)
-plr.model <- holder["model"]
-rm(holder)
-
-  ## Save to log and output model 
-print(warnings())
-logoutput(
-  glue("model data size = ", nrow(plr.model$model$data)),
-  glue("model memory usage = ", format(object.size(plr.model), units="GB", standard="SI", digits=3L)),
-  glue("convergence status: ", plr.model$model$converged)
-)
-plr.model$model$data <- NULL 
-write_rds(plr.mod$model, ghere("output", glue("{effect}_{match_strategy}"), "model", "plr", subgroup, outcome, glue("plr_model.rds")), compress="gz")
-
-
-
-# Manually run bootstrapping - does not work within boot command - possibly due to conflicting methods for parallelisation
-  # creating placeholder datasets for bootstrap samples 
-boot.risk0 <- data.frame(tstart=seq(0,fup_params$maxfup-1))
-boot.risk1 <- data.frame(tstart=seq(0,fup_params$maxfup-1))
-boot.rd    <- data.frame(tstart=seq(0,fup_params$maxfup-1))
-boot.rr    <- data.frame(tstart=seq(0,fup_params$maxfup-1))
-
-  # bootstrap to get 95% CI 
-set.seed(4757976)
-nbootstraps = 500
-for(i in 1:nbootstraps) {
-  #print(i)
-  indices <- sample(seq(1:length(unique(data_matchids$match_id))), length(unique(data_matchids$match_id)), replace=TRUE) 
-  risk_ests <- risk.boot(data = data_matchids, indices = indices, boot = TRUE) 
-  colnames(risk_ests)[which(colnames(risk_ests)== "risk0")] <-  glue(colnames(risk_ests)[which(colnames(risk_ests)== "risk0")], "_", i) # risk untreated
-  colnames(risk_ests)[which(colnames(risk_ests)== "risk1")] <-  glue(colnames(risk_ests)[which(colnames(risk_ests)== "risk1")], "_", i) # risk treated
-  colnames(risk_ests)[which(colnames(risk_ests)== "rd")]    <-  glue(colnames(risk_ests)[which(colnames(risk_ests)== "rd")], "_", i) # risk difference
-  colnames(risk_ests)[which(colnames(risk_ests)== "rr")]    <-  glue(colnames(risk_ests)[which(colnames(risk_ests)== "rr")], "_", i) # log risk ratio
+  if(model_num == 1){frm = formula1_ns} 
+  if(model_num == 2){frm = formula2_ns} 
   
-  boot.risk0 <- left_join(boot.risk0, risk_ests[,c(1,which(colnames(risk_ests)== glue("risk0_", i)))], by="tstart") # risk untreated
-  boot.risk1 <- left_join(boot.risk1, risk_ests[,c(1,which(colnames(risk_ests)== glue("risk1_", i)))], by="tstart") # risk treated
-  boot.rd    <- left_join(boot.rd,    risk_ests[,c(1,which(colnames(risk_ests)== glue("rd_", i)))], by="tstart") # risk difference
-  boot.rr    <- left_join(boot.rr,    risk_ests[,c(1,which(colnames(risk_ests)== glue("rr_", i)))], by="tstart") # risk ratio
+  # Obtain model estimates 
+  holder <- risk.boot(data = data_matchids, indices = seq(1:length(unique(data_matchids$match_id))), formula = frm, boot = FALSE) 
+  cat("Fit plr model")
+  ests <- as.data.frame(holder["surv.results"])
+  colnames(ests) <- names(holder$surv.results)
+  plr.model <- holder["model"]
+  rm(holder)
+  
+    ## Save to log and output model 
+  print(warnings())
+  logoutput(
+    glue("model data size = ", nrow(plr.model$model$data)),
+    glue("model memory usage = ", format(object.size(plr.model), units="GB", standard="SI", digits=3L)),
+    glue("convergence status: ", plr.model$model$converged)
+  )
+  plr.model$model$data <- NULL 
+  write_rds(plr.mod$model, ghere("output", glue("{effect}_{match_strategy}"), "model", "plr", subgroup, outcome, glue("plr_model{model_num}.rds")), compress="gz")
+  cat("Saved model")
+  
+  cat("Beginning bootstrapping")
+      # creating placeholder datasets for bootstrap samples 
+  boot.risk0 <- data.frame(tstart=seq(0,fup_params$maxfup-1))
+  boot.risk1 <- data.frame(tstart=seq(0,fup_params$maxfup-1))
+  boot.rd    <- data.frame(tstart=seq(0,fup_params$maxfup-1))
+  boot.rr    <- data.frame(tstart=seq(0,fup_params$maxfup-1))
+  
+    # bootstrap to get 95% CI 
+  set.seed(4757976)
+  nbootstraps = nboot
+  for(i in 1:nbootstraps) {
+    print(i)
+    indices <- sample(seq(1:length(unique(data_matchids$match_id))), length(unique(data_matchids$match_id)), replace=TRUE) 
+    risk_ests <- risk.boot(data = data_matchids, indices = indices, formula = frm, boot = TRUE) 
+    colnames(risk_ests)[which(colnames(risk_ests)== "risk0")] <-  glue(colnames(risk_ests)[which(colnames(risk_ests)== "risk0")], "_", i) # risk untreated
+    colnames(risk_ests)[which(colnames(risk_ests)== "risk1")] <-  glue(colnames(risk_ests)[which(colnames(risk_ests)== "risk1")], "_", i) # risk treated
+    colnames(risk_ests)[which(colnames(risk_ests)== "rd")]    <-  glue(colnames(risk_ests)[which(colnames(risk_ests)== "rd")], "_", i) # risk difference
+    colnames(risk_ests)[which(colnames(risk_ests)== "rr")]    <-  glue(colnames(risk_ests)[which(colnames(risk_ests)== "rr")], "_", i) # log risk ratio
+    
+    boot.risk0 <- left_join(boot.risk0, risk_ests[,c(1,which(colnames(risk_ests)== glue("risk0_", i)))], by="tstart") # risk untreated
+    boot.risk1 <- left_join(boot.risk1, risk_ests[,c(1,which(colnames(risk_ests)== glue("risk1_", i)))], by="tstart") # risk treated
+    boot.rd    <- left_join(boot.rd,    risk_ests[,c(1,which(colnames(risk_ests)== glue("rd_", i)))], by="tstart") # risk difference
+    boot.rr    <- left_join(boot.rr,    risk_ests[,c(1,which(colnames(risk_ests)== glue("rr_", i)))], by="tstart") # risk ratio
+  }
+  cat("Finished bootstrapping")
+  
+  ests$risk0.lci <- apply(boot.risk0[,-which(names(boot.risk0)=="tstart")], 1, quantile, probs=0.025) # lower quantile from bootstrap  
+  ests$risk0.uci <- apply(boot.risk0[,-which(names(boot.risk0)=="tstart")], 1, quantile, probs=0.975) # upper quantile from bootstrap
+  ests$risk1.lci <- apply(boot.risk1[,-which(names(boot.risk1)=="tstart")], 1, quantile, probs=0.025)
+  ests$risk1.uci <- apply(boot.risk1[,-which(names(boot.risk1)=="tstart")], 1, quantile, probs=0.975)
+  ests$rd.lci    <- apply(boot.rd[,-which(names(boot.rd)=="tstart")], 1, quantile, probs=0.025)
+  ests$rd.uci    <- apply(boot.rd[,-which(names(boot.rd)=="tstart")], 1, quantile, probs=0.975)
+  ests$rr.lci    <- apply(boot.rr[,-which(names(boot.rr)=="tstart")], 1, quantile, probs=0.025)
+  ests$rr.uci    <- apply(boot.rr[,-which(names(boot.rr)=="tstart")], 1, quantile, probs=0.975)
+  
+  
+  # output estimates from models 
+  write_rds(ests, ghere("output", glue("{effect}_{match_strategy}"), "model", "plr", subgroup, outcome, glue("plr_risk_estimates_model{model_num}.rds")), compress="gz")
+  cat("Saved model estimates")
+  
+  
+  # for interactive use 
+  if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){ 
+    return(list(
+        ests = ests, 
+        model = plr.mod
+      )
+    )
+  }
+  
+  ## print warnings ----
+  print(warnings())
+  cat("  \n")
+  print(gc(reset=TRUE))
 }
 
-ests$risk0.lci <- apply(boot.risk0[,-which(names(boot.risk0)=="tstart")], 1, quantile, probs=0.025) # lower quantile from bootstrap  
-ests$risk0.uci <- apply(boot.risk0[,-which(names(boot.risk0)=="tstart")], 1, quantile, probs=0.975) # upper quantile from bootstrap
-ests$risk1.lci <- apply(boot.risk1[,-which(names(boot.risk1)=="tstart")], 1, quantile, probs=0.025)
-ests$risk1.uci <- apply(boot.risk1[,-which(names(boot.risk1)=="tstart")], 1, quantile, probs=0.975)
-ests$rd.lci    <- apply(boot.rd[,-which(names(boot.rd)=="tstart")], 1, quantile, probs=0.025)
-ests$rd.uci    <- apply(boot.rd[,-which(names(boot.rd)=="tstart")], 1, quantile, probs=0.975)
-ests$rr.lci    <- apply(boot.rr[,-which(names(boot.rr)=="tstart")], 1, quantile, probs=0.025)
-ests$rr.uci    <- apply(boot.rr[,-which(names(boot.rr)=="tstart")], 1, quantile, probs=0.975)
+test1 <- modfit(model_num = 1, nboot = 20)
+test2 <- modfit(model_num = 2, nboot = 20)
 
 
-# output estimates from models 
-write_rds(ests, ghere("output", glue("{effect}_{match_strategy}"), "model", "plr", subgroup, outcome, glue("plr_risk_estimates.rds")), compress="gz")
 
-## print warnings ----
-print(warnings())
-cat("  \n")
-print(gc(reset=TRUE))
+
 
 
 
 
 #### MOVE to separate script - will need to output datasets 
 # Prepare data
-graph.pred <- ests
+graph.pred <- test1$ests
 # Edit data frame to reflect that risks are estimated at the END of each interval
 graph.pred$tstop <- graph.pred$tstart + 1
 zero <- data.frame(cbind(-1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1))

@@ -133,7 +133,7 @@ formula_timesincevax_ns <- . ~ . + treated + treated:nsevents(tstop, outcome_eve
 ### estimands
 formula_vaxonly_ns <- formula_outcome %>% update(formula_timesincevax_ns) %>% update(formula_timescale_ns) %>% update(formula_spacetime)
 
-formula1_ns <- formula_vaxonly_ns %>% update(formula_minadj)
+formula1_ns <- formula_vaxonly_ns %>% update(formula_spacetime) %>% update(formula_minadj)
 formula2_ns <- formula_vaxonly_ns %>% update(formula_spacetime) %>% update(formula_demog)
 
 # Define program for model fitting and bootstrapping
@@ -243,7 +243,7 @@ modfit <- function(model_num, nboot){
   
   # Obtain model estimates 
   holder <- risk.boot(data = data_matchids, indices = seq(1:length(unique(data_matchids$match_id))), formula = frm, boot = FALSE) 
-  cat("Fit plr model")
+  cat("Fit plr model  \n")
   ests <- as.data.frame(holder["surv.results"])
   colnames(ests) <- names(holder$surv.results)
   plr.model <- holder["model"]
@@ -257,10 +257,10 @@ modfit <- function(model_num, nboot){
     glue("convergence status: ", plr.model$model$converged)
   )
   plr.model$model$data <- NULL 
-  write_rds(plr.mod$model, ghere("output", glue("{effect}_{match_strategy}"), "model", "plr", subgroup, outcome, glue("plr_model{model_num}.rds")), compress="gz")
-  cat("Saved model")
+  write_rds(plr.model$model, ghere("output", glue("{effect}_{match_strategy}"), "model", "plr", subgroup, outcome, glue("plr_model{model_num}.rds")), compress="gz")
+  cat("Saved model  \n")
   
-  cat("Beginning bootstrapping")
+  cat("Beginning bootstrapping  \n")
       # creating placeholder datasets for bootstrap samples 
   boot.risk0 <- data.frame(tstart=seq(0,fup_params$maxfup-1))
   boot.risk1 <- data.frame(tstart=seq(0,fup_params$maxfup-1))
@@ -284,7 +284,7 @@ modfit <- function(model_num, nboot){
     boot.rd    <- left_join(boot.rd,    risk_ests[,c(1,which(colnames(risk_ests)== glue("rd_", i)))], by="tstart") # risk difference
     boot.rr    <- left_join(boot.rr,    risk_ests[,c(1,which(colnames(risk_ests)== glue("rr_", i)))], by="tstart") # risk ratio
   }
-  cat("Finished bootstrapping")
+  cat("Finished bootstrapping  \n")
   
   ests$risk0.lci <- apply(boot.risk0[,-which(names(boot.risk0)=="tstart")], 1, quantile, probs=0.025) # lower quantile from bootstrap  
   ests$risk0.uci <- apply(boot.risk0[,-which(names(boot.risk0)=="tstart")], 1, quantile, probs=0.975) # upper quantile from bootstrap
@@ -298,14 +298,14 @@ modfit <- function(model_num, nboot){
   
   # output estimates from models 
   write_rds(ests, ghere("output", glue("{effect}_{match_strategy}"), "model", "plr", subgroup, outcome, glue("plr_risk_estimates_model{model_num}.rds")), compress="gz")
-  cat("Saved model estimates")
+  cat("Saved model estimates  \n")
   
   
   # for interactive use 
   if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){ 
     return(list(
         ests = ests, 
-        model = plr.mod
+        model = plr.model$model
       )
     )
   }
@@ -316,6 +316,8 @@ modfit <- function(model_num, nboot){
   print(gc(reset=TRUE))
 }
 
+
+# call models 
 test1 <- modfit(model_num = 1, nboot = 20)
 test2 <- modfit(model_num = 2, nboot = 20)
 
@@ -351,10 +353,10 @@ plot.plr <- ggplot(graph,
   scale_x_continuous(limits = c(0, 182), # format x axis
                      breaks=seq(0,182,14)) + 
   ylab("Cumulative Incidence (%)") + # label y axis
-  scale_y_continuous(limits=c(0, 0.175), # format y axis
-                     breaks=c(0, 0.025, 0.05, 0.075, 0.1, 0.125, 0.15,0.175),
+  scale_y_continuous(limits=c(0, 0.125), # format y axis
+                     breaks=c(0, 0.025, 0.05, 0.075, 0.1, 0.125),
                      labels=c("0.0%", "2.5%", "5.0%",
-                              "7.5%", "10.0%", "12.5%", "15.0%", "17.5%")) + 
+                              "7.5%", "10.0%", "12.5%")) + 
   theme_minimal()+ # set plot theme elements
   theme(axis.text = element_text(size=14), legend.position = c(0.2, 0.8),
         axis.line = element_line(colour = "black"),

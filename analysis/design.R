@@ -256,7 +256,7 @@ match_strategy_riskscore_i <- create_match_strategy(
     "immunosuppressed", "multimorb",  "timesince_coviddischarged",
     "flu_vaccine_2122", "cancer"
   ),
-  strata_vars = c("trial_date") 
+  strata_vars = c("trial_date", "stp") 
 )
 
 match_strategy_a <- create_match_strategy(
@@ -278,7 +278,7 @@ match_strategy_a <- create_match_strategy(
     "immunosuppressed", "multimorb",  "timesince_coviddischarged",
     "flu_vaccine_2122", "cancer"
   ),
-  strata_vars = c("trial_date")
+  strata_vars = c("trial_date", "stp")
 )
 
 match_strategy_b <- create_match_strategy(
@@ -300,7 +300,7 @@ match_strategy_b <- create_match_strategy(
   adj_vars = c(
     "age", "sex", "ethnicity", "bmi", "timesince_coviddischarged", "flu_vaccine_2122"
   ),
-  strata_vars = c("trial_date")
+  strata_vars = c("trial_date", "stp")
 )
 
 # check if all variables from all matching strategies are in match_strategy_none$keep_vars

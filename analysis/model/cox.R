@@ -25,7 +25,7 @@ source(here("analysis", "process", "process_functions.R"))
 # import command-line arguments 
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
-  effect <- "incremental"
+  effect <- "comparative"
   match_strategy <- "a"
   model <- "cox_adj"
   subgroup <- "all"
@@ -104,7 +104,7 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
       period_id = tdc(fupstart_time, period_id)
     ) 
   
-  cox_formula_string <- "Surv(tstart, tstop, ind_outcome) ~ strata(trial_date) + strata(region) + treated"
+  cox_formula_string <- "Surv(tstart, tstop, ind_outcome) ~ strata(trial_date) + strata(stp) + treated"
   
   # only keep periods with >2 events per level of exposure
   data_cox <- data_split %>%

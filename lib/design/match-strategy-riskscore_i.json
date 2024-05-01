@@ -5,8 +5,8 @@
   "riskscore_vars": ["age", "sex", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi", "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease", "chronic_liver_disease", "immunosuppressed", "learndis", "cancer", "ethnicity", "imd_Q5", "stp", "flu_vaccine_1821", "timesince_discharged", "vax_boostfirst_brand"],
   "riskscore_fup_vars": ["death", "dereg"],
   "adj_vars": ["age", "sex", "ethnicity", "imd_Q5", "bmi", "asthma", "learndis", "sev_mental", "immunosuppressed", "multimorb", "timesince_coviddischarged", "flu_vaccine_2122", "cancer"],
-  "strata_vars": "trial_date",
+  "strata_vars": ["trial_date", "stp"],
   "match_vars": ["riskscore_i_percentile", "age", "sex", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi", "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease", "chronic_liver_disease", "immunosuppressed", "learndis", "cancer", "ethnicity", "imd_Q5", "stp", "flu_vaccine_1821", "timesince_discharged", "vax_boostfirst_brand", "death", "dereg"],
-  "final_vars": ["age", "sex", "ethnicity", "imd_Q5", "bmi", "asthma", "learndis", "sev_mental", "immunosuppressed", "multimorb", "timesince_coviddischarged", "flu_vaccine_2122", "cancer", "trial_date"],
+  "final_vars": ["age", "sex", "ethnicity", "imd_Q5", "bmi", "asthma", "learndis", "sev_mental", "immunosuppressed", "multimorb", "timesince_coviddischarged", "flu_vaccine_2122", "cancer", "trial_date", "stp"],
   "keep_vars": ["age", "agegroup_match", "sex", "imd"]
 }

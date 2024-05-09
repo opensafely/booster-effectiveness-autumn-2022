@@ -127,7 +127,7 @@ comparison_definition <- tribble(
 )
 
 # lookups to convert coded variables to full, descriptive variables ----
-# ToDo update to include clinically vulnerable as subgroup
+# TODO update to include clinically vulnerable as subgroup
 recoder <-
   lst(
     subgroups = c(
@@ -160,14 +160,13 @@ for (i in c("comparative", "incremental")) {
 }
 
 ## follow-up time ----
-# TODO these need to be reviewed depending on how much follow-up data we have
 fup_params <- lst(
   # length of baseline period
   baselinedays = 14,
   # length of follow-up period
-  postbaselinedays = 28,
+  postbaselinedays = 28, # TODO update to 56 days (8 weeks) if low number of outcome counts in each period  
   # number of follow-up periods
-  postbaselineperiods = 6,
+  postbaselineperiods = 12,
   # where to split follow-up time after recruitment
   postbaselinecuts = c(0, baselinedays, baselinedays + (1:postbaselineperiods)*postbaselinedays),
   # maximum follow-up

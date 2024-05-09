@@ -25,7 +25,7 @@ source(here("analysis", "process", "process_functions.R"))
 # import command-line arguments 
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
-  effect <- "comparative"
+  effect <- "incremental"
   match_strategy <- "a"
   model <- "cox_adj"
   subgroup <- "all"

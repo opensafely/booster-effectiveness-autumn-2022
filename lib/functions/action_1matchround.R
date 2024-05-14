@@ -58,7 +58,7 @@ action_1matchround <- function(match_strategy, match_round) {
         " --study-definition study_definition_controlactual",
         " --output-file ", controlactual_path,
         " --param match_strategy={match_strategy}",
-        " --param match_round={match_round}",
+        " --param match_round={match_round}"
       ),
       needs = namelesslst(
         "design",

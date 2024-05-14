@@ -131,7 +131,7 @@ actions_list <- splice(
     run = glue(
       "cohortextractor:latest generate_cohort", 
       " --study-definition study_definition_initial", 
-      " --output-file output/initial/extract/input_initial.feather",
+      " --output-file output/initial/extract/input_initial.feather"
     ),
     needs = namelesslst(
       "design"
@@ -182,7 +182,7 @@ actions_list <- splice(
     run = glue(
       "cohortextractor:latest generate_cohort", 
       " --study-definition study_definition_riskscore_i", 
-      " --output-file output/riskscore_i/extract/input_riskscore_i.feather",
+      " --output-file output/riskscore_i/extract/input_riskscore_i.feather"
     ),
     needs = namelesslst("design"),
     highly_sensitive = lst(
@@ -254,7 +254,7 @@ actions_list <- splice(
     run = glue(
       "cohortextractor:latest generate_cohort", 
       " --study-definition study_definition_treated", 
-      " --output-file output/treated/extract/input_treated.feather",
+      " --output-file output/treated/extract/input_treated.feather"
     ),
     needs = namelesslst(
       "process_initial"

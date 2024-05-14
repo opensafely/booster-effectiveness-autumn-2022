@@ -144,10 +144,14 @@ recoder <-
       `50-64 years` = "50-64",
       `65-74 years` = "65-74",
       `75+ years` = "75+"
+    ), 
+    cv = c(
+      "Not clinically vulnerable" = FALSE, 
+      "Clinically vulnerable"     = TRUE
     )
   )
 
-subgroups <- c("all", "agegroup_match")
+subgroups <- c("all", "agegroup_match", "cv")
 
 # for the treated variables which are coded as 0 or 1
 for (i in c("comparative", "incremental")) {
@@ -176,7 +180,7 @@ fup_params <- lst(
 # matching ----
 create_match_strategy <- function(
     name,
-    n_match_rounds = 4, # TODO Need to update, but use 4 for testing code. We've typically used length(study_dates$control_extract)
+    n_match_rounds = length(study_dates$control_extract), # use 4 for testing code. We've typically used length(study_dates$control_extract)
     exact_vars = NULL,
     caliper_vars = NULL,
     riskscore_vars = NULL, # variable to be included as covariates in risk score model
@@ -201,7 +205,7 @@ create_match_strategy <- function(
     )),
     final_vars = unique(c(adj_vars, strata_vars)),
     # variables to keep in the dataset throughout stages
-    keep_vars = c("age", "agegroup_match", "sex", "imd")
+    keep_vars = c("age", "agegroup_match", "sex", "imd", "cv")
   )
   
   out %>%
@@ -238,7 +242,7 @@ match_strategy_none <- create_match_strategy(
 
 match_strategy_riskscore_i <- create_match_strategy(
   name = "riskscore_i",
-  n_match_rounds = 3,
+  n_match_rounds = length(study_dates$control_extract),
   exact_vars = "riskscore_i_percentile",
   # caliper_vars = c("riskscore_i" = 0.1), 
   # riskscore_vars are the variables used in the model to predict the risk score
@@ -260,7 +264,7 @@ match_strategy_riskscore_i <- create_match_strategy(
 
 match_strategy_a <- create_match_strategy(
   name = "a",
-  n_match_rounds = 4,
+  n_match_rounds = length(study_dates$control_extract),
   exact_vars = c(
     "agegroup_match", "vax_primary_brand", "vax_boostfirst_brand",
     "vax_boostspring_brand", "cv", "stp"
@@ -282,7 +286,7 @@ match_strategy_a <- create_match_strategy(
 
 match_strategy_b <- create_match_strategy(
   name = "b",
-  n_match_rounds = 4,
+  n_match_rounds = length(study_dates$control_extract),
   exact_vars = c(
     "agegroup_match", "vax_primary_brand", "vax_boostfirst_brand",
     "vax_boostspring_brand", "stp", "multimorb", "asthma", "learndis", "sev_mental",

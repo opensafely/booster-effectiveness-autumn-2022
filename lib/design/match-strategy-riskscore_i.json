@@ -1,5 +1,5 @@
 {
-  "n_match_rounds": 3,
+  "n_match_rounds": 8,
   "exact_vars": "riskscore_i_percentile",
   "caliper_vars": {},
   "riskscore_vars": ["age", "sex", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi", "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease", "chronic_liver_disease", "immunosuppressed", "learndis", "cancer", "ethnicity", "imd_Q5", "stp", "flu_vaccine_1821", "timesince_discharged", "vax_boostfirst_brand"],
@@ -8,5 +8,5 @@
   "strata_vars": ["trial_date", "stp"],
   "match_vars": ["riskscore_i_percentile", "age", "sex", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi", "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease", "chronic_liver_disease", "immunosuppressed", "learndis", "cancer", "ethnicity", "imd_Q5", "stp", "flu_vaccine_1821", "timesince_discharged", "vax_boostfirst_brand", "death", "dereg"],
   "final_vars": ["age", "sex", "ethnicity", "imd_Q5", "bmi", "asthma", "learndis", "sev_mental", "immunosuppressed", "multimorb", "timesince_coviddischarged", "flu_vaccine_2122", "cancer", "trial_date", "stp"],
-  "keep_vars": ["age", "agegroup_match", "sex", "imd"]
+  "keep_vars": ["age", "agegroup_match", "sex", "imd", "cv"]
 }

@@ -31,8 +31,8 @@ source(here("lib", "functions", "utility.R"))
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
   # use for interactive testing
-  effect <- "incremental"
-  match_strategy <- "a"
+  effect <- "comparative"
+  match_strategy <- "riskscore_i"
 } else {
   effect <- args[[1]]
   match_strategy <- args[[2]]
@@ -96,7 +96,7 @@ var_labels <- list(
   sex ~ "Sex",
   ethnicity ~ "Ethnicity",
   imd_Q5 ~ "Deprivation",
-  region ~ "Region",
+  stp ~ "STP",
   
   learndis ~ "Learning disability",
   sev_mental ~ "Severe mental illness",
@@ -119,7 +119,9 @@ var_labels <- list(
   timesince_lastvax ~ "Days since last dose",
   timesince_coviddischarged ~ "Time since COVID-19 hospitalisation",
   
-  flu_vaccine ~ "Flu vaccine",
+  flu_vaccine_2122 ~ "Flu vaccine in 21/22 season",
+  flu_vaccine_1821 ~ "Flu vaccine in 18/19 19/20 or 20/21 seasons",
+  
   bmi ~ "Body mass index"
   
   )

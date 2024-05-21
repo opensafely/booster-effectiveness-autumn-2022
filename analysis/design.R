@@ -55,9 +55,9 @@ study_dates <- lst(
     as.Date(boosterautumn$ages50to64)
     ),
   
-  recruitmentend = "2022-12-24", # based on plot of weekly vaccinations in England
-  hospitalisationend = "2023-01-31", # end of available hospitalization data
-  deathend = "2023-02-28", # end of available death data
+  recruitmentend = "2022-12-31", # based on plot of weekly vaccinations in England
+  hospitalisationend = "2023-09-11", # end of hospitalization data follow up - start of autumn booster 2023
+  deathend = "2023-09-11", # end of death data follow up - start of autumn booster 2023
   
   riskscore_i = lst(
     start = "2022-04-01",
@@ -90,15 +90,15 @@ events_lookup <- tribble(
 
   # effectiveness
   "covidadmitted", "covidadmitted_date", "COVID-19 hospitalisation",
-  # "covidcritcare", "covidcritcare_date", "COVID-19 critical care",
+  "covidcritcare", "covidcritcare_date", "COVID-19 critical care",
   "coviddeath", "coviddeath_date", "COVID-19 death",
   # "covidcritcareordeath", "covidcritcareordeath_date", "COVID-19 critical care or death",
 
   # other
   "noncoviddeath", "noncoviddeath_date", "Non-COVID-19 death",
-  # "cvdnoncoviddeath", "cvdnoncoviddeath_date", "CVD-related non-COVID-19 death",
-  # "cancernoncoviddeath", "cancernoncoviddeath_date", "Cancer-related non-COVID-19 death",
-  # "death", "death_date", "Any death",
+  "cvdnoncoviddeath", "cvdnoncoviddeath_date", "CVD-related non-COVID-19 death",
+  "cancernoncoviddeath", "cancernoncoviddeath_date", "Cancer-related non-COVID-19 death",
+  "death", "death_date", "Any death",
   "fracture", "fracture_date", "Fracture"
 
 )
@@ -127,6 +127,7 @@ comparison_definition <- tribble(
 )
 
 # lookups to convert coded variables to full, descriptive variables ----
+# TODO update to include clinically vulnerable as subgroup
 recoder <-
   lst(
     subgroups = c(
@@ -143,10 +144,14 @@ recoder <-
       `50-64 years` = "50-64",
       `65-74 years` = "65-74",
       `75+ years` = "75+"
+    ), 
+    cv = c(
+      "Not clinically vulnerable" = FALSE, 
+      "Clinically vulnerable"     = TRUE
     )
   )
 
-subgroups <- c("all", "agegroup_match")
+subgroups <- c("all", "agegroup_match", "cv")
 
 # for the treated variables which are coded as 0 or 1
 for (i in c("comparative", "incremental")) {
@@ -159,14 +164,13 @@ for (i in c("comparative", "incremental")) {
 }
 
 ## follow-up time ----
-# TODO these need to be reviewed depending on how much follow-up data we have
 fup_params <- lst(
   # length of baseline period
   baselinedays = 14,
   # length of follow-up period
-  postbaselinedays = 28,
+  postbaselinedays = 28, # TODO update to 56 days (8 weeks) if low number of outcome counts in each period  
   # number of follow-up periods
-  postbaselineperiods = 6,
+  postbaselineperiods = 12,
   # where to split follow-up time after recruitment
   postbaselinecuts = c(0, baselinedays, baselinedays + (1:postbaselineperiods)*postbaselinedays),
   # maximum follow-up
@@ -176,7 +180,7 @@ fup_params <- lst(
 # matching ----
 create_match_strategy <- function(
     name,
-    n_match_rounds = 4, # Need to update, but use 4 for testing code. We've typically used length(study_dates$control_extract)
+    n_match_rounds = length(study_dates$control_extract), # use 4 for testing code. We've typically used length(study_dates$control_extract)
     exact_vars = NULL,
     caliper_vars = NULL,
     riskscore_vars = NULL, # variable to be included as covariates in risk score model
@@ -201,7 +205,7 @@ create_match_strategy <- function(
     )),
     final_vars = unique(c(adj_vars, strata_vars)),
     # variables to keep in the dataset throughout stages
-    keep_vars = c("age", "agegroup_match", "sex", "imd")
+    keep_vars = c("age", "agegroup_match", "sex", "imd", "cv")
   )
   
   out %>%
@@ -222,7 +226,7 @@ match_strategy_none <- create_match_strategy(
     "vax_primary_brand", "vax_boostfirst_brand", "vax_boostspring_brand",
     "vax_lastbeforeindex_date", "sex", "ethnicity", "hscworker",
     # defined in or derived from analysis/variables_elig.py
-    "age", "agegroup_match", "timesince_coviddischarged", "imd_Q5",
+    "age", "agegroup_match", "timesince_coviddischarged", "imd", "imd_Q5",
     # defined in or derived from analysis/variables_jcvi.py
     "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",
     "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease",
@@ -230,7 +234,7 @@ match_strategy_none <- create_match_strategy(
     "cancer",
     # "asplenia", "bmi_value", "sev_obesity",
     # optional variables in analysis/variables_vars.py
-    "region", "flu_vaccine", "timesince_discharged", 
+    "stp", "flu_vaccine_2122", "flu_vaccine_1821", "timesince_discharged", 
     # defined in or derived from analysis/study_definitionriskscore_i.py
     "death", "dereg", "riskscore_i", "riskscore_i_percentile"
   )
@@ -238,7 +242,7 @@ match_strategy_none <- create_match_strategy(
 
 match_strategy_riskscore_i <- create_match_strategy(
   name = "riskscore_i",
-  n_match_rounds = 3,
+  n_match_rounds = length(study_dates$control_extract),
   exact_vars = "riskscore_i_percentile",
   # caliper_vars = c("riskscore_i" = 0.1), 
   # riskscore_vars are the variables used in the model to predict the risk score
@@ -246,24 +250,24 @@ match_strategy_riskscore_i <- create_match_strategy(
     "age", "sex", "asthma", "chronic_neuro_disease", "chronic_resp_disease", "bmi",
     "diabetes", "sev_mental", "chronic_heart_disease", "chronic_kidney_disease",
     "chronic_liver_disease", "immunosuppressed", "learndis", "cancer",
-    "ethnicity", "imd_Q5", "region", "flu_vaccine", "timesince_discharged",
+    "ethnicity", "imd_Q5", "stp", "flu_vaccine_1821", "timesince_discharged",
     "vax_boostfirst_brand" # maybe edit this so any/none rather than pfizer/moderna/none
     ),
   riskscore_fup_vars = c("death", "dereg"),
   adj_vars = c(
-    "age", "sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental",
+    "age", "sex", "ethnicity", "imd_Q5", "bmi", "asthma", "learndis", "sev_mental",
     "immunosuppressed", "multimorb",  "timesince_coviddischarged",
-    "flu_vaccine", "cancer"
+    "flu_vaccine_2122", "cancer"
   ),
-  strata_vars = c("trial_date", "region")
+  strata_vars = c("trial_date", "stp") 
 )
 
 match_strategy_a <- create_match_strategy(
   name = "a",
-  n_match_rounds = 4,
+  n_match_rounds = length(study_dates$control_extract),
   exact_vars = c(
     "agegroup_match", "vax_primary_brand", "vax_boostfirst_brand",
-    "vax_boostspring_brand", "cv", "region"
+    "vax_boostspring_brand", "cv", "stp"
     ),
   caliper_vars = c(
     age = 3,
@@ -273,17 +277,40 @@ match_strategy_a <- create_match_strategy(
     NULL
   ),
   adj_vars = c(
-    "age", "sex", "ethnicity", "imd_Q5", "bmi", "learndis", "sev_mental",
+    "age", "sex", "ethnicity", "imd_Q5", "bmi", "asthma", "learndis", "sev_mental",
     "immunosuppressed", "multimorb",  "timesince_coviddischarged",
-    "flu_vaccine", "cancer"
+    "flu_vaccine_2122", "cancer"
   ),
-  strata_vars = c("trial_date", "region")
+  strata_vars = c("trial_date", "stp")
+)
+
+match_strategy_b <- create_match_strategy(
+  name = "b",
+  n_match_rounds = length(study_dates$control_extract),
+  exact_vars = c(
+    "agegroup_match", "vax_primary_brand", "vax_boostfirst_brand",
+    "vax_boostspring_brand", "stp", "multimorb", "asthma", "learndis", "sev_mental",
+    "immunosuppressed", "cancer"
+  ),
+  caliper_vars = c(
+    age = 3,
+    # match on `lastvaxbeforeindex_day` rather than `timesincelastvax` as the 
+    # potential matches are less likely to fail in the actual stage
+    vax_lastbeforeindex_date = 14, 
+    imd = 200,
+    NULL
+  ),
+  adj_vars = c(
+    "age", "sex", "ethnicity", "bmi", "timesince_coviddischarged", "flu_vaccine_2122"
+  ),
+  strata_vars = c("trial_date", "stp")
 )
 
 # check if all variables from all matching strategies are in match_strategy_none$keep_vars
 local({
   all_vars <- unique(c(
     match_strategy_a$match_vars, match_strategy_a$final_vars, 
+    match_strategy_b$match_vars, match_strategy_b$final_vars,    
     match_strategy_riskscore_i$match_vars, match_strategy_riskscore_i$final_vars
   ))
   all_vars <- all_vars[!(all_vars %in% c("trial_date"))]

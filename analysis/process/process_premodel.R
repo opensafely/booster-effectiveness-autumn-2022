@@ -58,23 +58,46 @@ if (outcome %in% c("coviddeath", "noncoviddeath")) {
   studyend_date <- study_dates$deathend
 }
 
-# Will - can you think of a way to do this within mutate?
-# (when you have a character vector of the names of the censor variables of unknown length)
-# possible with c_across and rowwise, but very slow
-# also, should we be censoring on controlistreated_date or controlistreated_date-1, 
-# or even controlistreated_date + 7?
-# currently censoring on controlistreated_date
-data_matched$censor_date <- do.call(
-  pmin, 
-  splice(
-    map(censor_vars[[effect]], ~data_matched[[.x]]), 
-    data_matched[["trial_date"]] - 1 + fup_params$maxfup,
-    studyend_date,
-    na.rm = TRUE
+
+## create censoring dates 
+if (effect == "incremental") {
+  # taking treatment dates for all patients
+  treated_dates_for_censoring <- read_rds(here("output", "treated", "eligible", "data_treated.rds")) %>% 
+    select(patient_id, vax_boostautumn_date)
+  
+  # merging on to matched dataset so that censoring can be implemented when the control is themselves vaccinated 
+  data_matched <- left_join(data_matched, treated_dates_for_censoring) 
+  
+  # create censoring variable - 
+  data_matched <- data_matched %>% mutate(
+    vax_boostautumn_date = case_when(
+      treated == 1 ~ NA, 
+      treated == 0 ~ vax_boostautumn_date
+    ),
+    censor_date = pmin(death_date, 
+                       dereg_date, 
+                       controlistreated_date, 
+                       trial_date - 1 + fup_params$maxfup, 
+                       studyend_date, 
+                       vax_boostautumn_date, 
+                       na.rm = TRUE
     )
   )
+}
+if (effect == "comparative") {
+  # create censoring variable - 
+  data_matched <- data_matched %>% mutate(
+    censor_date = pmin(death_date, 
+                       dereg_date, 
+                       trial_date - 1 + fup_params$maxfup, 
+                       studyend_date, 
+                       na.rm = TRUE
+    )
+  )  
+}
 
 
+  
 data_surv <- data_matched %>%
   mutate(all="all") %>%
   select(

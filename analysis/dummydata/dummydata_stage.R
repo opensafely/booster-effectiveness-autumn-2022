@@ -93,11 +93,11 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
       #   size = nrow(.),
       #   replace = TRUE
       # ),
-      # stp = sample(
-      #   x = str_c("STP", 1:10),
-      #   size = nrow(.),
-      #   replace = TRUE
-      # ),
+      stp = sample(
+         x = str_c("STP", 1:10),
+         size = nrow(.),
+         replace = TRUE
+      ),
       region = sample(
         x = c("North East", "North West", "Yorkshire and The Humber", "East Midlands", "West Midlands", "East", "London", "South East", "South West"),
         size = nrow(.),
@@ -116,7 +116,8 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
         NA_integer_
       ),
       imd = as.character(imd),
-      flu_vaccine = rbern(n = nrow(.), p=0.3),
+      flu_vaccine_2122 = rbern(n = nrow(.), p=0.3),
+      flu_vaccine_1821 = rbern(n = nrow(.), p=0.3),
       unplanneddischarged_0_date = if_else(
         rbern(n = nrow(.), p = 0.1),
         study_dates$riskscore$start - ceiling(runif(n = nrow(.), min = 1, max = 6*365)),
@@ -162,3 +163,4 @@ if(Sys.getenv("OPENSAFELY_BACKEND") %in% c("", "expectations")){
   )
   
 }
+

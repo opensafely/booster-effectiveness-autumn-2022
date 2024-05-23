@@ -125,19 +125,25 @@ combine_and_save_contrasts(
 
 ## plot overall estimates for inspection ----
 
-plot_estimates <- function(.data, estimate, estimate.ll, estimate.ul, logscale=FALSE, name){
-  
-  scaleFUN <- function(x) sprintf("%.2f", x) # round function for x axis - useful for log scale
+plot_estimates <- function(.data, estimate, estimate.ll, estimate.ul, logscale=FALSE, xttl, name){
   
   if(logscale == TRUE){
+    # transform to log scle 
     xscaletrans = scales::transform_log()
     xscale_expand = expansion(mult=c(0,0.1))
     vline = 1
+    
+    # edit xscale range for estimates on log scale 
+    xrng <- c(0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16, 32)
+    xmn  <- plot_data %>% select({{estimate.ll}}) %>% min(na.rm = TRUE)
+    xmx  <- plot_data %>% select({{estimate.ul}}) %>% max(na.rm = TRUE)
+    xrng <- xrng[which(xrng > xmn & xrng < xmx)]     
   }
   else {
     xscaletrans = scales::transform_identity()
     xscale_expand = expansion(mult=c(0,0.01))
     vline = 0
+    xrng <- c(0) ## TODO update this bit 
   }
   
   colour_labs <- c("comparative", "incremental", "empty")
@@ -146,7 +152,7 @@ plot_estimates <- function(.data, estimate, estimate.ll, estimate.ul, logscale=F
   
   subgroup_levels_labels <- unlist(unname(recoder[subgroups]))
   
-  plot_data <- km_contrasts_overall %>% #.data %>% ## TODO put .data back
+  plot_data <- .data %>% 
     mutate(
       subgroup = fct_recoderelevel(subgroup, recoder$subgroups),
       outcome = fct_recoderelevel(outcome,  recoder$outcome),
@@ -173,10 +179,12 @@ plot_estimates <- function(.data, estimate, estimate.ll, estimate.ul, logscale=F
     geom_point(aes(x={{estimate}}), position=position_dodge(width=-0.3), alpha=0.7)+
     geom_linerange(aes(xmin={{estimate.ll}}, xmax={{estimate.ul}}), position=position_dodge(width=-0.3))+
     facet_grid(rows=vars(yvar), cols=vars(outcome), scales="free", space="free_y", switch="y")+
-    scale_x_continuous(expand=xscale_expand, transform=xscaletrans, label=scaleFUN)+
+    scale_x_continuous(expand=xscale_expand, transform=xscaletrans, breaks = xrng)+
+    xlab(xttl)+
     scale_color_manual(values=colour_palette)+
     labs(y=NULL)+
     theme_bw()+
+    ggtitle(paste("Effect = ", str_to_title(effect), sep = ""))+
     theme(
       legend.position="bottom",
       axis.text.x.top=element_text(hjust=0),
@@ -207,8 +215,8 @@ plot_estimates <- function(.data, estimate, estimate.ll, estimate.ul, logscale=F
 km_contrasts_overall <- 
   read_csv(fs::path(output_dir, glue("km_contrasts_midpoint{threshold}.csv"))) %>%
   filter(str_detect(filename, "overall"))
-km_contrasts_overall %>% plot_estimates(rd, rd.ll, rd.ul,logscale=FALSE,"km_rd")
-km_contrasts_overall %>% plot_estimates(rr, rr.ll, rr.ul,logscale=TRUE, "km_rr")
+km_contrasts_overall %>% plot_estimates(rd, rd.ll, rd.ul,logscale=FALSE, xttl="Risk Difference", "km_rd")
+km_contrasts_overall %>% plot_estimates(rr, rr.ll, rr.ul,logscale=TRUE, xttl="Risk Ratio", "km_rr")
 
 # cox
 cox_contrasts_rounded <- read_csv(fs::path(output_dir, glue("cox_contrasts.csv"))) %>%

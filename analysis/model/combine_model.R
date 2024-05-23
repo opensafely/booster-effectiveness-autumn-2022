@@ -125,15 +125,28 @@ combine_and_save_contrasts(
 
 ## plot overall estimates for inspection ----
 
-plot_estimates <- function(.data, estimate, estimate.ll, estimate.ul, name){
+plot_estimates <- function(.data, estimate, estimate.ll, estimate.ul, logscale=FALSE, name){
   
-  colour_labs <- c("comparative", "incremental")
+  scaleFUN <- function(x) sprintf("%.2f", x) # round function for x axis - useful for log scale
+  
+  if(logscale == TRUE){
+    xscaletrans = scales::transform_log()
+    xscale_expand = expansion(mult=c(0,0.1))
+    vline = 1
+  }
+  else {
+    xscaletrans = scales::transform_identity()
+    xscale_expand = expansion(mult=c(0,0.01))
+    vline = 0
+  }
+  
+  colour_labs <- c("comparative", "incremental", "empty")
   colour_palette <- RColorBrewer::brewer.pal(n=length(colour_labs), name="Dark2")
   names(colour_palette) <- colour_labs
   
   subgroup_levels_labels <- unlist(unname(recoder[subgroups]))
   
-  plot_data <- .data %>%
+  plot_data <- km_contrasts_overall %>% #.data %>% ## TODO put .data back
     mutate(
       subgroup = fct_recoderelevel(subgroup, recoder$subgroups),
       outcome = fct_recoderelevel(outcome,  recoder$outcome),
@@ -156,11 +169,11 @@ plot_estimates <- function(.data, estimate, estimate.ll, estimate.ul, name){
     mutate(outcome = fct_relabel(outcome, str_wrap, width=10))  %>%
     mutate(across(yvar, factor, levels = ylevels)) %>%
     ggplot(aes(y=yvar, colour = effect)) +
-    geom_vline(aes(xintercept=0), linetype="dotted", colour="darkgrey")+
+    geom_vline(aes(xintercept=vline), linetype="dotted", colour="darkgrey")+
     geom_point(aes(x={{estimate}}), position=position_dodge(width=-0.3), alpha=0.7)+
     geom_linerange(aes(xmin={{estimate.ll}}, xmax={{estimate.ul}}), position=position_dodge(width=-0.3))+
     facet_grid(rows=vars(yvar), cols=vars(outcome), scales="free", space="free_y", switch="y")+
-    scale_x_continuous(expand = expansion(mult=c(0,0.01)))+
+    scale_x_continuous(expand=xscale_expand, transform=xscaletrans, label=scaleFUN)+
     scale_color_manual(values=colour_palette)+
     labs(y=NULL)+
     theme_bw()+
@@ -194,8 +207,8 @@ plot_estimates <- function(.data, estimate, estimate.ll, estimate.ul, name){
 km_contrasts_overall <- 
   read_csv(fs::path(output_dir, glue("km_contrasts_midpoint{threshold}.csv"))) %>%
   filter(str_detect(filename, "overall"))
-km_contrasts_overall %>% plot_estimates(rd, rd.ll, rd.ul, "km_rd")
-km_contrasts_overall %>% plot_estimates(rr, rr.ll, rr.ul, "km_rr")
+km_contrasts_overall %>% plot_estimates(rd, rd.ll, rd.ul,logscale=FALSE,"km_rd")
+km_contrasts_overall %>% plot_estimates(rr, rr.ll, rr.ul,logscale=TRUE, "km_rr")
 
 # cox
 cox_contrasts_rounded <- read_csv(fs::path(output_dir, glue("cox_contrasts.csv"))) %>%
@@ -204,8 +217,8 @@ cox_contrasts_rounded <- read_csv(fs::path(output_dir, glue("cox_contrasts.csv")
 # unadjusted
 cox_contrasts_rounded %>% 
   filter(model == "cox_unadj") %>%
-  plot_estimates(coxhr, coxhr.ll, coxhr.ul, "cox_unadj")
+  plot_estimates(coxhr, coxhr.ll, coxhr.ul,logscale=TRUE, "cox_unadj")
 # adjusted
 cox_contrasts_rounded %>% 
   filter(model == "cox_adj") %>%
-  plot_estimates(coxhr, coxhr.ll, coxhr.ul, "cox_adj")
+  plot_estimates(coxhr, coxhr.ll, coxhr.ul, logscale=TRUE, "cox_adj")

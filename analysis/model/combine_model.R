@@ -12,7 +12,7 @@ library(here)
 # import command-line arguments
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
-  effect <- "incremental"
+  effect <- "comparative"
   match_strategy <- "a"
 } else {
   effect <- args[[1]]

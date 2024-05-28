@@ -69,11 +69,8 @@ if (effect == "incremental") {
   data_matched <- left_join(data_matched, treated_dates_for_censoring) 
   
   # create censoring variable - 
+  data_matched$vax_boostautumn_date[which(data_matched$treated==1)] = NA 
   data_matched <- data_matched %>% mutate(
-    vax_boostautumn_date = case_when(
-      treated == 1 ~ NA, 
-      treated == 0 ~ vax_boostautumn_date
-    ),
     censor_date = pmin(death_date, 
                        dereg_date, 
                        controlistreated_date, 

@@ -127,6 +127,31 @@ combine_and_save_contrasts(
 
 plot_estimates <- function(.data, estimate, estimate.ll, estimate.ul, logscale=FALSE, xttl, name){
   
+  colour_labs <- c("Unadjusted", "Adjusted", "empty")
+  colour_palette <- RColorBrewer::brewer.pal(n=length(colour_labs), name="Dark2")
+  names(colour_palette) <- colour_labs
+  
+  subgroup_levels_labels <- unlist(unname(recoder[subgroups]))
+  
+  plot_data <- .data %>% 
+    mutate(
+      subgroup = fct_recoderelevel(subgroup, recoder$subgroups),
+      outcome = fct_recoderelevel(outcome,  recoder$outcome),
+      subgroup_level = fct_recoderelevel(subgroup_level, subgroup_levels_labels),
+      yvar = as.character(if_else(
+        subgroup %in% "Main",
+        as.character(subgroup),
+        as.character(subgroup_level)
+      )), 
+      Estimate = case_when( # used for the legend of plots - be careful of the difference between estimate (rd, rr, or hr) and Estimate (unadjusted or adjusted)
+        model == "km"        ~ "Unadjusted", 
+        model == "cox_unadj" ~ "Unadjusted", 
+        model == "cox_adj"   ~ "Adjusted" 
+        ),
+      .before = 1
+    ) %>%
+    mutate(outcome = fct_relabel(outcome, str_wrap, width=10)) 
+
   if(logscale == TRUE){
     # transform to log scle 
     xscaletrans = scales::transform_log()
@@ -143,29 +168,14 @@ plot_estimates <- function(.data, estimate, estimate.ll, estimate.ul, logscale=F
     xscaletrans = scales::transform_identity()
     xscale_expand = expansion(mult=c(0,0.01))
     vline = 0
-    xrng <- c(0) ## TODO update this bit 
-  }
-  
-  colour_labs <- c("comparative", "incremental", "empty")
-  colour_palette <- RColorBrewer::brewer.pal(n=length(colour_labs), name="Dark2")
-  names(colour_palette) <- colour_labs
-  
-  subgroup_levels_labels <- unlist(unname(recoder[subgroups]))
-  
-  plot_data <- .data %>% 
-    mutate(
-      subgroup = fct_recoderelevel(subgroup, recoder$subgroups),
-      outcome = fct_recoderelevel(outcome,  recoder$outcome),
-      subgroup_level = fct_recoderelevel(subgroup_level, subgroup_levels_labels),
-      yvar = as.character(if_else(
-        subgroup %in% "Main",
-        as.character(subgroup),
-        as.character(subgroup_level)
-      )),
-      .before = 1
-    ) %>%
-    mutate(outcome = fct_relabel(outcome, str_wrap, width=10)) 
-  
+    
+    # edit xscale range for estimates on log scale 
+    xrng <- c(-0.1, -0.05, 0, 0.05, 0.1)  
+    xmn  <- plot_data %>% select({{estimate.ll}}) %>% min(na.rm = TRUE)
+    xmx  <- plot_data %>% select({{estimate.ul}}) %>% max(na.rm = TRUE)
+    xrng <- xrng[which(xrng > xmn & xrng < xmx)]     
+  }  
+    
   ylevels <- plot_data %>%
     distinct(yvar, subgroup, subgroup_level) %>%
     arrange(subgroup, subgroup_level) %>%
@@ -174,12 +184,12 @@ plot_estimates <- function(.data, estimate, estimate.ll, estimate.ul, logscale=F
   plot_temp <- plot_data %>%
     mutate(outcome = fct_relabel(outcome, str_wrap, width=10))  %>%
     mutate(across(yvar, factor, levels = ylevels)) %>%
-    ggplot(aes(y=yvar, colour = effect)) +
+    ggplot(aes(y=yvar, colour = Estimate)) +
     geom_vline(aes(xintercept=vline), linetype="dotted", colour="darkgrey")+
     geom_point(aes(x={{estimate}}), position=position_dodge(width=-0.3), alpha=0.7)+
     geom_linerange(aes(xmin={{estimate.ll}}, xmax={{estimate.ul}}), position=position_dodge(width=-0.3))+
     facet_grid(rows=vars(yvar), cols=vars(outcome), scales="free", space="free_y", switch="y")+
-    scale_x_continuous(expand=xscale_expand, transform=xscaletrans, breaks = xrng)+
+    scale_x_continuous(expand=xscale_expand, transform=xscaletrans, breaks = xrng, labels = scales::label_number(drop0trailing=TRUE))+
     xlab(xttl)+
     scale_color_manual(values=colour_palette)+
     labs(y=NULL)+
@@ -222,11 +232,5 @@ km_contrasts_overall %>% plot_estimates(rr, rr.ll, rr.ul,logscale=TRUE, xttl="Ri
 cox_contrasts_rounded <- read_csv(fs::path(output_dir, glue("cox_contrasts.csv"))) %>%
   filter(str_detect(filename, "overall")) %>%
   filter(str_detect(term, "^treated")) 
-# unadjusted
-cox_contrasts_rounded %>% 
-  filter(model == "cox_unadj") %>%
-  plot_estimates(coxhr, coxhr.ll, coxhr.ul,logscale=TRUE, "cox_unadj")
-# adjusted
-cox_contrasts_rounded %>% 
-  filter(model == "cox_adj") %>%
-  plot_estimates(coxhr, coxhr.ll, coxhr.ul, logscale=TRUE, "cox_adj")
+cox_contrasts_rounded %>% plot_estimates(coxhr, coxhr.ll, coxhr.ul,logscale=TRUE, xttl="Hazard Ratio", "cox_hr")
+

@@ -222,15 +222,15 @@ plot_estimates <- function(.data, estimate, estimate.ll, estimate.ul, logscale=F
 
 # read data and create plots ----
 # km
-km_contrasts_overall <- 
-  read_csv(fs::path(output_dir, glue("km_contrasts_midpoint{threshold}.csv"))) %>%
-  filter(str_detect(filename, "overall"))
-km_contrasts_overall %>% plot_estimates(rd, rd.ll, rd.ul,logscale=FALSE, xttl="Risk Difference", "km_rd")
-km_contrasts_overall %>% plot_estimates(rr, rr.ll, rr.ul,logscale=TRUE, xttl="Risk Ratio", "km_rr")
+#km_contrasts_overall <- 
+#  read_csv(fs::path(output_dir, glue("km_contrasts_midpoint{threshold}.csv"))) %>%
+#  filter(str_detect(filename, "overall"))
+#km_contrasts_overall %>% plot_estimates(rd, rd.ll, rd.ul,logscale=FALSE, xttl="Risk Difference", "km_rd")
+#km_contrasts_overall %>% plot_estimates(rr, rr.ll, rr.ul,logscale=TRUE, xttl="Risk Ratio", "km_rr")
 
 # cox
-cox_contrasts_rounded <- read_csv(fs::path(output_dir, glue("cox_contrasts.csv"))) %>%
-  filter(str_detect(filename, "overall")) %>%
-  filter(str_detect(term, "^treated")) 
-cox_contrasts_rounded %>% plot_estimates(coxhr, coxhr.ll, coxhr.ul,logscale=TRUE, xttl="Hazard Ratio", "cox_hr")
+#cox_contrasts_rounded <- read_csv(fs::path(output_dir, glue("cox_contrasts.csv"))) %>%
+#  filter(str_detect(filename, "overall")) %>%
+#  filter(str_detect(term, "^treated")) 
+#cox_contrasts_rounded %>% plot_estimates(coxhr, coxhr.ll, coxhr.ul,logscale=TRUE, xttl="Hazard Ratio", "cox_hr")
 

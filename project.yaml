@@ -5509,117 +5509,9 @@ actions:
     outputs:
       highly_sensitive:
         rds: output/incremental_riskscore_i/matchround7/controlactual/match/*.rds
-        csvgz: output/incremental_riskscore_i/matchround7/controlactual/match/*.csv.gz
-      moderately_sensitive:
-        csv: output/incremental_riskscore_i/matchround7/controlactual/match/*.csv
-
-  ## Extract, process and match controlpotential data. 
-  ## Match_round = 8 
-
-  extract_controlpotential_riskscore_i_8:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
-      --output-file output/incremental_riskscore_i/matchround8/controlpotential/extract/input_controlpotential.feather
-      --param match_strategy=riskscore_i --param match_round=8 --param index_date=2022-12-19
-    needs:
-    - design
-    - match_controlactual_riskscore_i_7
-    outputs:
-      highly_sensitive:
-        cohort: output/incremental_riskscore_i/matchround8/controlpotential/extract/input_controlpotential.feather
-
-  process_controlpotential_riskscore_i_8:
-    run: r:latest analysis/process/process_stage.R controlpotential riskscore_i 8
-    needs:
-    - dummydata_stage
-    - process_initial
-    - extract_controlpotential_riskscore_i_8
-    - fit_model_riskscore_i_1
-    - fit_model_riskscore_i_2
-    - fit_model_riskscore_i_3
-    outputs:
-      highly_sensitive:
-        eligible_rds: output/incremental_riskscore_i/matchround8/controlpotential/eligible/*.rds
-      moderately_sensitive:
-        data_extract_skim: output/incremental_riskscore_i/matchround8/controlpotential/extract/*.txt
-        data_processed_skim: output/incremental_riskscore_i/matchround8/controlpotential/processed/*.txt
-        data_controlpotential_skim: output/incremental_riskscore_i/matchround8/controlpotential/eligible/*.txt
-        flowchart: output/incremental_riskscore_i/matchround8/controlpotential/flowchart/*.csv
-        riskscore_i_plots: output/incremental_riskscore_i/matchround8/controlpotential/riskscore_i/plot_*.png
-
-  match_controlpotential_riskscore_i_8:
-    run: r:latest analysis/match/match_controlpotential.R riskscore_i 8
-    needs:
-    - process_treated
-    - process_controlpotential_riskscore_i_8
-    - match_controlactual_riskscore_i_1
-    - match_controlactual_riskscore_i_2
-    - match_controlactual_riskscore_i_3
-    - match_controlactual_riskscore_i_4
-    - match_controlactual_riskscore_i_5
-    - match_controlactual_riskscore_i_6
-    - match_controlactual_riskscore_i_7
-    - fit_model_riskscore_i_1
-    - fit_model_riskscore_i_2
-    - fit_model_riskscore_i_3
-    outputs:
-      highly_sensitive:
-        rds: output/incremental_riskscore_i/matchround8/controlpotential/match/*.rds
-        csv: output/incremental_riskscore_i/matchround8/controlpotential/match/*.csv.gz
-
-  ## Extract and process controlactual data 
-  ## (matches checked and rematched in the process action). 
-
-  extract_controlactual_riskscore_i_8:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
-      --output-file output/incremental_riskscore_i/matchround8/controlactual/extract/input_controlactual.feather
-      --param match_strategy=riskscore_i --param match_round=8
-    needs:
-    - design
-    - match_controlpotential_riskscore_i_8
-    outputs:
-      highly_sensitive:
-        cohort: output/incremental_riskscore_i/matchround8/controlactual/extract/input_controlactual.feather
-
-  process_controlactual_riskscore_i_8:
-    run: r:latest analysis/process/process_stage.R controlactual riskscore_i 8
-    needs:
-    - process_initial
-    - dummydata_stage
-    - match_controlpotential_riskscore_i_8
-    - extract_controlactual_riskscore_i_8
-    - fit_model_riskscore_i_1
-    - fit_model_riskscore_i_2
-    - fit_model_riskscore_i_3
-    outputs:
-      highly_sensitive:
-        data_eligible: output/incremental_riskscore_i/matchround8/controlactual/eligible/*.rds
-      moderately_sensitive:
-        input_skim: output/incremental_riskscore_i/matchround8/controlactual/extract/*.txt
-        eligible_skim: output/incremental_riskscore_i/matchround8/controlactual/eligible/*.txt
-        process_skim: output/incremental_riskscore_i/matchround8/controlactual/processed/*.txt
-        flowchart: output/incremental_riskscore_i/matchround8/controlactual/flowchart/*.csv
-        riskscore_i_plots: output/incremental_riskscore_i/matchround8/controlactual/riskscore_i/plot_*.png
-
-  match_controlactual_riskscore_i_8:
-    run: r:latest analysis/match/match_controlactual.R riskscore_i 8
-    needs:
-    - process_initial
-    - process_treated
-    - match_controlactual_riskscore_i_1
-    - match_controlactual_riskscore_i_2
-    - match_controlactual_riskscore_i_3
-    - match_controlactual_riskscore_i_4
-    - match_controlactual_riskscore_i_5
-    - match_controlactual_riskscore_i_6
-    - match_controlactual_riskscore_i_7
-    - match_controlpotential_riskscore_i_8
-    - process_controlactual_riskscore_i_8
-    outputs:
-      highly_sensitive:
-        rds: output/incremental_riskscore_i/matchround8/controlactual/match/*.rds
         final: output/incremental_riskscore_i/match/*.csv.gz
       moderately_sensitive:
-        csv: output/incremental_riskscore_i/matchround8/controlactual/match/*.csv
+        csv: output/incremental_riskscore_i/matchround7/controlactual/match/*.csv
 
   coverage_incremental_riskscore_i:
     run: r:latest analysis/match/match_coverage.R incremental riskscore_i
@@ -5632,7 +5524,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     outputs:
       moderately_sensitive:
         csv: output/incremental_riskscore_i/coverage/*.csv
@@ -5649,7 +5540,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - process_initial
     outputs:
       moderately_sensitive:
@@ -5672,7 +5562,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     outputs:
       highly_sensitive:
         cohort: output/incremental_riskscore_i/match/input_final_riskscore_i.feather
@@ -5689,7 +5578,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -5714,7 +5602,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -5733,7 +5620,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -5751,7 +5637,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -5773,7 +5658,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -5792,7 +5676,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -5810,7 +5693,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -5832,7 +5714,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -5851,7 +5732,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -5869,7 +5749,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -5891,7 +5770,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -5910,7 +5788,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -5928,7 +5805,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -5950,7 +5826,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -5970,7 +5845,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -5989,7 +5863,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6011,7 +5884,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6031,7 +5903,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6050,7 +5921,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6072,7 +5942,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6092,7 +5961,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6111,7 +5979,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6133,7 +6000,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6153,7 +6019,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6172,7 +6037,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6194,7 +6058,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6213,7 +6076,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6231,7 +6093,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6253,7 +6114,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6272,7 +6132,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6290,7 +6149,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6312,7 +6170,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6331,7 +6188,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6349,7 +6205,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6371,7 +6226,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6390,7 +6244,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:
@@ -6408,7 +6261,6 @@ actions:
     - match_controlactual_riskscore_i_5
     - match_controlactual_riskscore_i_6
     - match_controlactual_riskscore_i_7
-    - match_controlactual_riskscore_i_8
     - extract_final_incremental_riskscore_i
     outputs:
       moderately_sensitive:

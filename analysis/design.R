@@ -242,7 +242,7 @@ match_strategy_none <- create_match_strategy(
 
 match_strategy_riskscore_i <- create_match_strategy(
   name = "riskscore_i",
-  n_match_rounds = length(study_dates$control_extract),
+  n_match_rounds = 7, # matching coverage increased by less than 0.1% for two rounds in a row - reduced from 8 to 7 rounds  
   exact_vars = "riskscore_i_percentile",
   # caliper_vars = c("riskscore_i" = 0.1), 
   # riskscore_vars are the variables used in the model to predict the risk score

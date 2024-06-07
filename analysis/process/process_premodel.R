@@ -120,7 +120,11 @@ data_surv %>% group_by(new_id) %>% count() %>% filter(n>1) %>% nrow() %>% print(
 
 # check for non-positive event times
 cat("check for non-positive tte_outcome:\n")
-check_pos_tte <- data_surv %>% group_by(tte_outcome>0) %>% count() %>% print()
+check_pos_tte <- data_surv %>% group_by(tte_outcome>0) %>% count()
+check_pos_tte %>% print()
+if(dim(check_pos_tte)[1] > 1) {
+  data_surv %>% filter(tte_outcome<=0) %>% select(tte_outcome) %>% print()
+}
 stopifnot("tte_outcome has non-positive event times" = all(check_pos_tte[[1]]))
 
 surv_formula <- formula(Surv(tte_outcome, ind_outcome) ~ 1)

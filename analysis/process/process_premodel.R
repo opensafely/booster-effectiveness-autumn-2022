@@ -124,9 +124,16 @@ check_pos_tte <- data_surv %>% group_by(tte_outcome>0) %>% count()
 check_pos_tte %>% print()
 if(dim(check_pos_tte)[1] > 1) {
   patids_error <- data_surv %>% filter(tte_outcome<=0) %>% select(patient_id) 
+  # print 1
   data_surv %>% filter(patient_id %in% patids_error$patient_id) %>%
     select(patient_id, new_id, treated, trial_date, censor_date, outcome_date, tte_outcome) %>% 
     print()
+  # print 2
+  data_matched %>% filter(patient_id %in% patids_error$patient_id) %>%
+    select(patient_id, match_id, new_id, treated, trial_date, match_round, death_date, 
+           dereg_date, controlistreated_date, vax_boostautumn_date) %>% 
+    print()
+  
 }
 stopifnot("tte_outcome has non-positive event times" = all(check_pos_tte[[1]]))
 

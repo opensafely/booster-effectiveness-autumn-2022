@@ -286,7 +286,7 @@ match_strategy_a <- create_match_strategy(
 
 match_strategy_b <- create_match_strategy(
   name = "b",
-  n_match_rounds = length(study_dates$control_extract),
+  n_match_rounds = 7, # matching coverage increased by less than 0.1% for two rounds in a row - reduced from 8 to 7 rounds 
   exact_vars = c(
     "agegroup_match", "vax_primary_brand", "vax_boostfirst_brand",
     "vax_boostspring_brand", "stp", "multimorb", "asthma", "learndis", "sev_mental",

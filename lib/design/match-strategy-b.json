@@ -1,5 +1,5 @@
 {
-  "n_match_rounds": 8,
+  "n_match_rounds": 7,
   "exact_vars": ["agegroup_match", "vax_primary_brand", "vax_boostfirst_brand", "vax_boostspring_brand", "stp", "multimorb", "asthma", "learndis", "sev_mental", "immunosuppressed", "cancer"],
   "caliper_vars": [3, 14, 200],
   "riskscore_vars": {},

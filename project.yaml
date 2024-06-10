@@ -3905,106 +3905,9 @@ actions:
     outputs:
       highly_sensitive:
         rds: output/incremental_b/matchround7/controlactual/match/*.rds
-        csvgz: output/incremental_b/matchround7/controlactual/match/*.csv.gz
-      moderately_sensitive:
-        csv: output/incremental_b/matchround7/controlactual/match/*.csv
-
-  ## Extract, process and match controlpotential data. 
-  ## Match_round = 8 
-
-  extract_controlpotential_b_8:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlpotential
-      --output-file output/incremental_b/matchround8/controlpotential/extract/input_controlpotential.feather
-      --param match_strategy=b --param match_round=8 --param index_date=2022-12-19
-    needs:
-    - design
-    - match_controlactual_b_7
-    outputs:
-      highly_sensitive:
-        cohort: output/incremental_b/matchround8/controlpotential/extract/input_controlpotential.feather
-
-  process_controlpotential_b_8:
-    run: r:latest analysis/process/process_stage.R controlpotential b 8
-    needs:
-    - dummydata_stage
-    - process_initial
-    - extract_controlpotential_b_8
-    outputs:
-      highly_sensitive:
-        eligible_rds: output/incremental_b/matchround8/controlpotential/eligible/*.rds
-      moderately_sensitive:
-        data_extract_skim: output/incremental_b/matchround8/controlpotential/extract/*.txt
-        data_processed_skim: output/incremental_b/matchround8/controlpotential/processed/*.txt
-        data_controlpotential_skim: output/incremental_b/matchround8/controlpotential/eligible/*.txt
-        flowchart: output/incremental_b/matchround8/controlpotential/flowchart/*.csv
-
-  match_controlpotential_b_8:
-    run: r:latest analysis/match/match_controlpotential.R b 8
-    needs:
-    - process_treated
-    - process_controlpotential_b_8
-    - match_controlactual_b_1
-    - match_controlactual_b_2
-    - match_controlactual_b_3
-    - match_controlactual_b_4
-    - match_controlactual_b_5
-    - match_controlactual_b_6
-    - match_controlactual_b_7
-    outputs:
-      highly_sensitive:
-        rds: output/incremental_b/matchround8/controlpotential/match/*.rds
-        csv: output/incremental_b/matchround8/controlpotential/match/*.csv.gz
-
-  ## Extract and process controlactual data 
-  ## (matches checked and rematched in the process action). 
-
-  extract_controlactual_b_8:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition_controlactual
-      --output-file output/incremental_b/matchround8/controlactual/extract/input_controlactual.feather
-      --param match_strategy=b --param match_round=8
-    needs:
-    - design
-    - match_controlpotential_b_8
-    outputs:
-      highly_sensitive:
-        cohort: output/incremental_b/matchround8/controlactual/extract/input_controlactual.feather
-
-  process_controlactual_b_8:
-    run: r:latest analysis/process/process_stage.R controlactual b 8
-    needs:
-    - process_initial
-    - dummydata_stage
-    - match_controlpotential_b_8
-    - extract_controlactual_b_8
-    outputs:
-      highly_sensitive:
-        data_eligible: output/incremental_b/matchround8/controlactual/eligible/*.rds
-      moderately_sensitive:
-        input_skim: output/incremental_b/matchround8/controlactual/extract/*.txt
-        eligible_skim: output/incremental_b/matchround8/controlactual/eligible/*.txt
-        process_skim: output/incremental_b/matchround8/controlactual/processed/*.txt
-        flowchart: output/incremental_b/matchround8/controlactual/flowchart/*.csv
-
-  match_controlactual_b_8:
-    run: r:latest analysis/match/match_controlactual.R b 8
-    needs:
-    - process_initial
-    - process_treated
-    - match_controlactual_b_1
-    - match_controlactual_b_2
-    - match_controlactual_b_3
-    - match_controlactual_b_4
-    - match_controlactual_b_5
-    - match_controlactual_b_6
-    - match_controlactual_b_7
-    - match_controlpotential_b_8
-    - process_controlactual_b_8
-    outputs:
-      highly_sensitive:
-        rds: output/incremental_b/matchround8/controlactual/match/*.rds
         final: output/incremental_b/match/*.csv.gz
       moderately_sensitive:
-        csv: output/incremental_b/matchround8/controlactual/match/*.csv
+        csv: output/incremental_b/matchround7/controlactual/match/*.csv
 
   coverage_incremental_b:
     run: r:latest analysis/match/match_coverage.R incremental b
@@ -4017,7 +3920,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     outputs:
       moderately_sensitive:
         csv: output/incremental_b/coverage/*.csv
@@ -4034,7 +3936,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - process_initial
     outputs:
       moderately_sensitive:
@@ -4057,7 +3958,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     outputs:
       highly_sensitive:
         cohort: output/incremental_b/match/input_final_b.feather
@@ -4074,7 +3974,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4099,7 +3998,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4118,7 +4016,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4136,7 +4033,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4158,7 +4054,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4177,7 +4072,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4195,7 +4089,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4217,7 +4110,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4236,7 +4128,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4254,7 +4145,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4276,7 +4166,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4295,7 +4184,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4313,7 +4201,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4335,7 +4222,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4354,7 +4240,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4372,7 +4257,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4394,7 +4278,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4413,7 +4296,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4431,7 +4313,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4453,7 +4334,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4472,7 +4352,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4490,7 +4369,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4512,7 +4390,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4531,7 +4408,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4549,7 +4425,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4571,7 +4446,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4590,7 +4464,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4608,7 +4481,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4630,7 +4502,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4649,7 +4520,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4667,7 +4537,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4689,7 +4558,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4708,7 +4576,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4726,7 +4593,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4748,7 +4614,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4767,7 +4632,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:
@@ -4785,7 +4649,6 @@ actions:
     - match_controlactual_b_5
     - match_controlactual_b_6
     - match_controlactual_b_7
-    - match_controlactual_b_8
     - extract_final_incremental_b
     outputs:
       moderately_sensitive:

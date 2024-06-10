@@ -24,7 +24,7 @@ source(here("analysis", "process", "process_functions.R"))
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
   effect <- "incremental"
-  match_strategy <- "a"
+  match_strategy <- "riskscore_i"
   subgroup <- "all"
   outcome <- "covidadmitted"
   

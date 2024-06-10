@@ -123,7 +123,10 @@ cat("check for non-positive tte_outcome:\n")
 check_pos_tte <- data_surv %>% group_by(tte_outcome>0) %>% count()
 check_pos_tte %>% print()
 if(dim(check_pos_tte)[1] > 1) {
-  data_surv %>% filter(tte_outcome<=0) %>% select(tte_outcome) %>% print()
+  patids_error <- data_surv %>% filter(tte_outcome<=0) %>% select(patient_id) 
+  data_surv %>% filter(patient_id %in% patids_error$patient_id) %>%
+    select(patient_id, new_id, treated, trial_date, censor_date, outcome_date, tte_outcome) %>% 
+    print()
 }
 stopifnot("tte_outcome has non-positive event times" = all(check_pos_tte[[1]]))
 

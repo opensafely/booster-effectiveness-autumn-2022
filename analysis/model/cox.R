@@ -107,14 +107,29 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
   cox_formula_string <- "Surv(tstart, tstop, ind_outcome) ~ strata(trial_date) + strata(stp) + treated"
   
   # only keep periods with >2 events per level of exposure
-  data_cox <- data_split %>%
+  prd_counts <- data_split %>%
     group_by(!!subgroup_sym, period_id, treated, ind_outcome) %>%
-    mutate(n_events = n()) %>%
-    ungroup(treated, ind_outcome) %>%
+    count() %>% 
+    ungroup() 
+    
+  prd_counts_spine <-  prd_counts %>% 
+    expand(!!subgroup_sym, period_id, treated, ind_outcome) 
+  
+  prd_counts <- left_join(prd_counts_spine, prd_counts) %>% 
+    mutate(
+      n_events = case_when(
+        !is.na(n) ~ n , 
+        is.na(n)  ~ 0 
+      )
+    ) %>% 
+    group_by(!!subgroup_sym, period_id) %>% 
     mutate(min_events = min(n_events)) %>%
-    ungroup() %>%
+    filter(row_number() == 1) %>%
+    ungroup() %>% select(!!subgroup_sym, period_id, min_events) 
+  
+  data_cox <- left_join(data_split, prd_counts) %>%
     filter(min_events>2) %>%
-    select(-n_events, -min_events) %>%
+    select(-min_events) %>%
     group_by(!!subgroup_sym) %>%
     nest() %>%
     # add :period_id to cox_formula if period_id has more than one distinct values
@@ -125,7 +140,7 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
         str_c(cox_formula_string, ":period_id")
       )
     })) %>%
-    unnest(cox_formula)
+    unnest(cox_formula) 
   
   rm(data, fup_split, data_split)
   
@@ -182,6 +197,18 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
 
   }
   
+  # counts of events in each period - note that periods with <2 events per level of exposure have been removed
+  evnt_count <- data_cox[[2]][[1]] %>% 
+    count(period_id, ind_outcome, treated) %>%
+    filter(ind_outcome == 1) %>%
+    mutate(
+      term = str_c("treated:period_id", period_id), 
+      event_prd = roundmid_any(n, to = 6)
+    ) %>%
+    select(term, event_prd, treated) %>%
+    pivot_wider(names_from = treated, names_prefix = "event_inPeriod", 
+                values_from = event_prd)
+
   # fit the models
   data_cox <-
     data_cox %>%
@@ -196,9 +223,14 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
           na.action="na.fail"
           )
       }),
+      npat = length(unique(data_cox[[2]][[1]]$patient_id)), 
+      nswitch = length(unique(data_cox[[2]][[1]]$new_id)) - npat,
+      nevent_total = roundmid_any(cox_obj[[1]]$nevent, to = 6),
+      nevent_untreated = roundmid_any(sum(data_cox[[2]][[1]]$ind_outcome==1 & data_cox[[2]][[1]]$treated == 0), to = 6),
+      nevent_treated   = roundmid_any(sum(data_cox[[2]][[1]]$ind_outcome==1 & data_cox[[2]][[1]]$treated == 1), to = 6),
       cox_obj_tidy = map(cox_obj, ~broom::tidy(.x)),
     ) %>%
-    select(!!subgroup_sym, cox_obj_tidy) %>%
+    select(!!subgroup_sym, cox_obj_tidy, npat, nswitch, nevent_total, nevent_untreated, nevent_treated) %>%
     unnest(cox_obj_tidy) 
   
   if (!("robust.se" %in% names(data_cox))) {
@@ -214,9 +246,15 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
       coxhr.se = robust.se,
       coxhr.ll = exp(estimate + qnorm(0.025)*robust.se),
       coxhr.ul = exp(estimate + qnorm(0.975)*robust.se),
+      npat, 
+      nswitch, 
+      nevent_total, 
+      nevent_untreated, 
+      nevent_treated
     )
   
-  
+  data_cox <- left_join(data_cox, evnt_count)  
+
 }
 
 # apply contrast functions ----
@@ -225,7 +263,7 @@ cox_out <- coxcontrast(
   data_surv, 
   adj = model == "cox_adj",
   cuts = c(0, fup_params$maxfup)
-)
+)  %>% select(!c(event_inPeriod0, event_inPeriod1))
 write_csv(cox_out, file.path(output_dir, glue("{model}_contrasts_overall.csv")))
 cat(glue("---- overall Cox model complete! ----"), "\n")
 

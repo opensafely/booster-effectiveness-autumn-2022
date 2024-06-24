@@ -119,7 +119,7 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
     mutate(
       n_events = case_when(
         !is.na(n) ~ n , 
-        is.na(n)  ~ 0 
+        is.na(n)  ~ 0L 
       )
     ) %>% 
     group_by(!!subgroup_sym, period_id) %>% 
@@ -206,7 +206,7 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
       event_prd = roundmid_any(n, to = 6)
     ) %>%
     select(term, event_prd, treated) %>%
-    pivot_wider(names_from = treated, names_prefix = "event_inPeriod", 
+    pivot_wider(names_from = treated, names_prefix = "event_inPeriod_rnd6_", 
                 values_from = event_prd)
 
   # fit the models
@@ -225,12 +225,12 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
       }),
       npat = length(unique(data_cox[[2]][[1]]$patient_id)), 
       nswitch = length(unique(data_cox[[2]][[1]]$new_id)) - npat,
-      nevent_total = roundmid_any(cox_obj[[1]]$nevent, to = 6),
-      nevent_untreated = roundmid_any(sum(data_cox[[2]][[1]]$ind_outcome==1 & data_cox[[2]][[1]]$treated == 0), to = 6),
-      nevent_treated   = roundmid_any(sum(data_cox[[2]][[1]]$ind_outcome==1 & data_cox[[2]][[1]]$treated == 1), to = 6),
+      nevent_total_rnd6 = roundmid_any(cox_obj[[1]]$nevent, to = 6),
+      nevent_untreated_rnd6 = roundmid_any(sum(data_cox[[2]][[1]]$ind_outcome==1 & data_cox[[2]][[1]]$treated == 0), to = 6),
+      nevent_treated_rnd6   = roundmid_any(sum(data_cox[[2]][[1]]$ind_outcome==1 & data_cox[[2]][[1]]$treated == 1), to = 6),
       cox_obj_tidy = map(cox_obj, ~broom::tidy(.x)),
     ) %>%
-    select(!!subgroup_sym, cox_obj_tidy, npat, nswitch, nevent_total, nevent_untreated, nevent_treated) %>%
+    select(!!subgroup_sym, cox_obj_tidy, npat, nswitch, nevent_total_rnd6, nevent_untreated_rnd6, nevent_treated_rnd6) %>%
     unnest(cox_obj_tidy) 
   
   if (!("robust.se" %in% names(data_cox))) {
@@ -238,7 +238,7 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
     data_cox <- data_cox %>% mutate(robust.se=NA_real_)
   }
   
-  data_cox %>%
+  data_cox <- data_cox %>%
     transmute(
       !!subgroup_sym,
       term,
@@ -248,12 +248,12 @@ coxcontrast <- function(data, adj = FALSE, cuts=NULL) {
       coxhr.ul = exp(estimate + qnorm(0.975)*robust.se),
       npat, 
       nswitch, 
-      nevent_total, 
-      nevent_untreated, 
-      nevent_treated
+      nevent_total_rnd6, 
+      nevent_untreated_rnd6, 
+      nevent_treated_rnd6
     )
   
-  data_cox <- left_join(data_cox, evnt_count)  
+  data_cox <- left_join(data_cox, evnt_count) 
 
 }
 
@@ -263,7 +263,7 @@ cox_out <- coxcontrast(
   data_surv, 
   adj = model == "cox_adj",
   cuts = c(0, fup_params$maxfup)
-)  %>% select(!c(event_inPeriod0, event_inPeriod1))
+)  %>% select(!c(event_inPeriod_rnd6_0, event_inPeriod_rnd6_1))
 write_csv(cox_out, file.path(output_dir, glue("{model}_contrasts_overall.csv")))
 cat(glue("---- overall Cox model complete! ----"), "\n")
 

@@ -89,7 +89,9 @@ if (effect == "comparative") {
                        trial_date - 1 + fup_params$maxfup, 
                        studyend_date, 
                        na.rm = TRUE
-    )
+    ), 
+    match_id = NA, # added to get fix of false matches to work
+    match_round = NA 
   )  
 }
 
@@ -137,7 +139,7 @@ if(dim(check_pos_tte)[1] > 1) {
   
 }
 
-if(match_strategy == "riskscore_i") { # match errors affecting riskscore_i only - removing affected matched individuals 
+if(match_strategy == "riskscore_i" & effect == "incremental") { # match errors affecting riskscore_i only - removing affected matched individuals 
   data_surv <- data_surv %>% 
     group_by(trial_date, match_id, match_round) %>% 
     mutate(neg_tte_outcome = min(tte_outcome) < 0) %>% 

@@ -100,6 +100,7 @@ data_surv <- data_matched %>%
   select(
     # select only variables needed for models to save space
     patient_id, new_id, treated, trial_date, censor_date,
+    match_id, match_round,
     outcome_date = !! sym(glue("{outcome}_date")),
     all_of(strata_vars),
     all_of(adj_vars),
@@ -135,6 +136,21 @@ if(dim(check_pos_tte)[1] > 1) {
     print()
   
 }
+
+if(match_strategy == "riskscore_i") { # match errors affecting riskscore_i only - removing affected matched individuals 
+  data_surv <- data_surv %>% 
+    group_by(trial_date, match_id, match_round) %>% 
+    mutate(neg_tte_outcome = min(tte_outcome) < 0) %>% 
+    ungroup()
+  cat("Number of false matches:\n")
+  data_surv %>% filter(neg_tte_outcome == TRUE) %>% group_by(treated) %>% count() %>% print()
+  data_surv <- data_surv %>% filter(neg_tte_outcome == FALSE)
+  cat("False matches removed \n")
+}  
+data_surv <- data_surv %>% select(!c(match_id, match_round)) # remove unneeded variables that were added for checking false matches
+
+check_pos_tte <- data_surv %>% group_by(tte_outcome>0) %>% count()
+check_pos_tte %>% print()
 stopifnot("tte_outcome has non-positive event times" = all(check_pos_tte[[1]]))
 
 surv_formula <- formula(Surv(tte_outcome, ind_outcome) ~ 1)

@@ -56,6 +56,7 @@ read_final <- TRUE
 source(here("analysis", "process", "process_postmatch.R"))
 # process data for models
 source(here("analysis", "process", "process_premodel.R"))
+rm(data_matched)
 
 # cox models ----
 coxcontrast <- function(data, adj = FALSE, cuts=NULL) {

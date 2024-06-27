@@ -96,6 +96,10 @@ combine_and_save_contrasts <- function(
       starts_with(c("surv", "risk", "inc", "cml.rate", "irr", "cmlirr", "sr", "rd", "rr", "cox")),
       ~round(.x, digits = 5)
     )) %>%
+    mutate(across( # this bit is a bit of a hack to deal with need to round counts of patients in cox models without rerunning them all - to update cox.R if running again 
+      starts_with(c("npat", "nswitch")),
+      ~ roundmid_any(.x, to = 6)
+    )) %>%
     write_csv(fs::path(output_dir, glue("{new_filename}.csv")))
   
 }

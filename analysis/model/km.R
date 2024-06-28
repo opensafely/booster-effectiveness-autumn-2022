@@ -23,8 +23,8 @@ source(here("analysis", "process", "process_functions.R"))
 # import command-line arguments
 args <- commandArgs(trailingOnly=TRUE)
 if(length(args)==0){
-  effect <- "incremental"
-  match_strategy <- "riskscore_i"
+  effect <- "comparative"
+  match_strategy <- "a"
   subgroup <- "all"
   outcome <- "covidadmitted"
   
@@ -102,7 +102,7 @@ km_process <- function(.data, round_by){
     cml.entry = roundmid_any(cumsum(n.entry), round_by),
     cml.eventcensor = roundmid_any(cumsum(n.event+n.censor), round_by),
     cml.event = roundmid_any(cumsum(n.event), round_by),
-    cml.censor = cml.eventcensor - cml.event,
+    cml.censor = roundmid_any(cumsum(n.censor), round_by),
 
     n.event = diff(c(0, cml.event)),
     n.censor = diff(c(0, cml.censor)),

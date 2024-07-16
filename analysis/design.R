@@ -132,7 +132,8 @@ recoder <-
   lst(
     subgroups = c(
       `Main` = "all",
-      `Age` = "agegroup"
+      `Age` = "agegroup_match",
+      `Clinical vulnerability` = "cv"
     ),
     status = c(
       `Matched` = "matched",

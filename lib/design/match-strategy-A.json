@@ -1,5 +1,5 @@
 {
-  "n_match_rounds": 7,
+  "n_match_rounds": 8,
   "exact_vars": ["agegroup_match", "vax_primary_brand", "vax_boostfirst_brand", "vax_boostspring_brand", "cv", "stp"],
   "caliper_vars": [3, 14],
   "riskscore_vars": {},

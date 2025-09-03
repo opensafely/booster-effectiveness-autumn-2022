@@ -115,7 +115,7 @@ plot_temp_HR <- HR_comb_dat %>%
     geom_linerange(aes(ymin=hr_lower, ymax=hr_upper, x=period_mid))+
     facet_grid(rows=vars(outcome), cols=vars(effect_fct), switch="y") +
     scale_x_continuous(breaks = c(-5, 21,fup_params$postbaselinecuts[c(4,6,8,10,12,14)], total_x_pos),
-                       labels = c(paste0("\n",c(1,fup_params$postbaselinecuts[c(2,4,6,8,10,12,14)])), "Total\nfollow-up"), 
+                       labels = c(paste0(c(1,fup_params$postbaselinecuts[c(2,4,6,8,10,12,14)])), "Overall"), 
                        limits = c(-5, total_x_pos+5)
                        )+
     xlab("Days since vaccination")+
@@ -221,7 +221,7 @@ plot_incidence <- plot_data_incidence %>%
     facet_grid(rows=vars(outcome), scales="free", switch="y") +
     scale_x_continuous(expand = c(0,0), 
                        breaks = c(1,seq(28,350,28)),
-                       labels = paste0("\n",c(1,seq(28,350,28))),
+                       labels = paste0(c(1,seq(28,350,28))),
                        limits = c(1, 350)) +
     scale_y_continuous(expand = expansion(mult=c(0,0.01)), 
                        oob = scales::oob_keep) +

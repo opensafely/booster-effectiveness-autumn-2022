@@ -132,7 +132,7 @@ plot_estimates <- function(.data, effect, metadat, estimate, estimate.ll, estima
              "75+ years", 
              "65-74 years", 
              "50-64 years", 
-             "Main" 
+             "Overall" 
   )
 
   if(effect == "incremental"){

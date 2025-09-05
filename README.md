@@ -1,7 +1,5 @@
 # booster-effectiveness-autumn-2022
 
-You can run this project via [Gitpod](https://gitpod.io) in a web browser by clicking on this badge: [![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-908a85?logo=gitpod)](https://gitpod.io/#https://github.com/opensafely/booster-effectiveness-autumn-2022)
-
 [View on OpenSAFELY](https://jobs.opensafely.org/repo/https%253A%252F%252Fgithub.com%252Fopensafely%252Fbooster-effectiveness-autumn-2022)
 
 Details of the purpose and any published outputs from this project can be found at the link above.
